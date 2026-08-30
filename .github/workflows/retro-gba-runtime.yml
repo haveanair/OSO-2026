@@ -8,6 +8,10 @@ on:
       - '.github/workflows/retro-gba-runtime.yml'
   workflow_dispatch:
 
+concurrency:
+  group: oso-retro-gba-runtime-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   runtime:
     runs-on: ubuntu-latest
