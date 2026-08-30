@@ -42,4 +42,6 @@ void audio_stop(void);
 void audio_play_pcm22k(const s8 *data, u32 sample_count);
 void audio_tick_sfx(int kind);
 
+u32 game_fish_run(int demo_mode, int *start_requested);
+
 #endif
