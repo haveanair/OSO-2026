@@ -1,0 +1,36 @@
+name: Deploy Oso v249 Pages Final
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'FINAL_SITE.zip'
+
+permissions:
+  contents: write
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Deploy uploaded final site
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ ! -f FINAL_SITE.zip ]; then
+            echo 'FINAL_SITE.zip not present; nothing to deploy.'
+            exit 0
+          fi
+          TMP="$(mktemp -d)"
+          mkdir -p "$TMP/site"
+          unzip -q FINAL_SITE.zip -d "$TMP/site"
+          rm -f FINAL_SITE.zip
+          rsync -a --delete --exclude='.git' --exclude='.github' "$TMP/site/" ./
+          git config user.name "PWDJ Pages Builder"
+          git config user.email "34460283+haveanair@users.noreply.github.com"
+          git add -A
+          git commit -m "Deploy Oso v249 WEB FINAL" || exit 0
+          git push

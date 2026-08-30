@@ -1,0 +1,36 @@
+name: v-rally-mgba-runtime
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  stage-10k:
+    runs-on: ubuntu-22.04
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Stage verified mGBA payload in 10k text chunks
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clone "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" repo >/dev/null 2>&1
+          git -C repo checkout v-rally-mgba-trigger
+          cat repo/.v-rally-runtime/minimal/chunk_* > wrapped.b64
+          base64 -d wrapped.b64 > core.xz
+          test "$(stat -c %s core.xz)" = "254228"
+          test "$(sha256sum core.xz | awk '{print $1}')" = "ba40fc443bdcf8e6ef12e50c5332a779014a9e44499d00bcb942d39ac6ad57d3"
+          base64 -w0 core.xz > flat.b64
+          rm -rf repo/.v-rally-runtime/chunks10k
+          mkdir -p repo/.v-rally-runtime/chunks10k
+          split -b 10000 -d -a 2 flat.b64 repo/.v-rally-runtime/chunks10k/c_
+          printf 'flat_chars=%s\n' "$(stat -c %s flat.b64)" > repo/.v-rally-runtime/chunks10k/MANIFEST.txt
+          git -C repo config user.name 'V-Rally verification bot'
+          git -C repo config user.email 'actions@users.noreply.github.com'
+          git -C repo add .v-rally-runtime/chunks10k
+          git -C repo commit -m 'runtime-transfer: stage 10k text chunks'
+          git -C repo push origin v-rally-mgba-trigger
