@@ -17,48 +17,68 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Install visual and emulator tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y python3-pil fonts-noto-cjk mgba-sdl xvfb imagemagick xdotool x11-utils
+      - name: Generate GBA art from frozen web version
+        run: |
+          rm -rf retro-gba/generated
+          python3 retro-gba/tools/gen_visual_assets.py play/index.html retro-gba/generated
       - name: Build with devkitARM container
         run: |
           docker run --rm -v "$PWD:/work" -w /work devkitpro/devkitarm:latest \
             bash -lc 'make -C retro-gba -j2 && /opt/devkitpro/tools/bin/gbafix retro-gba/oso-central-market-retro.gba -t"OSO RETRO" -c"OSOR" -m"01" || true'
-      - name: Install SDL mGBA capture tools
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y mgba-sdl xvfb imagemagick
       - name: Boot actual ROM and capture attract loop
         timeout-minutes: 2
         run: |
           set -euo pipefail
           mkdir -p retro-gba/runtime
           Xvfb :99 -screen 0 800x600x24 >/tmp/xvfb.log 2>&1 &
+          XVFB_PID=$!
           export DISPLAY=:99
+          export SDL_VIDEODRIVER=x11
+          export SDL_RENDER_DRIVER=software
+          export SDL_AUDIODRIVER=dummy
           sleep 1
           mgba -2 -l 15 retro-gba/oso-central-market-retro.gba >/tmp/mgba.log 2>&1 &
           MGBA_PID=$!
-          trap 'kill -KILL "$MGBA_PID" 2>/dev/null || true' EXIT
-          sleep 1.5
-          kill -0 "$MGBA_PID"
-          import -window root retro-gba/runtime/01_splash.png
+          trap 'kill -KILL "$MGBA_PID" "$XVFB_PID" 2>/dev/null || true' EXIT
           sleep 2
-          import -window root retro-gba/runtime/02_title.png
-          sleep 3
-          import -window root retro-gba/runtime/03_ranking.png
-          sleep 3
-          import -window root retro-gba/runtime/04_demo1.png
-          kill -KILL "$MGBA_PID" 2>/dev/null || true
-          trap - EXIT
+          kill -0 "$MGBA_PID"
+          xdotool search --name 'mGBA|OSO' getwindowname %@ > retro-gba/runtime/windows.txt 2>/dev/null || true
+          WID=$(xdotool search --name 'mGBA|OSO' 2>/dev/null | head -1 || true)
+          CAPTURE='-window root'
+          if [ -n "$WID" ]; then CAPTURE="-window $WID"; fi
+          import $CAPTURE retro-gba/runtime/01_splash.png
+          sleep 1.8
+          import $CAPTURE retro-gba/runtime/02_title.png
+          sleep 2.6
+          import $CAPTURE retro-gba/runtime/03_ranking.png
+          sleep 2.4
+          import $CAPTURE retro-gba/runtime/04_demo1.png
+          sleep 11
+          import $CAPTURE retro-gba/runtime/05_splash2.png
+          sleep 6.2
+          import $CAPTURE retro-gba/runtime/06_demo2.png
           cp /tmp/mgba.log retro-gba/runtime/mgba.log
           cp /tmp/xvfb.log retro-gba/runtime/xvfb.log
           identify retro-gba/runtime/*.png > retro-gba/runtime/identify.txt
           sha256sum retro-gba/runtime/*.png > retro-gba/runtime/CAPTURE_SHA256.txt
-          test -s retro-gba/runtime/01_splash.png
-          test -s retro-gba/runtime/04_demo1.png
+          for f in retro-gba/runtime/*.png; do
+            COLORS=$(identify -format '%k' "$f")
+            echo "$(basename "$f") unique_colors=$COLORS" >> retro-gba/runtime/runtime_check.txt
+          done
+          DEMO_COLORS=$(identify -format '%k' retro-gba/runtime/04_demo1.png)
+          test "$DEMO_COLORS" -ge 8
           ! cmp -s retro-gba/runtime/02_title.png retro-gba/runtime/04_demo1.png
-          COLORS=$(identify -format '%k' retro-gba/runtime/04_demo1.png)
-          echo "demo1_unique_colors=$COLORS" | tee retro-gba/runtime/runtime_check.txt
-          test "$COLORS" -ge 5
+          kill -KILL "$MGBA_PID" "$XVFB_PID" 2>/dev/null || true
+          trap - EXIT
       - name: Upload actual runtime captures
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: oso-retro-gba-runtime-phase1
-          path: retro-gba/runtime/
+          name: oso-retro-gba-runtime-webart-proof
+          path: |
+            retro-gba/runtime/
+            retro-gba/generated/preview/*.png
