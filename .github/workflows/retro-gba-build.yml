@@ -1,0 +1,33 @@
+name: Build OSO Retro GBA
+
+on:
+  push:
+    branches: [retro-gba]
+    paths:
+      - 'retro-gba/**'
+      - '.github/workflows/retro-gba-build.yml'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container:
+      image: devkitpro/devkitarm:latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build GBA ROM
+        run: make -C retro-gba -j2
+      - name: ROM header fix
+        run: |
+          /opt/devkitpro/tools/bin/gbafix retro-gba/oso-central-market-retro.gba -t"OSO RETRO" -c"OSOR" -m"01" || true
+      - name: Checksums
+        run: |
+          cd retro-gba
+          sha256sum oso-central-market-retro.gba > SHA256SUMS.txt
+      - name: Upload ROM artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: oso-retro-gba-phase1
+          path: |
+            retro-gba/oso-central-market-retro.gba
+            retro-gba/SHA256SUMS.txt
