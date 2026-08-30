@@ -17,30 +17,40 @@ jobs:
         run: |
           docker run --rm -v "$PWD:/work" -w /work devkitpro/devkitarm:latest \
             bash -lc 'make -C retro-gba -j2 && /opt/devkitpro/tools/bin/gbafix retro-gba/oso-central-market-retro.gba -t"OSO RETRO" -c"OSOR" -m"01" || true'
-      - name: Install mGBA capture tools
+      - name: Install SDL mGBA capture tools
         run: |
           sudo apt-get update
-          sudo apt-get install -y mgba-qt xvfb imagemagick
+          sudo apt-get install -y mgba-sdl xvfb imagemagick
       - name: Boot actual ROM and capture attract loop
         run: |
+          set -euo pipefail
           mkdir -p retro-gba/runtime
-          Xvfb :99 -screen 0 640x480x24 >/tmp/xvfb.log 2>&1 &
+          Xvfb :99 -screen 0 800x600x24 >/tmp/xvfb.log 2>&1 &
           export DISPLAY=:99
-          mgba-qt -1 retro-gba/oso-central-market-retro.gba >/tmp/mgba.log 2>&1 &
-          MGBA_PID=$!
           sleep 1
+          mgba -2 -l 15 retro-gba/oso-central-market-retro.gba >/tmp/mgba.log 2>&1 &
+          MGBA_PID=$!
+          sleep 1.5
+          kill -0 "$MGBA_PID"
           import -window root retro-gba/runtime/01_splash.png
-          sleep 2.5
+          sleep 2
           import -window root retro-gba/runtime/02_title.png
           sleep 3
           import -window root retro-gba/runtime/03_ranking.png
-          sleep 3.5
+          sleep 3
           import -window root retro-gba/runtime/04_demo1.png
-          kill $MGBA_PID || true
-          wait $MGBA_PID || true
+          kill "$MGBA_PID" || true
+          wait "$MGBA_PID" || true
           cp /tmp/mgba.log retro-gba/runtime/mgba.log
+          cp /tmp/xvfb.log retro-gba/runtime/xvfb.log
+          identify retro-gba/runtime/*.png > retro-gba/runtime/identify.txt
+          sha256sum retro-gba/runtime/*.png > retro-gba/runtime/CAPTURE_SHA256.txt
           test -s retro-gba/runtime/01_splash.png
           test -s retro-gba/runtime/04_demo1.png
+          ! cmp -s retro-gba/runtime/02_title.png retro-gba/runtime/04_demo1.png
+          COLORS=$(identify -format '%k' retro-gba/runtime/04_demo1.png)
+          echo "demo1_unique_colors=$COLORS" | tee retro-gba/runtime/runtime_check.txt
+          test "$COLORS" -ge 5
       - name: Upload actual runtime captures
         uses: actions/upload-artifact@v4
         with:
