@@ -7,11 +7,11 @@
 
 ## 바로가기
 
-- 🎮 **실전판:** https://haveanair.github.io/-/play/
-- 🔓 **운영자용 전체해금판:** https://haveanair.github.io/-/unlock/
-- ▣ **QR 모음:** https://haveanair.github.io/-/qr/
-- 🪧 **A4 현장 안내:** https://haveanair.github.io/-/images/field-guide-a4.svg
-- 📘 **웹 현장 매뉴얼:** https://haveanair.github.io/-/manual/
+- 🎮 **실전판:** https://haveanair.github.io/OSO-2026/play/
+- 🔓 **운영자용 전체해금판:** https://haveanair.github.io/OSO-2026/unlock/
+- ▣ **QR 모음:** https://haveanair.github.io/OSO-2026/qr/
+- 🪧 **A4 현장 안내:** https://haveanair.github.io/OSO-2026/images/field-guide-a4.svg
+- 📘 **웹 현장 매뉴얼:** https://haveanair.github.io/OSO-2026/manual/
 
 ## 기록 저장
 
