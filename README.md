@@ -7,6 +7,9 @@
 
 ## 바로가기
 
+- ☆ 메인: ☆
+https://haveanair.github.io/OSO-2026/
+
 - 🎮 **실전판:** https://haveanair.github.io/OSO-2026/play/
 - 🔓 **운영자용 전체해금판:** https://haveanair.github.io/OSO-2026/unlock/
 - ▣ **QR 모음:** https://haveanair.github.io/OSO-2026/qr/
