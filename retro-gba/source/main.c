@@ -110,8 +110,8 @@ static void rect(int x, int y, int w, int h, u16 c) {
             VRAM16[(y + yy) * 240 + x + xx] = c;
 }
 
-static int overlap(int ax,int ay,int aw,int ah,int bx,int by,int bw,int bh) {
-    return ax < bx+bw && ax+aw > bx && ay < by+bh && ay+ah > by;
+static int overlap(int ax,int ay,int aw,int ah,int bx,int by,intbw,intbh) {
+    return ax < bx+intbw && ax+aw > bx && ay < by+intbh && ay+ah > by;
 }
 
 typedef struct { int x,y,kind,active; } Drop;
@@ -210,9 +210,13 @@ static int demo_placeholder(int index) {
 }
 
 static int run_demo(int index) {
+    int start = 0;
     if (index == 0) {
-        int start = 0;
         (void)run_basket(1, &start);
+        return start;
+    }
+    if (index == 1) {
+        (void)game_fish_run(1, &start);
         return start;
     }
     return demo_placeholder(index);
@@ -235,6 +239,9 @@ static void play_game_slot(int index) {
     if (index == 0) {
         score = run_basket(0, 0);
         save_submit_score(&g_save, 0, score);
+    } else if (index == 1) {
+        score = game_fish_run(0, 0);
+        save_submit_score(&g_save, 1, score);
     } else {
         shell_console();
         center_line(7, "THIS GAME IS BEING PORTED");
