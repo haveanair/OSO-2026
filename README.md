@@ -15,6 +15,8 @@ https://haveanair.github.io/OSO-2026/
 - ▣ **QR 모음:** https://haveanair.github.io/OSO-2026/qr/
 - 🪧 **A4 현장 안내:** https://haveanair.github.io/OSO-2026/images/field-guide-a4.svg
 - 📘 **웹 현장 매뉴얼:** https://haveanair.github.io/OSO-2026/manual/
+- **현장 출력용 PDF 매뉴얼:**
+https://github.com/haveanair/OSO-2026/blob/main/manual/%EC%96%B4%EC%84%9C%EC%98%A4%EC%86%8C_%EC%A4%91%EC%95%99%EC%8B%9C%EC%9E%A5_%EC%8A%A4%ED%83%AC%ED%94%84%ED%88%AC%EC%96%B4_%EB%A7%A4%EB%89%B4%EC%96%BC_v249_WEB_FINAL.pdf
 
 ## 기록 저장
 
