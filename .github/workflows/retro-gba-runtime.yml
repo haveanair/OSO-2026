@@ -22,6 +22,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y mgba-sdl xvfb imagemagick
       - name: Boot actual ROM and capture attract loop
+        timeout-minutes: 2
         run: |
           set -euo pipefail
           mkdir -p retro-gba/runtime
@@ -30,6 +31,7 @@ jobs:
           sleep 1
           mgba -2 -l 15 retro-gba/oso-central-market-retro.gba >/tmp/mgba.log 2>&1 &
           MGBA_PID=$!
+          trap 'kill -KILL "$MGBA_PID" 2>/dev/null || true' EXIT
           sleep 1.5
           kill -0 "$MGBA_PID"
           import -window root retro-gba/runtime/01_splash.png
@@ -39,8 +41,8 @@ jobs:
           import -window root retro-gba/runtime/03_ranking.png
           sleep 3
           import -window root retro-gba/runtime/04_demo1.png
-          kill "$MGBA_PID" || true
-          wait "$MGBA_PID" || true
+          kill -KILL "$MGBA_PID" 2>/dev/null || true
+          trap - EXIT
           cp /tmp/mgba.log retro-gba/runtime/mgba.log
           cp /tmp/xvfb.log retro-gba/runtime/xvfb.log
           identify retro-gba/runtime/*.png > retro-gba/runtime/identify.txt
