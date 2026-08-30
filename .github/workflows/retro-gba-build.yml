@@ -8,26 +8,36 @@ on:
       - '.github/workflows/retro-gba-build.yml'
   workflow_dispatch:
 
+concurrency:
+  group: oso-retro-gba-build
+  cancel-in-progress: true
+
 jobs:
   build:
     runs-on: ubuntu-latest
-    container:
-      image: devkitpro/devkitarm:latest
     steps:
       - uses: actions/checkout@v4
-      - name: Build GBA ROM
-        run: make -C retro-gba -j2
-      - name: ROM header fix
+      - name: Install visual asset tools
         run: |
-          /opt/devkitpro/tools/bin/gbafix retro-gba/oso-central-market-retro.gba -t"OSO RETRO" -c"OSOR" -m"01" || true
+          sudo apt-get update
+          sudo apt-get install -y python3-pil fonts-noto-cjk
+      - name: Generate GBA art from frozen web version
+        run: |
+          rm -rf retro-gba/generated
+          python3 retro-gba/tools/gen_visual_assets.py play/index.html retro-gba/generated
+      - name: Build with devkitARM
+        run: |
+          docker run --rm -v "$PWD:/work" -w /work devkitpro/devkitarm:latest \
+            bash -lc 'make -C retro-gba -j2 && /opt/devkitpro/tools/bin/gbafix retro-gba/oso-central-market-retro.gba -t"OSO RETRO" -c"OSOR" -m"01" || true'
       - name: Checksums
         run: |
           cd retro-gba
           sha256sum oso-central-market-retro.gba > SHA256SUMS.txt
-      - name: Upload ROM artifact
+      - name: Upload ROM and visual proof
         uses: actions/upload-artifact@v4
         with:
-          name: oso-retro-gba-phase1
+          name: oso-retro-gba-webart-proof
           path: |
             retro-gba/oso-central-market-retro.gba
             retro-gba/SHA256SUMS.txt
+            retro-gba/generated/preview/*.png
