@@ -5,6 +5,9 @@
 #define SRAM8 ((volatile u8*)0x0E000000)
 #define SAVE_VERSION 1
 
+/* Keep this exact marker in the ROM so emulators/flash carts can detect SRAM. */
+const char gba_save_type_marker[] __attribute__((used)) = "SRAM_V113";
+
 /* Temporary calibration table for the engine prototype only.
    Final thresholds will be fixed after all seven web-game score ranges are audited. */
 static const u32 unlock_thresholds[OSO_GAME_COUNT] = {
