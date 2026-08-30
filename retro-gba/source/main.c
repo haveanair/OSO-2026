@@ -42,6 +42,29 @@ static int wait_or_start(int frames) {
     return 0;
 }
 
+static void wait_keys_released(void) {
+    do {
+        scanKeys();
+        wait_frame();
+    } while (keysHeld() & (KEY_START | KEY_A | KEY_B));
+}
+
+static void pause_game(void) {
+    haptic_stop();
+    audio_stop();
+    shell_console();
+    center_line(7, "PAUSED");
+    center_line(11, "START : RESUME");
+    wait_keys_released();
+    while (1) {
+        scanKeys();
+        if (keysDown() & KEY_START) break;
+        wait_frame();
+    }
+    wait_keys_released();
+    REG_DISPCNT = MODE_3 | BG2_ENABLE;
+}
+
 static void show_splash(void) {
     shell_console();
     center_line(5, "POWER DUCKZIL 2026");
@@ -93,11 +116,12 @@ static int overlap(int ax,int ay,int aw,int ah,int bx,int by,int bw,int bh) {
 
 typedef struct { int x,y,kind,active; } Drop;
 
-static u32 run_basket(int demo_mode) {
+static u32 run_basket(int demo_mode, int *start_requested) {
     Drop drops[8];
     int basket_x = 100, frame, spawn_clock = 0, lives = 5, combo = 0;
     u32 score = 0;
     int i;
+    if (start_requested) *start_requested = 0;
     memset(drops, 0, sizeof(drops));
     REG_DISPCNT = MODE_3 | BG2_ENABLE;
     mode3_clear(RGB15(9,18,10));
@@ -105,7 +129,14 @@ static u32 run_basket(int demo_mode) {
     for (frame = 0; frame < (demo_mode ? 900 : 1800) && lives > 0; ++frame) {
         u16 kd, kh;
         scanKeys(); kd = keysDown(); kh = keysHeld();
-        if (!demo_mode && (kd & KEY_START)) break;
+        if (kd & KEY_START) {
+            if (demo_mode) {
+                if (start_requested) *start_requested = 1;
+                break;
+            }
+            pause_game();
+            continue;
+        }
 
         if (demo_mode) {
             int phase = (frame / 90) & 3;
@@ -168,23 +199,23 @@ static u32 run_basket(int demo_mode) {
     return score;
 }
 
-static void demo_placeholder(int index) {
+static int demo_placeholder(int index) {
     char buf[32];
     shell_console();
     snprintf(buf, sizeof(buf), "DEMO %d", index + 1);
     center_line(5, buf);
     center_line(9, "PORTING SLOT READY");
     center_line(13, "REAL ENGINE REPLAY");
-    wait_or_start(240);
+    return wait_or_start(240);
 }
 
 static int run_demo(int index) {
     if (index == 0) {
-        (void)run_basket(1);
-        return 0;
+        int start = 0;
+        (void)run_basket(1, &start);
+        return start;
     }
-    demo_placeholder(index);
-    return 0;
+    return demo_placeholder(index);
 }
 
 static void show_unlock_event(int index) {
@@ -202,7 +233,7 @@ static void play_game_slot(int index) {
     u8 old_mask = g_save.unlocked_mask;
     u32 score;
     if (index == 0) {
-        score = run_basket(0);
+        score = run_basket(0, 0);
         save_submit_score(&g_save, 0, score);
     } else {
         shell_console();
@@ -262,7 +293,7 @@ int main(void) {
             case ATTR_RANK:
                 show_ranking(); start = wait_or_start(180); state = ATTR_DEMO; break;
             case ATTR_DEMO:
-                run_demo(demo_index);
+                start = run_demo(demo_index);
                 demo_index = (demo_index + 1) % OSO_GAME_COUNT;
                 state = ATTR_SPLASH;
                 break;
