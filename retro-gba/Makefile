@@ -8,8 +8,8 @@ include $(DEVKITARM)/gba_rules
 
 TARGET      := oso-central-market-retro
 BUILD       := build
-SOURCES     := source
-INCLUDES    := include
+SOURCES     := source generated
+INCLUDES    := include generated
 DATA        :=
 GRAPHICS    :=
 
