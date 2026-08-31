@@ -1,0 +1,899 @@
+===== KEY: 35.197412338175 COUNT 1 =====
+
+--- 35.197412338175 #1 @ 1221187 ---
+
+dqqbe79xzK2rdit5Z9yHRbPOekDJRQhCjq3pQttJeJQcViepxryjl1/v9LPhy7VW5a+WGpjeRVrqx1Bz6lwr+umUq/H/srdNXJvTSrO/8POkDwNn5ArvtPAAuuBXDjLwMYED8xF3yf2sxJO7Z7bln02vCTLxBHXY12xW1VjOuKTzNucrNUGjjhOML4zJnr0ZcR65wf5qP+gobYaqyYAJ8O+p1ECG7uVO+s+DbU6Xr+PcsPDj4Igi668nREDGXGkF3BuKfottDYz7z2RY0wR7Vr6TabJEVpLlAvYw8i7yUG/QIXgwDpE6LI1K2Nk5/+f61pYeomddpkGDa4iecUPHWTitvb/OgV5Jj1GnoZ+Mr+bZtrjAFwaiTv6NanB3M1xw62WGOMY/GLZDP5956rFDf4jhtXu8M4peaqkWfvaaTflN3a/vhY47TSt0JHYAHSKxOpD7tluBX3sPmkCvwuv+emCf6RT7KPuxSpCZMwJigbknT9OBE91ia+WURwGSnqUwfxEedGhNH0HFMu8WM/XhOOvuZmxvILyqemz8x/5a9srMAzQFC+5L7eJY74zsNkYry7vzqaYjUNkqdcCnnjFKHNPgDJKMt5pB6LtDtoHzpGwU7S/7/7EWAANscOJRR0xKNiGmQiGF5PBqmjJQ3ni4TZ2l4V46tRZ/dEcKQCtU2ouKKSEM+e3Wef01m8+4zY6rthjxtIw/ECUk0+9EQcGtp7Kh+c6U3LJDwvUogRIDXow/3RLo1WFdqt9Wo/83AjLYHdvDnF3I//r5krh9b/AgdOaKTbFGQM6J/itzncmn9CtRju8oLoB+e9c322llt+uAsFbz9HvKckzHWgAJhRnLNkEinInKMnil7JBPw+RPhLFaImeEAAA=","note":"깃발을 높이 든 하모","group":"hamo","badge":"하모"}];
+const GAME_ACQUIRE=[
+ {code:'basket',place:'진주중앙시장 주차장',detail:'주차장 구역에 들어오면 획득',confirmed:true},
+ {code:'fish',place:'3구 어시장 인근 전부',detail:'3구 어시장 인근 통로 범위에서 획득',confirmed:false},
+ {code:'stack',place:'중앙시장 2구통로 전체',detail:'중앙시장 2구통로 구간에서 획득',confirmed:false},
+ {code:'run',place:'1구통로 전체',detail:'중앙시장 1구통로 구간에서 획득',confirmed:false},
+ {code:'slice',place:'뉴먹자골목 전부',detail:'뉴먹자골목 구간에서 획득',confirmed:false},
+ {code:'tteok',place:'중앙시장 북쪽통로 전부',detail:'북쪽통로 구간에서 획득',confirmed:false},
+ {code:'powerduck',place:'2층 3구 비단길 전체',detail:'비단길 건물 범위에 들어오면 획득',confirmed:true}
+];
+/*
+ GPS 기본값:
+ - v257에서 이미 고정되어 있던 주차장/비단길 좌표는 그대로 유지한다.
+ - 기존에 비어 있던 내부 통로 5곳만 GrowMaps 프로젝트 75의 공식 floorDisplay 좌표로 고정한다.
+ - GrowMaps에 사용자 구역명(2구통로/1구통로/뉴먹자골목/북쪽통로)이 별도 문자열로 저장되어 있지는 않으므로,
+   해당 구역을 가로지르는 실제 POI feature를 시작/끝 기준점으로 사용한다.
+*/
+const GPS_DEFAULTS={
+ basket:{type:'circle',lat:35.197412338175,lng:128.08448465174,radius:75,near:210,source:'public-address'},
+ fish:{
+  type:'corridor',
+  a:{lat:35.195052980388226,lng:128.085264052382115},
+  b:{lat:35.195345669871315,lng:128.085359345818659},
+  radius:22,near:150,source:'growmaps:project75:1F:1030078-1034002'
+ },
+ stack:{
+  type:'corridor',
+  a:{lat:35.194661843530056,lng:128.084729818594838},
+  b:{lat:35.194615480555584,lng:128.085613224989288},
+  radius:22,near:150,source:'growmaps:project75:1F:1030104-1020021'
+ },
+ run:{
+  type:'corridor',
+  a:{lat:35.194188008816820,lng:128.084830429056180},
+  b:{lat:35.194274577002346,lng:128.085685647616630},
+  radius:22,near:160,source:'growmaps:project75:1F:1020051-1020033'
+ },
+ slice:{
+  type:'corridor',
+  a:{lat:35.194705939189717,lng:128.084666219220139},
+  b:{lat:35.195176299108596,lng:128.084722563351420},
+  radius:22,near:150,source:'growmaps:project75:1F:1030106-1030006'
+ },
+ tteok:{
+  type:'corridor',
+  a:{lat:35.195176299108596,lng:128.084722563351420},
+  b:{lat:35.195257533904623,lng:128.085105639573698},
+  radius:22,near:150,source:'growmaps:project75:1F:1030006-1030015'
+ },
+ powerduck:{type:'circle',lat:35.194613594496,lng:128.08480142824,radius:70,near:190,source:'public-address'}
+};
+let gpsWatchId=null,lastGps=null,lastDirNotice={},gpsGuideTimer=null;
+
+function gpsZones(){
+ const z={...GPS_DEFAULTS};
+ const cal=state.gpsCalibration||{};
+ Object.keys(cal).forEach(k=>{if(cal[k])z[k]=cal[k]});
+ return z
+}
+function rad(d){return d*Math.PI/180}
+function metersBetween(a,b){
+ const R=6371000,dLat=rad(b.lat-a.lat),dLon=rad(b.lng-a.lng),la1=rad(a.lat),la2=rad(b.lat);
+ const h=Math.sin(dLat/2)**2+Math.cos(la1)*Math.cos(la2)*Math.sin(dLon/2)**2;
+ return 2*R*Math.asin(Math.min(1,Math.sqrt(h)))
+}
+function pointSegmentDistanceM(p,a,b){
+ const lat0=rad((a.lat+b.lat+p.lat)/3),mx=111320*Math.cos(lat0),my=110540;
+ const ax=a.lng*mx,ay=a.lat*my,bx=b.lng*mx,by=b.lat*my,px=p.lng*mx,py=p.lat*my;
+ const dx=bx-ax,dy=by-ay,l2=dx*dx+dy*dy;
+ if(!l2)return Math.hypot(px-ax,py-ay);
+ let t=((px-ax)*dx+(py-ay)*dy)/l2;t=Math.max(0,Math.min(1,t));
+ return Math.hypot(px-(ax+t*dx),py-(ay+t*dy))
+}
+function zoneDistanceM(pos,z){
+ if(!z)return Infinity;
+ if(z.type==='circle')return Math.max(0,metersBetween(pos,{lat:z.lat,lng:z.lng})-(z.radius||0));
+ if(z.type==='corridor')return Math.max(0,pointSegmentDistanceM(pos,z.a,z.b)-(z.radius||22));
+ return Infinity
+}
+function gpsAccuracyMargin(pos){const a=Number(pos&&pos.accuracy)||0;return Math.max(0,Math.min(38,a*.62))}
+function effectiveZoneDistanceM(pos,z){return Math.max(0,zoneDistanceM(pos,z)-gpsAccuracyMargin(pos
+
+===== KEY: 35.194613594496 COUNT 1 =====
+
+--- 35.194613594496 #1 @ 1222335 ---
+
+통로 전체',detail:'중앙시장 2구통로 구간에서 획득',confirmed:false},
+ {code:'run',place:'1구통로 전체',detail:'중앙시장 1구통로 구간에서 획득',confirmed:false},
+ {code:'slice',place:'뉴먹자골목 전부',detail:'뉴먹자골목 구간에서 획득',confirmed:false},
+ {code:'tteok',place:'중앙시장 북쪽통로 전부',detail:'북쪽통로 구간에서 획득',confirmed:false},
+ {code:'powerduck',place:'2층 3구 비단길 전체',detail:'비단길 건물 범위에 들어오면 획득',confirmed:true}
+];
+/*
+ GPS 기본값:
+ - v257에서 이미 고정되어 있던 주차장/비단길 좌표는 그대로 유지한다.
+ - 기존에 비어 있던 내부 통로 5곳만 GrowMaps 프로젝트 75의 공식 floorDisplay 좌표로 고정한다.
+ - GrowMaps에 사용자 구역명(2구통로/1구통로/뉴먹자골목/북쪽통로)이 별도 문자열로 저장되어 있지는 않으므로,
+   해당 구역을 가로지르는 실제 POI feature를 시작/끝 기준점으로 사용한다.
+*/
+const GPS_DEFAULTS={
+ basket:{type:'circle',lat:35.197412338175,lng:128.08448465174,radius:75,near:210,source:'public-address'},
+ fish:{
+  type:'corridor',
+  a:{lat:35.195052980388226,lng:128.085264052382115},
+  b:{lat:35.195345669871315,lng:128.085359345818659},
+  radius:22,near:150,source:'growmaps:project75:1F:1030078-1034002'
+ },
+ stack:{
+  type:'corridor',
+  a:{lat:35.194661843530056,lng:128.084729818594838},
+  b:{lat:35.194615480555584,lng:128.085613224989288},
+  radius:22,near:150,source:'growmaps:project75:1F:1030104-1020021'
+ },
+ run:{
+  type:'corridor',
+  a:{lat:35.194188008816820,lng:128.084830429056180},
+  b:{lat:35.194274577002346,lng:128.085685647616630},
+  radius:22,near:160,source:'growmaps:project75:1F:1020051-1020033'
+ },
+ slice:{
+  type:'corridor',
+  a:{lat:35.194705939189717,lng:128.084666219220139},
+  b:{lat:35.195176299108596,lng:128.084722563351420},
+  radius:22,near:150,source:'growmaps:project75:1F:1030106-1030006'
+ },
+ tteok:{
+  type:'corridor',
+  a:{lat:35.195176299108596,lng:128.084722563351420},
+  b:{lat:35.195257533904623,lng:128.085105639573698},
+  radius:22,near:150,source:'growmaps:project75:1F:1030006-1030015'
+ },
+ powerduck:{type:'circle',lat:35.194613594496,lng:128.08480142824,radius:70,near:190,source:'public-address'}
+};
+let gpsWatchId=null,lastGps=null,lastDirNotice={},gpsGuideTimer=null;
+
+function gpsZones(){
+ const z={...GPS_DEFAULTS};
+ const cal=state.gpsCalibration||{};
+ Object.keys(cal).forEach(k=>{if(cal[k])z[k]=cal[k]});
+ return z
+}
+function rad(d){return d*Math.PI/180}
+function metersBetween(a,b){
+ const R=6371000,dLat=rad(b.lat-a.lat),dLon=rad(b.lng-a.lng),la1=rad(a.lat),la2=rad(b.lat);
+ const h=Math.sin(dLat/2)**2+Math.cos(la1)*Math.cos(la2)*Math.sin(dLon/2)**2;
+ return 2*R*Math.asin(Math.min(1,Math.sqrt(h)))
+}
+function pointSegmentDistanceM(p,a,b){
+ const lat0=rad((a.lat+b.lat+p.lat)/3),mx=111320*Math.cos(lat0),my=110540;
+ const ax=a.lng*mx,ay=a.lat*my,bx=b.lng*mx,by=b.lat*my,px=p.lng*mx,py=p.lat*my;
+ const dx=bx-ax,dy=by-ay,l2=dx*dx+dy*dy;
+ if(!l2)return Math.hypot(px-ax,py-ay);
+ let t=((px-ax)*dx+(py-ay)*dy)/l2;t=Math.max(0,Math.min(1,t));
+ return Math.hypot(px-(ax+t*dx),py-(ay+t*dy))
+}
+function zoneDistanceM(pos,z){
+ if(!z)return Infinity;
+ if(z.type==='circle')return Math.max(0,metersBetween(pos,{lat:z.lat,lng:z.lng})-(z.radius||0));
+ if(z.type==='corridor')return Math.max(0,pointSegmentDistanceM(pos,z.a,z.b)-(z.radius||22));
+ return Infinity
+}
+function gpsAccuracyMargin(pos){const a=Number(pos&&pos.accuracy)||0;return Math.max(0,Math.min(38,a*.62))}
+function effectiveZoneDistanceM(pos,z){return Math.max(0,zoneDistanceM(pos,z)-gpsAccuracyMargin(pos))}
+function zoneInside(pos,z){return !!z && effectiveZoneDistanceM(pos,z)<=0}
+function zoneTarget(z){
+ if(!z)return null;
+ if(z.type==='circle')return {lat:z.lat,lng:z.lng};
+ if(z.type==='corridor')return {lat:(z.a.lat+z.b.lat)/2,lng:(z.a.lng+z.b.lng)/2};
+ return null
+}
+function bearingDeg(a,b){
+ const y=Math.sin(rad(b.lng-a.lng))*Math.cos(rad(b.lat));
+ const x=Math.cos(rad(a.lat))*Math.sin(rad(b.lat))-Math.sin(rad(a.lat))*Math.cos(rad(b.lat))*Math.cos(rad(b.lng-a.lng));
+ return (Math.atan2(y,x)*180/Math.PI+360)%360
+}
+function arrowForBearing(d){
+ const arrows=['↑','↗','→','↘','↓','↙','←','↖'];return arrows[Math.round(d/45)%8]
+}
+
+function currentSkin(){return OSO_SKINS.find(x=>x.id===state.selectedSkin)||OSO_SKINS[0]}
+function currentOsoSrc(){return currentSkin().src}
+const BASE_GAME_CODES=['basket','fish','stack','run','slice','tteok','powerduck'];
+const BONUS_GAME_CODES=['spacefighter','racing','fantasy'];
+function ensureSpacefighterUnlock(){
+ if(state.unlock&&state.unlock.spacefighter)return false;
+ if(BASE_GAME_CODES.every(c=>state.unlock&&state.unlock[c])){
+  state.unlock.spacefighter=true;save();return true
+ }
+ return false
+
+===== KEY: 1030078 COUNT 1 =====
+
+===== KEY: 1034002 COUNT 1 =====
+
+===== KEY: 1030104 COUNT 1 =====
+
+===== KEY: 1020021 COUNT 1 =====
+
+===== KEY: 1020051 COUNT 1 =====
+
+===== KEY: 1020033 COUNT 1 =====
+
+===== KEY: 1030106 COUNT 1 =====
+
+===== KEY: 1030006 COUNT 2 =====
+
+===== KEY: 1030015 COUNT 1 =====
+
+===== KEY: startGpsWatch COUNT 5 =====
+
+--- startGpsWatch #1 @ 1238483 ---
+
+==2)bgmNoise(.003,.035)}
+ else if(style==='water'){if(step%4===1||step%4===3)bgmNote(88,.045,.004,'sine')}
+ else if(style==='chip'){if(step%4===0)beep(120,.035,.007,'square',90)}
+ else if(style==='cut'){if(step%2===0)bgmNoise(.003,.025)}
+ else if(style==='pop'){if(step%4===0)beep(105,.04,.008,'sine',70)}
+ else if(style==='soft'){if(step%4===0)beep(95,.04,.005,'sine',70)}
+}
+function bgmTick(){
+ const p=BGM[currentBgmKey];if(!p)return;const i=bgmStep++,mel=p.mel[i%p.mel.length],bass=p.bass[i%p.bass.length];
+ bgmNote(mel,.10,.010,p.wave);if(i%2===0)bgmNote(bass,.15,.008,'triangle');bgmDrum(p.drum,i)
+}
+function scheduleBgm(){
+ if(bgmTimer){clearInterval(bgmTimer);bgmTimer=null}const p=BGM[currentBgmKey];if(!p)return;
+ const tempo=p.tempo*(1+(currentBgmLevel-1)*.045),ms=60000/tempo/2;bgmTimer=setInterval(bgmTick,ms);bgmTick()
+}
+function startBGM(key,level=1){stopBGM();currentBgmKey=key;currentBgmLevel=level;bgmStep=0;scheduleBgm()}
+function setBgmLevel(level){currentBgmLevel=level;scheduleBgm()}
+function stopBGM(){if(bgmTimer){clearInterval(bgmTimer);bgmTimer=null}currentBgmKey=null}
+
+function waterAmbience(){
+ const a=audio();if(!a)return()=>{};
+ const len=a.sampleRate*2,buf=a.createBuffer(1,len,a.sampleRate),d=buf.getChannelData(0);for(let i=0;i<len;i++)d[i]=(Math.random()*2-1)*.45;
+ const src=a.createBufferSource(),filter=a.createBiquadFilter(),gain=a.createGain();src.buffer=buf;src.loop=true;filter.type='lowpass';filter.frequency.value=900;gain.gain.value=.018;
+ src.connect(filter);filter.connect(gain);gain.connect(a.destination);src.start();return()=>{try{src.stop()}catch(e){}}
+}
+function showPage(id){$$('.page').forEach(p=>p.classList.remove('on'));$('#'+id).classList.add('on');$$('nav button').forEach(b=>b.classList.toggle('on',b.dataset.page===id));if(id==='mapPage')startGpsWatch()}
+
+
+
+let qrStream=null,qrRaf=null,qrDetecting=false,qrDetector=null;
+function acquiredByAny(code){
+ return !!((state.gpsUnlocked&&state.gpsUnlocked[code])||(state.qrUnlocked&&state.qrUnlocked[code]))
+}
+function normalizeUnlockCode(code){
+ if(code==null)return null;
+ let c=String(code).trim().toLowerCase();
+ try{c=decodeURIComponent(c)}catch(e){}
+ c=c.replace(/^game[:=]/,'').replace(/^unlock[:=]/,'').trim();
+ return GAMES.some(g=>g.code===c)?c:null
+}
+function parseUnlockQr(raw){
+ if(!raw)return null;
+ let t=String(raw).trim();
+ try{t=decodeURIComponent(t)}catch(e){}
+ try{
+  const u=new URL(t);
+  if(u.protocol==='jinjumarket:'&&u.hostname.toLowerCase()==='unlock')return normalizeUnlockCode(u.searchParams.get('game')||u.searchParams.get('unlock'));
+  const q=u.searchParams.get('unlock')||u.searchParams.get('game');
+  if(q)return normalizeUnlockCode(q)
+ }catch(e){}
+ let m=t.match(/^JCM\s*[:：]\s*([a-z0-9_-]+)$/i);if(m)return normalizeUnlockCode(m[1]);
+ m=t.match(/(?:game|unlock)\s*[=:]\s*([a-z0-9_-]+)/i);if(m)return normalizeUnlockCode(m[1]);
+ return normalizeUnlockCode(t)
+}
+function stopQrScanner(){
+ if(qrRaf){cancelAnimationFrame(qrRaf);qrRaf=null}
+ if(qrStream){qrStream.getTracks().forEach(t=>t.stop());qrStream=null}
+ const v=$('#qrVideo');if(v){try{v.pause()}catch(e){}v.srcObject=null}
+ qrDetecting=false
+}
+function closeQrModal(){stopQrScanner();$('#qrModal').classList.remove('show')}
+function rememberQrGpsAnchor(code){
+ if(!BASE_GAME_CODES.includes(code)||GPS_DEFAULTS[code])return false;
+ if(!lastGps||Number(lastGps.accuracy||999)>90){state.pendingQrAnchorCode=code;save();return false}
+ const acc=Number(lastGps.accuracy)||999,radius=Math.max(38,Math.min(65,Math.round(acc*1.25)));
+ state.gpsCalibration[code]={type:'circle',lat:lastGps.lat,lng:lastGps.lng,radius,near:170,source:'qr-field-anchor',accuracy:Math.round(acc),learnedAt:Date.now()};
+ if(state.pendingQrAnchorCode===code)delete state.pendingQrAnchorCode;
+ return true
+}
+function qrUnlock(code){
+ code=normalizeUnlockCode(code);
+ const st=$('#qrStatus'),g=code?game(code):null;
+ if(code&&BONUS_GAME_CODES.includes(code)){
+  st.textContent='이 보너스 게임은 게임 진행 조건으로만 해금됩니다.';st.className='qrStatus error';tone('bad');return false
+ }
+ if(!g){st.textContent='이 QR은 중앙시장 게임 QR이 아닙니다.';st.className='qrStatus error';tone('bad');return false}
+ const learned=rememberQrGpsAnchor(code);
+ if(acquiredByAny(code)){
+  if(learned)save();
+  st.textContent=learned?`${g.name} QR 확인 · 이 위치를 GPS 기준점으로 저장했소!`:`${g.name}은 이미 획득했소!`;
+  st.className='qrStatus ok';tone('coin');renderGpsLocations(lastGps);return true
+ }
+
+
+--- startGpsWatch #2 @ 1247135 ---
+
+라 촬영 모드로 QR을 읽습니다.';st.className='qrStatus ok';
+  const cap=$('#qrCapture');if(cap)cap.click();return
+ }
+ stopQrScanner();st.textContent='카메라 권한을 확인하는 중…';st.className='qrStatus';
+ try{
+  qrStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'},width:{ideal:1280},height:{ideal:1280}},audio:false});
+  const v=$('#qrVideo');v.srcObject=qrStream;await v.play();
+  st.textContent='QR을 노란 네모 안에 맞추소.';st.className='qrStatus ok';qrRaf=requestAnimationFrame(qrScanLoop)
+ }catch(e){
+  stopQrScanner();st.textContent='실시간 카메라 권한을 사용할 수 없습니다. 아래 「QR 사진 촬영」을 누르소.';st.className='qrStatus error'
+ }
+}
+function loadImageFile(file){
+ if('createImageBitmap' in window)return createImageBitmap(file);
+ return new Promise((resolve,reject)=>{const u=URL.createObjectURL(file),im=new Image();im.onload=()=>{URL.revokeObjectURL(u);resolve(im)};im.onerror=()=>{URL.revokeObjectURL(u);reject(new Error('image'))};im.src=u})
+}
+async function scanQrImage(file){
+ const st=$('#qrStatus');if(!file)return;
+ st.textContent='QR을 읽는 중…';st.className='qrStatus';
+ try{
+  const img=await loadImageFile(file),w=img.width||img.naturalWidth,h=img.height||img.naturalHeight;
+  const vals=await decodeQrBitmapSource(img,w,h);if(img.close)img.close();
+  if(!vals.length){
+   st.textContent='QR을 찾지 못했습니다. QR을 화면 가득 크게 찍거나 「사진에서 QR 읽기」로 원본 이미지를 선택하소.';st.className='qrStatus error';return
+  }
+  for(const raw of vals){if(qrUnlock(parseUnlockQr(raw)))return}
+  st.textContent='중앙시장 게임 해금 QR이 아닙니다.';st.className='qrStatus error'
+ }catch(e){st.textContent='QR 이미지를 읽지 못했습니다. 다른 사진으로 다시 시도하소.';st.className='qrStatus error'}
+}
+function initQrUi(){
+ $('#qrOpenBtn').onclick=()=>{$('#qrModal').classList.add('show');$('#qrStatus').textContent='QR 카메라를 열거나 QR 사진을 선택하소.';$('#qrStatus').className='qrStatus';startGpsWatch()};
+ $('#qrClose').onclick=closeQrModal;$('#qrStart').onclick=startQrCamera;
+ $('#qrFile').onchange=e=>{const f=e.target.files&&e.target.files[0];if(f)scanQrImage(f);e.target.value=''};
+ $('#qrCapture').onchange=e=>{const f=e.target.files&&e.target.files[0];if(f)scanQrImage(f);e.target.value=''};
+ $('#qrModal').onclick=e=>{if(e.target.id==='qrModal')closeQrModal()}
+}
+
+function gpsUnlocked(code){return !!(state.gpsUnlocked&&state.gpsUnlocked[code])}
+function flashyUnlock(code){
+ const g=game(code),ov=$('#gameGetOverlay'),burst=$('#gameGetBurst');
+ $('#gameGetIcon').textContent=g.icon;$('#gameGetName').textContent=`${g.name} 해금!`;burst.innerHTML='';
+ for(let i=0;i<34;i++){let e=document.createElement('div');e.className='getConfetti';e.textContent=['🎉','✨','⭐','🪙','🎊'][i%5];e.style.left='50%';e.style.top='50%';e.style.setProperty('--gx',(Math.random()*520-260)+'px');e.style.setProperty('--gy',(Math.random()*620-310)+'px');e.style.setProperty('--gr',(Math.random()*720-360)+'deg');burst.appendChild(e)}
+ ov.classList.add('show');tone('clear');buzz([40,20,70,20,100]);setTimeout(()=>ov.classList.remove('show'),1900)
+}
+function unlockByGps(code){
+ if(acquiredByAny(code))return;
+ state.gpsUnlocked[code]=true;state.unlock[code]=true;save();flashyUnlock(code);refresh()
+}
+function showDirection(code,dist,pos,z){
+ const now=Date.now();if(acquiredByAny(code)||now-(lastDirNotice[code]||0)<30000)return;lastDirNotice[code]=now;
+ const g=game(code),t=zoneTarget(z);if(!t)return;
+ const br=bearingDeg(pos,t),arr=arrowForBearing(br),toast=$('#directionToast');
+ $('#dirArrow').textContent=arr;$('#dirTitle').textContent=`${g.name} 획득구역이 가까워졌소!`;
+ $('#dirText').textContent=`${GAME_ACQUIRE.find(x=>x.code===code).place} 방향 · 약 ${Math.max(1,Math.round(dist))}m`;
+ toast.classList.add('show');tone('coin');buzz(12);clearTimeout(gpsGuideTimer);gpsGuideTimer=setTimeout(()=>toast.classList.remove('show'),5000)
+}
+function evaluateGpsPosition(pos){
+ const z=gpsZones(),acc=Number(pos&&pos.accuracy)||999;
+ // 실내 GPS가 지나치게 흔들릴 때 엉뚱한 구역을 해금하지 않는다.
+ if(acc>140){renderGpsLocations(pos);return}
+ GAME_ACQUIRE.forEach(loc=>{
+  const zone=z[loc.code];if(!zone)return;
+  const d=effectiveZoneDistanceM(pos,zone);
+  if(zoneInside(pos,zone))unlockByGps(loc.code);
+  else if(d <= (zone.near||140) && !acquiredByAny(loc.code))showDirection(loc.code,d,pos,zone)
+ });
+ renderGpsLocations(pos)
+}
+function renderGpsLocations(pos=lastGps){
+ const list=$('#locationList');if(!list)return;const z=gpsZones();
+ list.innerHTML=GAME_ACQUIRE.map(loc=>{
+   const g=game(loc.code),zone=z[loc.code],got=acquiredByA
+
+--- startGpsWatch #3 @ 1252306 ---
+
+tance ${dClass}">${dText}</div></div><div class="statusBadge ${got?'ok':zone?'ok':'wait'}">${badge}</div></div>`
+ }).join('');
+}
+function gpsErrorMessage(e){
+ return e&&e.code===1?'위치 권한이 거부되었습니다. 브라우저의 이 사이트 위치 권한을 허용한 뒤 다시 누르소.':e&&e.code===2?'현재 위치를 확인할 수 없습니다. 휴대폰의 위치 기능과 정밀 위치를 켠 뒤 다시 시도하소.':'GPS 응답 시간이 초과되었습니다. 잠시 뒤 다시 누르소.'
+}
+function gpsContextProblem(){
+ const proto=location.protocol,host=(location.hostname||'').toLowerCase();
+ if(proto==='content:'||proto==='file:')return '현재 HTML 파일을 로컬(content:// 또는 file://)로 열었습니다. Android 모바일 브라우저에서는 이 방식의 GPS가 차단될 수 있습니다. 게임을 HTTPS 웹주소로 열어야 GPS 자동 해금이 작동합니다.';
+ if(proto==='http:'&&host!=='localhost'&&host!=='127.0.0.1'&&host!=='::1')return '현재 HTTP 주소입니다. 모바일 GPS는 HTTPS 주소에서 실행해야 합니다.';
+ if(window.isSecureContext===false)return '현재 페이지가 보안 연결이 아니라 위치정보를 사용할 수 없습니다. HTTPS 웹주소로 접속하소.';
+ return ''
+}
+function stopGpsWatch(){
+ if(gpsWatchId!=null){try{navigator.geolocation&&navigator.geolocation.clearWatch(gpsWatchId)}catch(e){}gpsWatchId=null}
+}
+function handleGpsError(e){
+ const st=$('#gpsStatus');stopGpsWatch();
+ st.textContent=gpsErrorMessage(e);st.className='gpsStatus error';
+ renderGpsLocations(lastGps)
+}
+function handleGpsPosition(p){
+ const st=$('#gpsStatus'),acc=Math.round(Number(p.coords.accuracy)||999);
+ lastGps={lat:p.coords.latitude,lng:p.coords.longitude,accuracy:acc,timestamp:p.timestamp||Date.now()};
+ if(acc>140){st.textContent=`GPS 신호가 너무 약합니다 (±${acc}m). 잠시 이동하거나 하늘이 보이는 곳에서 다시 확인하소.`;st.className='gpsStatus error';renderGpsLocations(lastGps);return}
+ if(state.pendingQrAnchorCode&&acc<=90){const c=state.pendingQrAnchorCode;if(rememberQrGpsAnchor(c)){save();state.pendingQrAnchorCode=null}}
+ st.textContent=`GPS 작동 중 · 정확도 약 ±${acc}m`;st.className='gpsStatus active';evaluateGpsPosition(lastGps)
+}
+async function startGpsWatch(){
+ const st=$('#gpsStatus'),ctxProblem=gpsContextProblem();
+ if(ctxProblem){stopGpsWatch();st.textContent=ctxProblem;st.className='gpsStatus error';return}
+ if(!navigator.geolocation){stopGpsWatch();st.textContent='이 브라우저에서는 GPS 위치정보를 사용할 수 없습니다.';st.className='gpsStatus error';return}
+ if(gpsWatchId!=null){st.textContent=lastGps?`GPS 위치 확인 중 · 정확도 약 ±${Math.round(lastGps.accuracy||0)}m`:'GPS 위치를 찾는 중입니다…';return}
+ try{
+  if(navigator.permissions&&navigator.permissions.query){
+   try{const p=await navigator.permissions.query({name:'geolocation'});if(p&&p.state==='denied'){st.textContent='이 사이트의 위치 권한이 차단되어 있습니다. 브라우저 주소창의 사이트 설정에서 위치를 허용한 뒤 다시 누르소.';st.className='gpsStatus error';return}}catch(e){}
+  }
+  st.textContent='GPS 위치를 찾는 중…';st.className='gpsStatus';
+  navigator.geolocation.getCurrentPosition(handleGpsPosition,handleGpsError,{enableHighAccuracy:true,maximumAge:0,timeout:15000});
+  gpsWatchId=navigator.geolocation.watchPosition(handleGpsPosition,handleGpsError,{enableHighAccuracy:true,maximumAge:1500,timeout:20000})
+ }catch(e){stopGpsWatch();st.textContent='GPS 실행에 실패했습니다. HTTPS 접속과 위치 권한을 확인한 뒤 다시 누르소.';st.className='gpsStatus error'}
+}
+function currentCalibrationSelection(){return $('#calZoneSelect')?$('#calZoneSelect').value:null}
+function saveCalPoint(kind){
+ if(!lastGps){$('#calOutput').textContent='먼저 GPS 위치 확인을 시작하소.';return}
+ const code=currentCalibrationSelection();if(!code)return;
+ const old=(state.gpsCalibration||{})[code]||{};
+ if(kind==='center'){
+  state.gpsCalibration[code]={type:'circle',lat:lastGps.lat,lng:lastGps.lng,radius:45,near:160,source:'field-calibration'}
+ }else{
+  let a=old.a||null,b=old.b||null;if(kind==='a')a={lat:lastGps.lat,lng:lastGps.lng};else b={lat:lastGps.lat,lng:lastGps.lng};
+  state.gpsCalibration[code]={type:'corridor',a,b,radius:24,near:150,source:'field-calibration'};
+  if(!a||!b){state.gpsCalibration[code].pending=true}
+  else delete state.gpsCalibration[code].pending
+ }
+ save();
+ $('#calOutput').textContent=JSON.stringify(state.gpsCalibration,null,2);
+ renderGpsLocations(lastGps)
+}
+function initGpsUi(){
+ if(!DEV_ALL_UNLOCKED){const p=$('.gpsCalPanel');if(p)p.style.display='none'}
+ const sel=$('#calZoneSelect');if(sel){
+  sel.innerHTML=GAME_ACQUIRE.map(x=>`<option value="${x.code}">${game(x.code).name} — ${x.place}</option>`).join('');
+  $('#calOutput').textContent=JSON.stringify(state.gpsCalibration||{},null,2)
+ }
+ $('#gpsStartBtn').onclick=startGpsWatch;
+ $('#calStart').onclick=()=>saveCalPoint('a');$('#calEnd').onclick=()=>saveCalPoint('b');$('#calCenter').onclick=()=>saveCalPoint('cent
+
+--- startGpsWatch #4 @ 1254756 ---
+
+정에서 위치를 허용한 뒤 다시 누르소.';st.className='gpsStatus error';return}}catch(e){}
+  }
+  st.textContent='GPS 위치를 찾는 중…';st.className='gpsStatus';
+  navigator.geolocation.getCurrentPosition(handleGpsPosition,handleGpsError,{enableHighAccuracy:true,maximumAge:0,timeout:15000});
+  gpsWatchId=navigator.geolocation.watchPosition(handleGpsPosition,handleGpsError,{enableHighAccuracy:true,maximumAge:1500,timeout:20000})
+ }catch(e){stopGpsWatch();st.textContent='GPS 실행에 실패했습니다. HTTPS 접속과 위치 권한을 확인한 뒤 다시 누르소.';st.className='gpsStatus error'}
+}
+function currentCalibrationSelection(){return $('#calZoneSelect')?$('#calZoneSelect').value:null}
+function saveCalPoint(kind){
+ if(!lastGps){$('#calOutput').textContent='먼저 GPS 위치 확인을 시작하소.';return}
+ const code=currentCalibrationSelection();if(!code)return;
+ const old=(state.gpsCalibration||{})[code]||{};
+ if(kind==='center'){
+  state.gpsCalibration[code]={type:'circle',lat:lastGps.lat,lng:lastGps.lng,radius:45,near:160,source:'field-calibration'}
+ }else{
+  let a=old.a||null,b=old.b||null;if(kind==='a')a={lat:lastGps.lat,lng:lastGps.lng};else b={lat:lastGps.lat,lng:lastGps.lng};
+  state.gpsCalibration[code]={type:'corridor',a,b,radius:24,near:150,source:'field-calibration'};
+  if(!a||!b){state.gpsCalibration[code].pending=true}
+  else delete state.gpsCalibration[code].pending
+ }
+ save();
+ $('#calOutput').textContent=JSON.stringify(state.gpsCalibration,null,2);
+ renderGpsLocations(lastGps)
+}
+function initGpsUi(){
+ if(!DEV_ALL_UNLOCKED){const p=$('.gpsCalPanel');if(p)p.style.display='none'}
+ const sel=$('#calZoneSelect');if(sel){
+  sel.innerHTML=GAME_ACQUIRE.map(x=>`<option value="${x.code}">${game(x.code).name} — ${x.place}</option>`).join('');
+  $('#calOutput').textContent=JSON.stringify(state.gpsCalibration||{},null,2)
+ }
+ $('#gpsStartBtn').onclick=startGpsWatch;
+ $('#calStart').onclick=()=>saveCalPoint('a');$('#calEnd').onclick=()=>saveCalPoint('b');$('#calCenter').onclick=()=>saveCalPoint('center');
+ renderGpsLocations()
+}
+
+function renderOsoShop(){
+ const shop=$('#osoShop');if(!shop)return;
+ const skin=currentSkin(),preview=$('#selectedOsoPreview'),name=$('#selectedOsoName'),coin=$('#shopCoin');
+ if(preview)preview.src=skin.src;if(name)name.textContent=skin.name;if(coin)coin.textContent=state.coins||0;
+ const groups=[
+  {id:'oso',title:'🐂 오소',sub:'중앙시장의 주인공 · 기본~750 코인'},
+  {id:'ayo',title:'🐱 아요 컬렉션',sub:'표정과 동작이 다양한 친구 · 1,000~1,900 코인'},
+  {id:'hamo',title:'🦦 하모 컬렉션',sub:'특별한 친구 · 2,000~2,900 코인'}
+ ];
+ shop.innerHTML=groups.map(gr=>{
+  const cards=OSO_SKINS.filter(s=>(s.group||'oso')===gr.id).map(s=>{
+   const owned=state.ownedSkins.includes(s.id),selected=state.selectedSkin===s.id;
+   return `<div class="skinCard ${selected?'selected':''} group-${gr.id}" data-skin="${s.id}"><span class="charBadge ${gr.id}">${s.badge||gr.title}</span><img src="${s.src}" alt="${s.name}"><b>${s.name}</b><small>${s.note}</small><button class="${selected?'selectedBtn':owned?'owned':''}" data-buy="${s.id}">${selected?'사용 중':owned?'사용하기':`🪙 ${s.price.toLocaleString()} 구입`}</button></div>`
+  }).join('');
+  return `<div class="shopGroupHead ${gr.id}"><b>${gr.title}</b><small>${gr.sub}</small></div>${cards}`
+ }).join('');
+ $$('[data-buy]').forEach(btn=>btn.onclick=()=>{
+   const s=OSO_SKINS.find(x=>x.id===btn.dataset.buy);if(!s)return;
+   if(state.ownedSkins.includes(s.id)){state.selectedSkin=s.id;save();refresh();tone('good');return}
+   if((state.coins||0)<s.price){tone('bad');buzz(70);btn.textContent='코인이 부족하소!';setTimeout(renderOsoShop,700);return}
+   state.coins-=s.price;state.ownedSkins.push(s.id);state.selectedSkin=s.id;save();tone('clear');buzz([20,15,35]);refresh()
+ })
+}
+
+function refresh(){
+ ensureDailyScoreDate();
+ if(state.coinDate!==localDateKey()){
+  state.coinDate=localDateKey();save()
+ }
+ if(DEV_ALL_UNLOCKED)GAMES.forEach(g=>state.unlock[g.code]=true);
+ const bonusNew=!DEV_ALL_UNLOCKED&&ensureSpacefighterUnlock();
+ if(!DEV_ALL_UNLOCKED)ensureScoreBonusUnlocks();
+ const pendingBonus=!DEV_ALL_UNLOCKED&&Array.isArray(state.pendingBonusUnlocks)?[...state.pendingBonusUnlocks]:[];
+ if(pendingBonus.length){state.pendingBonusUnlocks=[];save()}
+ $('#count').textContent=`🎮 ${GAMES.filter(g=>state.unlock[g.code]).length}/${GAMES.length}`;
+ $('#coin').textContent=state.coins||0;
+ $('#library').innerHTML=GAMES.map((g,i)=>{
+ const art={basket:'🍎 🥬 🧺',fish:'🐟 💦 🐠',stack:'🧵 🧶 ✨',run:'🛍️ 🏃 🪙',slice:'🍜 ✨ 🍗',tteok:'🔨 🍚 ✨',
+
+--- startGpsWatch #5 @ 1259282 ---
+
+[g.code]||0),stars='⭐'.repeat(st)+'☆'.repeat(3-st);
+ return `<button class="gameCard theme-${g.code} ${state.unlock[g.code]?'':'lock'}" data-game="${g.code}"><div class="gameNo">${i+1}</div><div class="gameCardArt"><div class="artEmoji">${art}</div></div><b>${state.unlock[g.code]?g.name:'???'}</b><small>${g.desc}</small><div class="best">${state.unlock[g.code]?`🏆 최고 ${state.best[g.code]||0}<span class="miniStars">${stars}</span>`:(g.code==='spacefighter'?'<span class="spaceBonusLock">🔒 7개 게임 획득 시 해금</span>':g.code==='racing'?'<span class="scoreBonusLock">🔒 누적 500,000점 달성 시 해금</span>':g.code==='fantasy'?'<span class="scoreBonusLock">🔒 누적 1,000,000점 달성 시 해금</span>':'🔒 GPS/QR로 획득')}</div></button>`
+ }).join('');
+ $$('[data-game]').forEach(b=>b.onclick=()=>openInfo(b.dataset.game));
+ renderGpsLocations(lastGps);renderOsoShop();renderRanking();
+ const ho=$('#headerOso');if(ho)ho.src=currentOsoSrc();save();
+ if(bonusNew)setTimeout(()=>flashyUnlock('spacefighter'),2100);
+ pendingBonus.forEach((c,i)=>setTimeout(()=>flashyUnlock(c),2100+i*2300))
+}
+function openInfo(code){selected=game(code);const unlocked=!!state.unlock[code];$('#mEm').textContent=selected.icon;$('#mName').textContent=unlocked?selected.name:'잠긴 게임';$('#mDesc').textContent=selected.desc;$('#mArea').textContent='장소 힌트 · '+selected.area.replace(/^해금 위치:\s*/,'');$('#mPlay').disabled=!unlocked;$('#mPlay').textContent=unlocked?'플레이':(BONUS_GAME_CODES.includes(selected.code)?'조건달성 필요':'GPS 획득 필요');$('#modal').classList.add('show')}
+$('#mClose').onclick=()=>$('#modal').classList.remove('show');$('#mPlay').onclick=()=>{if(selected&&state.unlock[selected.code]){$('#modal').classList.remove('show');startGame(selected.code)}};
+$$('nav button').forEach(b=>b.onclick=()=>{showPage(b.dataset.page);if(b.dataset.page==='mapPage')startGpsWatch()});
+window.unlockFromNative=code=>{
+ const c=parseUnlockQr(code)||normalizeUnlockCode(code);
+ if(c)qrUnlock(c)
+};
+
+function fxText(x,y,text,color='#f39a11'){const s=$('#stage'),r=s.getBoundingClientRect(),e=document.createElement('div');e.className='fxText';e.textContent=text;e.style.left=(x-r.left)+'px';e.style.top=(y-r.top)+'px';e.style.color=color;s.appendChild(e);setTimeout(()=>e.remove(),700)}
+function particles(x,y,emoji='✨',count=6){const s=$('#stage'),r=s.getBoundingClientRect();for(let i=0;i<count;i++){let e=document.createElement('div');e.className='particle';e.textContent=emoji;e.style.left=(x-r.left)+'px';e.style.top=(y-r.top)+'px';e.style.setProperty('--dx',(Math.random()*120-60)+'px');e.style.setProperty('--dy',(-35-Math.random()*85)+'px');e.style.setProperty('--rot',(Math.random()*300-150)+'deg');s.appendChild(e);setTimeout(()=>e.remove(),760)}}
+
+function showComboBurst(text,count=2,kind='combo'){
+ const s=$('#stage');if(!s)return;
+ $$('.comboBurstFX').forEach(e=>e.remove());
+ const tier=count>=10?3:count>=5?2:1,e=document.createElement('div');
+ e.className=`comboBurstFX tier${tier} ${kind||''}`;e.textContent=text;s.appendChild(e);
+ const r=s.getBoundingClientRect(),x=r.left+r.width/2,y=r.top+r.height*.19;
+ particles(x,y,count>=10?'🔥':count>=5?'⭐':'✨',count>=10?18:count>=5?13:9);
+ const p=520+Math.min(12,count)*28;beep(p,.055,.020,'square',p*1.20);setTimeout(()=>beep(p*1.25,.065,.016,'triangle',p*1.33),58);
+ buzz(count>=10?[18,6,28,6,42]:count>=5?[13,5,22]:8);
+ setTimeout(()=>e.remove(),1120)
+}
+
+function softShake(t=$('#stage')){t.classList.remove('shake');void t.offsetWidth;t.classList.add('shake')}
+function lvThresholds(code){return {basket:[0,120,260,430,650],fish:[0,120,260,430,650],stack:[0,180,400,680,930],run:[0,500,1100,1800,2700],slice:[0,150,330,560,850],tteok:[0,220,470,760,1100]}[code]||[0,100,250,450,700]}
+function levelFor(code,score){const th=lvThresholds(code);let lv=1;for(let i=1;i<th.length;i++)if(score>=th[i])lv=i+1;return Math.min(5,lv)}
+function updateLevel(code,score,current,onChange){
+ let lv=levelFor(code,score);
+ if(lv>current){
+  for(let n=current+1;n<=lv;n++){
+   let e=document.createElement('div');e.className='levelUp';e.textContent=`LEVEL ${n}!`;$('#stage').appendChild(e);setTimeout(()=>e.remove(),850);
+   tone('clear');buzz([20,15,35]);if(currentBgmKey===code)setBgmLevel(n);if(onChange)onChange(n);
+  }
+ }
+ const h=$('#levelHud');if(h)h.textContent=`LEVEL ${lv}`;return lv
+}
+
+let pendingRankScore=null,pendingRankDone=null,pendingRankReached=null;
+function rankingSorted(){
+ return (state.ranking||[
+
+===== KEY: watchPosition COUNT 1 =====
+
+--- watchPosition #1 @ 1253258 ---
+
+.clearWatch(gpsWatchId)}catch(e){}gpsWatchId=null}
+}
+function handleGpsError(e){
+ const st=$('#gpsStatus');stopGpsWatch();
+ st.textContent=gpsErrorMessage(e);st.className='gpsStatus error';
+ renderGpsLocations(lastGps)
+}
+function handleGpsPosition(p){
+ const st=$('#gpsStatus'),acc=Math.round(Number(p.coords.accuracy)||999);
+ lastGps={lat:p.coords.latitude,lng:p.coords.longitude,accuracy:acc,timestamp:p.timestamp||Date.now()};
+ if(acc>140){st.textContent=`GPS 신호가 너무 약합니다 (±${acc}m). 잠시 이동하거나 하늘이 보이는 곳에서 다시 확인하소.`;st.className='gpsStatus error';renderGpsLocations(lastGps);return}
+ if(state.pendingQrAnchorCode&&acc<=90){const c=state.pendingQrAnchorCode;if(rememberQrGpsAnchor(c)){save();state.pendingQrAnchorCode=null}}
+ st.textContent=`GPS 작동 중 · 정확도 약 ±${acc}m`;st.className='gpsStatus active';evaluateGpsPosition(lastGps)
+}
+async function startGpsWatch(){
+ const st=$('#gpsStatus'),ctxProblem=gpsContextProblem();
+ if(ctxProblem){stopGpsWatch();st.textContent=ctxProblem;st.className='gpsStatus error';return}
+ if(!navigator.geolocation){stopGpsWatch();st.textContent='이 브라우저에서는 GPS 위치정보를 사용할 수 없습니다.';st.className='gpsStatus error';return}
+ if(gpsWatchId!=null){st.textContent=lastGps?`GPS 위치 확인 중 · 정확도 약 ±${Math.round(lastGps.accuracy||0)}m`:'GPS 위치를 찾는 중입니다…';return}
+ try{
+  if(navigator.permissions&&navigator.permissions.query){
+   try{const p=await navigator.permissions.query({name:'geolocation'});if(p&&p.state==='denied'){st.textContent='이 사이트의 위치 권한이 차단되어 있습니다. 브라우저 주소창의 사이트 설정에서 위치를 허용한 뒤 다시 누르소.';st.className='gpsStatus error';return}}catch(e){}
+  }
+  st.textContent='GPS 위치를 찾는 중…';st.className='gpsStatus';
+  navigator.geolocation.getCurrentPosition(handleGpsPosition,handleGpsError,{enableHighAccuracy:true,maximumAge:0,timeout:15000});
+  gpsWatchId=navigator.geolocation.watchPosition(handleGpsPosition,handleGpsError,{enableHighAccuracy:true,maximumAge:1500,timeout:20000})
+ }catch(e){stopGpsWatch();st.textContent='GPS 실행에 실패했습니다. HTTPS 접속과 위치 권한을 확인한 뒤 다시 누르소.';st.className='gpsStatus error'}
+}
+function currentCalibrationSelection(){return $('#calZoneSelect')?$('#calZoneSelect').value:null}
+function saveCalPoint(kind){
+ if(!lastGps){$('#calOutput').textContent='먼저 GPS 위치 확인을 시작하소.';return}
+ const code=currentCalibrationSelection();if(!code)return;
+ const old=(state.gpsCalibration||{})[code]||{};
+ if(kind==='center'){
+  state.gpsCalibration[code]={type:'circle',lat:lastGps.lat,lng:lastGps.lng,radius:45,near:160,source:'field-calibration'}
+ }else{
+  let a=old.a||null,b=old.b||null;if(kind==='a')a={lat:lastGps.lat,lng:lastGps.lng};else b={lat:lastGps.lat,lng:lastGps.lng};
+  state.gpsCalibration[code]={type:'corridor',a,b,radius:24,near:150,source:'field-calibration'};
+  if(!a||!b){state.gpsCalibration[code].pending=true}
+  else delete state.gpsCalibration[code].pending
+ }
+ save();
+ $('#calOutput').textContent=JSON.stringify(state.gpsCalibration,null,2);
+ renderGpsLocations(lastGps)
+}
+function initGpsUi(){
+ if(!DEV_ALL_UNLOCKED){const p=$('.gpsCalPanel');if(p)p.style.display='none'}
+ const sel=$('#calZoneSelect');if(sel){
+  sel.innerHTML=GAME_ACQUIRE.map(x=>`<option value="${x.code}">${game(x.code).name} — ${x.place}</option>`).join('');
+  $('#calOutput').textContent=JSON.stringify(state.gpsCalibration||{},null,2)
+ }
+ $('#gpsStartBtn').onclick=startGpsWatch;
+ $('#calStart').onclick=()=>saveCalPoint('a');$('#calEnd').onclick=()=>saveCalPoint('b');$('#calCenter').onclick=()=>saveCalPoint('center');
+ renderGpsLocations()
+}
+
+function renderOsoShop(){
+ const shop=$('#osoShop');if(!shop)return;
+ const skin=currentSkin(),preview=$('#selectedOsoPreview'),name=$('#selectedOsoName'),coin=$('#shopCoin');
+ if(preview)preview.src=skin.src;if(name)name.textContent=skin.name;if(coin)coin.textContent=state.coins||0;
+ const groups=[
+  {id:'oso',title:'🐂 오소',sub:'중앙시장의 주인공 · 기본~750 코인'},
+  {id:'ayo',title:'🐱 아요 컬렉션',sub:'표정과 동작이 다양한 친구 · 1,000~1,900 코인'},
+  {id:'hamo',title:'🦦 하모 컬렉션',sub:'특별한 친구 · 2,000~2,900 코인'}
+ ];
+ shop.innerHTML=groups.map(gr=>{
+  const cards=OSO_SKINS.filter(s=>(s.group||'oso')===gr.id).map(s=>{
+   const owned=state.ownedSkins.includes(s.id),selected=state.selectedSkin===s.id;
+   return `<div class="skinCard ${selected?'selected':''} group-${gr.id}" data-skin="${s.id}"><span class="charBadge ${gr.id}">${s.badge||gr.title}</span><img src="${s.src}" alt="${s.name}"><b>${s.name}</b><small>${s.note}</small><button class="$
+
+===== KEY: getCurrentPosition COUNT 1 =====
+
+===== KEY: gpsUnlock COUNT 10 =====
+
+--- gpsUnlock #1 @ 1226350 ---
+
+rrentSkin().src}
+const BASE_GAME_CODES=['basket','fish','stack','run','slice','tteok','powerduck'];
+const BONUS_GAME_CODES=['spacefighter','racing','fantasy'];
+function ensureSpacefighterUnlock(){
+ if(state.unlock&&state.unlock.spacefighter)return false;
+ if(BASE_GAME_CODES.every(c=>state.unlock&&state.unlock[c])){
+  state.unlock.spacefighter=true;save();return true
+ }
+ return false
+}
+function ensureScoreBonusUnlocks(){
+ const newly=[],n=Number(state.todayScore)||0;
+ if(n>=500000&&!state.unlock.racing){state.unlock.racing=true;newly.push('racing')}
+ if(n>=1000000&&!state.unlock.fantasy){state.unlock.fantasy=true;newly.push('fantasy')}
+ if(newly.length){
+  const q=Array.isArray(state.pendingBonusUnlocks)?state.pendingBonusUnlocks:[];
+  state.pendingBonusUnlocks=[...new Set([...q,...newly])];
+  save()
+ }
+ return newly
+}
+
+let mem=null,audioCtx=null;
+function localDateKey(){
+ const d=new Date(),y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,'0'),day=String(d.getDate()).padStart(2,'0');
+ return `${y}-${m}-${day}`
+}
+function load(){try{const x=localStorage.getItem(DEV_ALL_UNLOCKED?'jcm-v168-unlocked':'jcm-v168-locked');return x?JSON.parse(x):null}catch(e){return mem}}
+function save(){mem=state;try{localStorage.setItem(DEV_ALL_UNLOCKED?'jcm-v168-unlocked':'jcm-v168-locked',JSON.stringify(state))}catch(e){}}
+let state=load()||{unlock:{},best:{},coins:0,todayEarned:0,todayScore:0,scoreDate:localDateKey(),pdRecord:0,coinDate:localDateKey(),ranking:[],todaySubmittedBest:0,rankRegisteredBest:11,ownedSkins:['default'],selectedSkin:'default'};
+if(!state.best||typeof state.best!=='object')state.best={};
+if(!Array.isArray(state.ranking))state.ranking=[];
+if(!Array.isArray(state.ownedSkins))state.ownedSkins=['default'];
+if(!state.gpsCalibration)state.gpsCalibration={};
+if(!state.gpsUnlocked)state.gpsUnlocked={};
+if(!state.qrUnlocked)state.qrUnlocked={};
+if(!state.ownedSkins.includes('default'))state.ownedSkins.unshift('default');
+if(!state.selectedSkin||!state.ownedSkins.includes(state.selectedSkin))state.selectedSkin='default';
+if(state.todayEarned==null)state.todayEarned=0;
+if(state.todayScore==null)state.todayScore=0;
+if(!state.scoreDate)state.scoreDate=localDateKey();
+if(state.todaySubmittedBest==null)state.todaySubmittedBest=0;
+if(state.rankRegisteredBest==null){
+ state.rankRegisteredBest=Number.isFinite(state.dailyRankPromptedBestRank)?state.dailyRankPromptedBestRank:11;
+}
+if(state.scoreDate!==localDateKey()){
+ state.scoreDate=localDateKey();
+}
+if(!state.coinDate)state.coinDate=localDateKey();
+if(state.coinDate!==localDateKey())state.coinDate=localDateKey();
+if(DEV_ALL_UNLOCKED)GAMES.forEach(g=>state.unlock[g.code]=true);
+
+function ensureDailyScoreDate(){
+ const today=localDateKey();
+ if(!state.scoreDate)state.scoreDate=today;
+ if(state.scoreDate!==today){
+  state.scoreDate=today;
+  save();
+ }
+}
+
+const DEFAULT_RANKING_SEED=[
+ {initials:'중앙시장',score:1000000,date:'기준',ts:1,seed:true},
+ {initials:'오소',score:500000,date:'기준',ts:2,seed:true},
+ {initials:'또오소',score:300000,date:'기준',ts:3,seed:true},
+ {initials:'다시오소',score:100000,date:'기준',ts:4,seed:true},
+ {initials:'매일오소',score:80000,date:'기준',ts:5,seed:true},
+ {initials:'잘가소',score:50000,date:'기준',ts:6,seed:true},
+ {initials:'반갑소',score:30000,date:'기준',ts:7,seed:true},
+ {initials:'어서오소',score:20000,date:'기준',ts:8,seed:true},
+ {initials:'잘하소',score:15000,date:'기준',ts:9,seed:true},
+ {initials:'힘내소',score:10000,date:'기준',ts:10,seed:true}
+];
+const RANK_SCORE_THRESHOLDS=DEFAULT_RANKING_SEED.map((r,i)=>({rank:i+1,score:Number(r.score)||0}));
+function rankReachedByDailyScore(score){
+ const n=Number(score)||0;
+ for(const t of RANK_SCORE_THRESHOLDS){if(n>t.score)return t.rank}
+ return 11;
+}
+
+function ensureRankRegistrationState(){
+ if(state.rankRegistrationVersion==='threshold-record-v2')return;
+ const userRows=(Array.isArray(state.ranking)?state.ranking:[]).filter(r=>!r.seed);
+ let inferredBestRank=11;
+ for(const row of userRows){
+  const rr=Number.isFinite(row.rankReached)?row.rankReached:rankReachedByDailyScore(row.score);
+  inferredBestRank=Math.min(inferredBestRank,rr);
+ }
+ state.rankRegisteredBest=inferredBestRank;
+ state.rankRegistrationVersion='threshold-record-v2';
+ save();
+}
+function ensureDefaultRanking(){
+ const mode=state.rankingModeVersion;
+ if(mode==='daily-score-v1'||mode==='daily-score-v2'){
+  state.rankingModeVersion='daily-score-v2';
+  return;
+ }
+ state.ranking=DEFA
+
+--- gpsUnlock #8 @ 1248344 ---
+
+pSource(img,w,h);if(img.close)img.close();
+  if(!vals.length){
+   st.textContent='QR을 찾지 못했습니다. QR을 화면 가득 크게 찍거나 「사진에서 QR 읽기」로 원본 이미지를 선택하소.';st.className='qrStatus error';return
+  }
+  for(const raw of vals){if(qrUnlock(parseUnlockQr(raw)))return}
+  st.textContent='중앙시장 게임 해금 QR이 아닙니다.';st.className='qrStatus error'
+ }catch(e){st.textContent='QR 이미지를 읽지 못했습니다. 다른 사진으로 다시 시도하소.';st.className='qrStatus error'}
+}
+function initQrUi(){
+ $('#qrOpenBtn').onclick=()=>{$('#qrModal').classList.add('show');$('#qrStatus').textContent='QR 카메라를 열거나 QR 사진을 선택하소.';$('#qrStatus').className='qrStatus';startGpsWatch()};
+ $('#qrClose').onclick=closeQrModal;$('#qrStart').onclick=startQrCamera;
+ $('#qrFile').onchange=e=>{const f=e.target.files&&e.target.files[0];if(f)scanQrImage(f);e.target.value=''};
+ $('#qrCapture').onchange=e=>{const f=e.target.files&&e.target.files[0];if(f)scanQrImage(f);e.target.value=''};
+ $('#qrModal').onclick=e=>{if(e.target.id==='qrModal')closeQrModal()}
+}
+
+function gpsUnlocked(code){return !!(state.gpsUnlocked&&state.gpsUnlocked[code])}
+function flashyUnlock(code){
+ const g=game(code),ov=$('#gameGetOverlay'),burst=$('#gameGetBurst');
+ $('#gameGetIcon').textContent=g.icon;$('#gameGetName').textContent=`${g.name} 해금!`;burst.innerHTML='';
+ for(let i=0;i<34;i++){let e=document.createElement('div');e.className='getConfetti';e.textContent=['🎉','✨','⭐','🪙','🎊'][i%5];e.style.left='50%';e.style.top='50%';e.style.setProperty('--gx',(Math.random()*520-260)+'px');e.style.setProperty('--gy',(Math.random()*620-310)+'px');e.style.setProperty('--gr',(Math.random()*720-360)+'deg');burst.appendChild(e)}
+ ov.classList.add('show');tone('clear');buzz([40,20,70,20,100]);setTimeout(()=>ov.classList.remove('show'),1900)
+}
+function unlockByGps(code){
+ if(acquiredByAny(code))return;
+ state.gpsUnlocked[code]=true;state.unlock[code]=true;save();flashyUnlock(code);refresh()
+}
+function showDirection(code,dist,pos,z){
+ const now=Date.now();if(acquiredByAny(code)||now-(lastDirNotice[code]||0)<30000)return;lastDirNotice[code]=now;
+ const g=game(code),t=zoneTarget(z);if(!t)return;
+ const br=bearingDeg(pos,t),arr=arrowForBearing(br),toast=$('#directionToast');
+ $('#dirArrow').textContent=arr;$('#dirTitle').textContent=`${g.name} 획득구역이 가까워졌소!`;
+ $('#dirText').textContent=`${GAME_ACQUIRE.find(x=>x.code===code).place} 방향 · 약 ${Math.max(1,Math.round(dist))}m`;
+ toast.classList.add('show');tone('coin');buzz(12);clearTimeout(gpsGuideTimer);gpsGuideTimer=setTimeout(()=>toast.classList.remove('show'),5000)
+}
+function evaluateGpsPosition(pos){
+ const z=gpsZones(),acc=Number(pos&&pos.accuracy)||999;
+ // 실내 GPS가 지나치게 흔들릴 때 엉뚱한 구역을 해금하지 않는다.
+ if(acc>140){renderGpsLocations(pos);return}
+ GAME_ACQUIRE.forEach(loc=>{
+  const zone=z[loc.code];if(!zone)return;
+  const d=effectiveZoneDistanceM(pos,zone);
+  if(zoneInside(pos,zone))unlockByGps(loc.code);
+  else if(d <= (zone.near||140) && !acquiredByAny(loc.code))showDirection(loc.code,d,pos,zone)
+ });
+ renderGpsLocations(pos)
+}
+function renderGpsLocations(pos=lastGps){
+ const list=$('#locationList');if(!list)return;const z=gpsZones();
+ list.innerHTML=GAME_ACQUIRE.map(loc=>{
+   const g=game(loc.code),zone=z[loc.code],got=acquiredByAny(loc.code),viaQr=!!(state.qrUnlocked&&state.qrUnlocked[loc.code]),viaGps=!!(state.gpsUnlocked&&state.gpsUnlocked[loc.code]);
+   let dText='',dClass='';
+   if(got){dText=viaQr?'✅ QR 보조 해금 완료':'✅ GPS 자동 획득 완료';dClass='inside'}
+   else if(!zone){dText='▣ 현장 QR을 1회 스캔하면 이 위치가 GPS 기준점으로 저장됩니다.';dClass=''}
+   else if(pos){const d=zoneDistanceM(pos,zone);dText=d<=0?'🎯 획득 구역 안':'📡 획득 구역까지 약 '+Math.round(d)+'m';dClass=d<=0?'inside':d<(zone.near||140)?'near':''}
+   else dText='📡 GPS 확인을 시작하면 거리 표시';
+   const badge=got?(viaQr?'QR획득':'GPS획득'):zone?'GPS준비':'QR기준점';
+   return `<div class="locationRow ${zone?'confirmed':'pending'}"><div class="e">${g.icon}</div><div><b>${g.name}</b><div class="where">📍 ${loc.place}</div><div class="how">${loc.detail}</div><div class="gpsDistance ${dClass}">${dText}</div></div><div class="statusBadge ${got?'ok':zone?'ok':'wait'}">${badge}</div></div>`
+ }).join('');
+}
+function gpsErrorMessage(e){
+ return e&&e.code===1?'위치 권한이 거부되었습니다. 브라우저의 이 사이트 위치 권한을 허용한 뒤 다시 누르소.':e&&e.code===2?'현재 위치를 확인할 수 없습니다. 휴대폰의 위치 기능과 정밀 위치를 켠 뒤 다시 시도하소.':'GPS 응답 시간이 초과되었습니다. 잠시 뒤 다시 누르소.'
+}
+function gpsContextProblem(){
+ const proto=location.protocol,host=(location.hostname||'').toLowerCase()
+
+===== KEY: GPS_UNLOCK COUNT 0 =====
+
+===== KEY: unlockByGps COUNT 2 =====
+
+--- unlockByGps #2 @ 1249378 ---
+
+ate.gpsUnlocked[code])}
+function flashyUnlock(code){
+ const g=game(code),ov=$('#gameGetOverlay'),burst=$('#gameGetBurst');
+ $('#gameGetIcon').textContent=g.icon;$('#gameGetName').textContent=`${g.name} 해금!`;burst.innerHTML='';
+ for(let i=0;i<34;i++){let e=document.createElement('div');e.className='getConfetti';e.textContent=['🎉','✨','⭐','🪙','🎊'][i%5];e.style.left='50%';e.style.top='50%';e.style.setProperty('--gx',(Math.random()*520-260)+'px');e.style.setProperty('--gy',(Math.random()*620-310)+'px');e.style.setProperty('--gr',(Math.random()*720-360)+'deg');burst.appendChild(e)}
+ ov.classList.add('show');tone('clear');buzz([40,20,70,20,100]);setTimeout(()=>ov.classList.remove('show'),1900)
+}
+function unlockByGps(code){
+ if(acquiredByAny(code))return;
+ state.gpsUnlocked[code]=true;state.unlock[code]=true;save();flashyUnlock(code);refresh()
+}
+function showDirection(code,dist,pos,z){
+ const now=Date.now();if(acquiredByAny(code)||now-(lastDirNotice[code]||0)<30000)return;lastDirNotice[code]=now;
+ const g=game(code),t=zoneTarget(z);if(!t)return;
+ const br=bearingDeg(pos,t),arr=arrowForBearing(br),toast=$('#directionToast');
+ $('#dirArrow').textContent=arr;$('#dirTitle').textContent=`${g.name} 획득구역이 가까워졌소!`;
+ $('#dirText').textContent=`${GAME_ACQUIRE.find(x=>x.code===code).place} 방향 · 약 ${Math.max(1,Math.round(dist))}m`;
+ toast.classList.add('show');tone('coin');buzz(12);clearTimeout(gpsGuideTimer);gpsGuideTimer=setTimeout(()=>toast.classList.remove('show'),5000)
+}
+function evaluateGpsPosition(pos){
+ const z=gpsZones(),acc=Number(pos&&pos.accuracy)||999;
+ // 실내 GPS가 지나치게 흔들릴 때 엉뚱한 구역을 해금하지 않는다.
+ if(acc>140){renderGpsLocations(pos);return}
+ GAME_ACQUIRE.forEach(loc=>{
+  const zone=z[loc.code];if(!zone)return;
+  const d=effectiveZoneDistanceM(pos,zone);
+  if(zoneInside(pos,zone))unlockByGps(loc.code);
+  else if(d <= (zone.near||140) && !acquiredByAny(loc.code))showDirection(loc.code,d,pos,zone)
+ });
+ renderGpsLocations(pos)
+}
+function renderGpsLocations(pos=lastGps){
+ const list=$('#locationList');if(!list)return;const z=gpsZones();
+ list.innerHTML=GAME_ACQUIRE.map(loc=>{
+   const g=game(loc.code),zone=z[loc.code],got=acquiredByAny(loc.code),viaQr=!!(state.qrUnlocked&&state.qrUnlocked[loc.code]),viaGps=!!(state.gpsUnlocked&&state.gpsUnlocked[loc.code]);
+   let dText='',dClass='';
+   if(got){dText=viaQr?'✅ QR 보조 해금 완료':'✅ GPS 자동 획득 완료';dClass='inside'}
+   else if(!zone){dText='▣ 현장 QR을 1회 스캔하면 이 위치가 GPS 기준점으로 저장됩니다.';dClass=''}
+   else if(pos){const d=zoneDistanceM(pos,zone);dText=d<=0?'🎯 획득 구역 안':'📡 획득 구역까지 약 '+Math.round(d)+'m';dClass=d<=0?'inside':d<(zone.near||140)?'near':''}
+   else dText='📡 GPS 확인을 시작하면 거리 표시';
+   const badge=got?(viaQr?'QR획득':'GPS획득'):zone?'GPS준비':'QR기준점';
+   return `<div class="locationRow ${zone?'confirmed':'pending'}"><div class="e">${g.icon}</div><div><b>${g.name}</b><div class="where">📍 ${loc.place}</div><div class="how">${loc.detail}</div><div class="gpsDistance ${dClass}">${dText}</div></div><div class="statusBadge ${got?'ok':zone?'ok':'wait'}">${badge}</div></div>`
+ }).join('');
+}
+function gpsErrorMessage(e){
+ return e&&e.code===1?'위치 권한이 거부되었습니다. 브라우저의 이 사이트 위치 권한을 허용한 뒤 다시 누르소.':e&&e.code===2?'현재 위치를 확인할 수 없습니다. 휴대폰의 위치 기능과 정밀 위치를 켠 뒤 다시 시도하소.':'GPS 응답 시간이 초과되었습니다. 잠시 뒤 다시 누르소.'
+}
+function gpsContextProblem(){
+ const proto=location.protocol,host=(location.hostname||'').toLowerCase();
+ if(proto==='content:'||proto==='file:')return '현재 HTML 파일을 로컬(content:// 또는 file://)로 열었습니다. Android 모바일 브라우저에서는 이 방식의 GPS가 차단될 수 있습니다. 게임을 HTTPS 웹주소로 열어야 GPS 자동 해금이 작동합니다.';
+ if(proto==='http:'&&host!=='localhost'&&host!=='127.0.0.1'&&host!=='::1')return '현재 HTTP 주소입니다. 모바일 GPS는 HTTPS 주소에서 실행해야 합니다.';
+ if(window.isSecureContext===false)return '현재 페이지가 보안 연결이 아니라 위치정보를 사용할 수 없습니다. HTTPS 웹주소로 접속하소.';
+ return ''
+}
+function stopGpsWatch(){
+ if(gpsWatchId!=null){try{navigator.geolocation&&navigator.geolocation.clearWatch(gpsWatchId)}catch(e){}gpsWatchId=null}
+}
+function handleGpsError(e){
+ const st=$('#gpsStatus');stopGpsWatch();
+ st.textContent=gpsErrorMessage(e);st.className='gpsStatus error';
+ renderGpsLocations(lastGps)
+}
+function handleGpsPosition(p){
+ const st=$('#gpsStatus'),acc=Math.round(Number(p.coords.accuracy)||999);
+ lastGps={lat:p.coords.latitude,lng:p.coords.longitude,accuracy:acc,timestamp:p.timestamp||Date.now()};
+ if(acc>140){st.textContent=`GPS 신호가 너무 약합니다 (±${acc}m). 잠시 이동하거나 하늘이 보이는 곳에서 다시 확인하소.`;st
+
+===== KEY: pointToSegment COUNT 0 =====
+
+===== KEY: distanceToSegment COUNT 0 =====
+
+===== KEY: haversine COUNT 0 =====
