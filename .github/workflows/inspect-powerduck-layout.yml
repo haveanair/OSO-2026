@@ -1,4 +1,4 @@
-name: Inspect powerduck layout
+name: Fix powerduck description spacing
 
 on:
   push:
@@ -10,38 +10,38 @@ permissions:
   contents: write
 
 jobs:
-  inspect:
+  fix:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Save powerduck layout context
+      - name: Move powerduck description upward only
         shell: bash
         run: |
           set -euo pipefail
           python3 - <<'PY'
           from pathlib import Path
-          s=Path('play/index.html').read_text(encoding='utf-8')
-          keys=['파워덕질 1초 연타왕','1초 목표','BEST 7/s','powerduck','POWER DUCK','연타 파괴 챌린지']
-          out=[]
-          for k in keys:
-              out.append(f'===== {k} =====')
-              start=0
-              count=0
-              while True:
-                  i=s.find(k,start)
-                  if i<0: break
-                  count+=1
-                  a=max(0,i-1800); b=min(len(s),i+2600)
-                  out.append(f'--- hit {count} @ {i} ---')
-                  out.append(s[a:b])
-                  start=i+len(k)
-                  if count>=6: break
-          Path('.github/powerduck-layout-inspection.txt').write_text('\n\n'.join(out),encoding='utf-8')
+          p=Path('play/index.html')
+          s=p.read_text(encoding='utf-8')
+          old=".pdNeed{position:absolute;left:50%;top:23%;transform:translateX(-50%);color:#fff;font-size:17px;font-weight:1000;text-shadow:0 3px #2d173b}"
+          new=".pdNeed{position:absolute;left:50%;top:20%;transform:translateX(-50%);color:#fff;font-size:17px;font-weight:1000;text-shadow:0 3px #2d173b}"
+          if old in s:
+              if s.count(old)!=1:
+                  raise SystemExit(f'expected 1 pdNeed style, found {s.count(old)}')
+              s=s.replace(old,new,1)
+          elif new not in s:
+              raise SystemExit('pdNeed style pattern not found')
+          if ".pdTimer{position:absolute;left:10%;right:10%;top:30%;" not in s:
+              raise SystemExit('pdTimer position changed unexpectedly')
+          if "s.innerHTML=`<div class=\"powerduckScene\"" not in s:
+              raise SystemExit('powerduck scene missing')
+          p.write_text(s,encoding='utf-8')
+          print('verified: pdNeed top 20%, pdTimer remains top 30%')
           PY
-          git config user.name 'PWDJ Layout Inspect'
+          git config user.name 'PWDJ Layout Fix'
           git config user.email '34460283+haveanair@users.noreply.github.com'
-          git add .github/powerduck-layout-inspection.txt
-          git commit -m 'Save powerduck layout inspection' || exit 0
+          git add play/index.html
+          git diff --cached --exit-code && exit 0
+          git commit -m 'Move powerduck description above timer'
           git push
