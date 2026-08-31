@@ -35,3 +35,4 @@ jobs:
           done
           echo '=== QR AUDIT END ==='
           exit "$fail"
+# rerun after vector unlock QR fix
