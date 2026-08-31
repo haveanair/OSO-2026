@@ -1,1 +1,1 @@
-Inspect bonus game lock labels before minimal production fix.
+Inspect exact bonus lock labels for condition-required change.
