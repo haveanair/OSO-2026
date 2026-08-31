@@ -1,0 +1,33 @@
+name: QR Audit
+
+on:
+  push:
+    branches: [qr-audit]
+    paths:
+      - '.github/workflows/qr-audit.yml'
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install QR tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y librsvg2-bin zbar-tools
+      - name: Decode all QR SVG files
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo '=== QR AUDIT START ==='
+          for f in qr/play.svg qr/unlock.svg qr/basket.svg qr/fish.svg qr/stack.svg qr/run.svg qr/slice.svg qr/tteok.svg qr/powerduck.svg; do
+            png="/tmp/$(basename "$f" .svg).png"
+            rsvg-convert -w 1000 -h 1000 "$f" -o "$png"
+            value="$(zbarimg --quiet --raw "$png" 2>/dev/null || true)"
+            printf '%s => %s\n' "$f" "$value"
+            if [ -z "$value" ]; then
+              echo "FAILED_TO_DECODE: $f"
+              exit 1
+            fi
+          done
+          echo '=== QR AUDIT END ==='
