@@ -1,4 +1,4 @@
-name: Inspect GPS calibration
+name: Inspect bonus lock labels
 
 on:
   push:
@@ -14,13 +14,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Inspect calibration code
+      - name: Inspect bonus lock label code
         shell: bash
         run: |
           python3 - <<'PY'
           from pathlib import Path
           s=Path('play/index.html').read_text(encoding='utf-8')
-          keys=['gpsCalibration','GPS_DEFAULTS','보정','calibrat','현재 위치','시작점 저장','끝점 저장','중심 저장']
+          keys=['GPS 획득 필요','획득 필요','잠긴 게임','BONUS_GAME_CODES','spacefighter','racing','fantasy']
           for k in keys:
               print('\n===== KEY:',k,'COUNT',s.count(k),'=====')
               start=0
@@ -29,7 +29,7 @@ jobs:
                   i=s.find(k,start)
                   if i<0: break
                   n+=1
-                  a=max(0,i-500); b=min(len(s),i+900)
+                  a=max(0,i-700); b=min(len(s),i+1200)
                   print(f'--- {k} #{n} @ {i} ---')
                   print(s[a:b].replace('\n','\\n'))
                   start=i+len(k)
