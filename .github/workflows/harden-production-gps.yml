@@ -1,4 +1,4 @@
-name: Harden production GPS calibration
+name: Hide production GPS calibration panel
 
 on:
   push:
@@ -10,98 +10,45 @@ permissions:
   contents: write
 
 jobs:
-  harden:
+  hide-panel:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Disable manual calibration in live play only
+      - name: Hide calibration panel in live play only
         shell: bash
         run: |
           set -euo pipefail
           python3 - <<'PY'
           from pathlib import Path
-          import re
 
           p=Path('play/index.html')
           s=p.read_text(encoding='utf-8')
+          marker="function initGpsUi(){\n"
+          line=" if(!DEV_ALL_UNLOCKED){const p=$('.gpsCalPanel');if(p)p.style.display='none'}\n"
+          if line in s:
+              print('panel hide already present')
+          else:
+              if s.count(marker)!=1:
+                  raise SystemExit(f'initGpsUi marker mismatch: {s.count(marker)}')
+              s=s.replace(marker,marker+line,1)
+              p.write_text(s,encoding='utf-8')
 
-          old_gps="""function gpsZones(){
- const z={...GPS_DEFAULTS};
- const cal=state.gpsCalibration||{};
- Object.keys(cal).forEach(k=>{if(cal[k])z[k]=cal[k]});
- return z
-}"""
-          new_gps="""function gpsZones(){
- const z={...GPS_DEFAULTS};
- /* 실전 /play/은 고정 GPS만 사용. 수동보정은 /unlock/ 관리판에서만 허용. */
- if(DEV_ALL_UNLOCKED){
-  const cal=state.gpsCalibration||{};
-  Object.keys(cal).forEach(k=>{if(cal[k])z[k]=cal[k]});
- }
- return z
-}"""
-          if s.count(old_gps)!=1:
-              raise SystemExit(f'gpsZones source mismatch: {s.count(old_gps)}')
-          s=s.replace(old_gps,new_gps,1)
-
-          old_init="if(!state.gpsCalibration)state.gpsCalibration={};"
-          new_init="""if(!state.gpsCalibration)state.gpsCalibration={};
-/* 참가자가 과거 실전판에서 실수로 저장한 보정값도 제거한다. /unlock/ 저장소는 별도라 영향 없음. */
-if(!DEV_ALL_UNLOCKED&&Object.keys(state.gpsCalibration).length){state.gpsCalibration={};save()}"""
-          if s.count(old_init)!=1:
-              raise SystemExit(f'gpsCalibration init mismatch: {s.count(old_init)}')
-          s=s.replace(old_init,new_init,1)
-
-          marker="function saveCalPoint(kind){\n"
-          if s.count(marker)!=1:
-              raise SystemExit(f'saveCalPoint mismatch: {s.count(marker)}')
-          s=s.replace(marker,marker+" if(!DEV_ALL_UNLOCKED)return;\n",1)
-
-          pat=re.compile(r"function initGpsUi\(\)\{.*?\n\}\n\nfunction renderOsoShop\(\)\{",re.S)
-          m=pat.search(s)
-          if not m:
-              raise SystemExit('initGpsUi block not found')
-          replacement="""function initGpsUi(){
- const calPanel=$('.gpsCalPanel');
- if(calPanel)calPanel.classList.toggle('hidden',!DEV_ALL_UNLOCKED);
- const sel=$('#calZoneSelect');
- if(DEV_ALL_UNLOCKED&&sel){
-  sel.innerHTML=GAME_ACQUIRE.map(x=>`<option value=\"${x.code}\">${game(x.code).name} — ${x.place}</option>`).join('');
-  $('#calOutput').textContent=JSON.stringify(state.gpsCalibration||{},null,2)
- }
- $('#gpsStartBtn').onclick=startGpsWatch;
- if(DEV_ALL_UNLOCKED){
-  $('#calStart').onclick=()=>saveCalPoint('a');
-  $('#calEnd').onclick=()=>saveCalPoint('b');
-  $('#calCenter').onclick=()=>saveCalPoint('center')
- }
- renderGpsLocations()
-}
-
-function renderOsoShop(){"""
-          s=pat.sub(replacement,s,count=1)
-
-          # Static safety checks
-          checks=[
-              "if(DEV_ALL_UNLOCKED){\n  const cal=state.gpsCalibration||{};",
-              "if(!DEV_ALL_UNLOCKED&&Object.keys(state.gpsCalibration).length){state.gpsCalibration={};save()}",
-              "function saveCalPoint(kind){\n if(!DEV_ALL_UNLOCKED)return;",
-              "if(calPanel)calPanel.classList.toggle('hidden',!DEV_ALL_UNLOCKED);",
-              "if(DEV_ALL_UNLOCKED){\n  $('#calStart').onclick=()=>saveCalPoint('a');"
-          ]
-          for x in checks:
-              if x not in s: raise SystemExit('missing safety check: '+x[:80])
-          if s.count("function gpsZones(){")!=1 or s.count("function initGpsUi(){")!=1:
-              raise SystemExit('function duplication detected')
-
-          p.write_text(s,encoding='utf-8')
-          print('verified: /play/ ignores and clears calibration; /unlock/ retains calibration controls')
+          # Safety: only the UI hide line is introduced; core GPS/calibration code remains untouched.
+          out=p.read_text(encoding='utf-8')
+          if out.count(line)!=1:
+              raise SystemExit('panel hide verification failed')
+          if "const cal=state.gpsCalibration||{};" not in out:
+              raise SystemExit('gpsZones calibration logic changed unexpectedly')
+          if "function saveCalPoint(kind){" not in out:
+              raise SystemExit('saveCalPoint changed unexpectedly')
+          print('verified: only /play/ hides .gpsCalPanel; GPS logic remains intact')
           PY
 
           git config user.name 'PWDJ Web Fix'
           git config user.email '34460283+haveanair@users.noreply.github.com'
           git add play/index.html
-          git commit -m 'Disable manual GPS calibration in live play'
+          git diff --cached --quiet && exit 0
+          git commit -m 'Hide GPS calibration panel in live play'
           git push
