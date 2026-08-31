@@ -1,0 +1,71 @@
+name: Validate wrap fixes on main
+
+on:
+  push:
+    branches: [qa-wrap-audit]
+    paths:
+      - '.github/validate-wrap-fixes.trigger'
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - name: Install Korean font and browser driver
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y fonts-noto-cjk
+          fc-cache -f
+          python3 -m pip install --quiet playwright
+      - name: Verify all game info modal wrapping
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m http.server 8000 >/tmp/oso-http.log 2>&1 &
+          SERVER_PID=$!
+          trap 'kill $SERVER_PID || true' EXIT
+          sleep 1
+          CHROME="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium || true)"
+          export CHROME
+          cat > /tmp/validate.py <<'PY'
+          import os,json
+          from playwright.sync_api import sync_playwright
+          viewports=[(320,568),(360,640),(390,844),(412,915)]
+          bad=[]; rows=[]
+          js=r'''sel=>{
+            const el=document.querySelector(sel); if(!el)return [];
+            const cs=[];const w=document.createTreeWalker(el,NodeFilter.SHOW_TEXT);let n;
+            while(n=w.nextNode()){const s=n.nodeValue||'';for(let i=0;i<s.length;i++){if(/\s/.test(s[i]))continue;const rg=document.createRange();rg.setStart(n,i);rg.setEnd(n,i+1);const r=rg.getBoundingClientRect();if(r.width&&r.height)cs.push({c:s[i],t:Math.round(r.top*2)/2,l:r.left})}}
+            cs.sort((a,b)=>Math.abs(a.t-b.t)>1?a.t-b.t:a.l-b.l);const out=[];
+            for(const c of cs){let z=out.find(x=>Math.abs(x.t-c.t)<=1.5);if(!z){z={t:c.t,a:[]};out.push(z)}z.a.push(c)}
+            out.sort((a,b)=>a.t-b.t);return out.map(z=>z.a.sort((a,b)=>a.l-b.l).map(x=>x.c).join(''));
+          }'''
+          with sync_playwright() as p:
+            browser=p.chromium.launch(headless=True,executable_path=os.environ['CHROME'],args=['--no-sandbox','--disable-dev-shm-usage'])
+            for width,height in viewports:
+              page=browser.new_page(viewport={'width':width,'height':height})
+              page.goto('http://127.0.0.1:8000/play/',wait_until='domcontentloaded')
+              page.wait_for_timeout(600)
+              page.evaluate("""()=>{const b=document.querySelector('#boot');if(b)b.style.display='none';const a=document.querySelector('#app');if(a){a.style.display='flex';a.style.visibility='visible'};document.querySelectorAll('.page').forEach(x=>x.classList.remove('on'));const g=document.querySelector('#gamesPage');if(g)g.classList.add('on')}""")
+              count=min(page.locator('.gameCard').count(),10)
+              for i in range(count):
+                page.evaluate("i=>document.querySelectorAll('.gameCard')[i].click()",i)
+                page.wait_for_timeout(50)
+                for sel in ['#mDesc','#mArea']:
+                  lines=page.evaluate(js,sel)
+                  text=''.join(lines)
+                  rows.append({'viewport':width,'game':i+1,'field':sel,'lines':lines})
+                  if len(lines)>=2 and len(lines[-1])<=2 and len(text)>=7:
+                    bad.append({'viewport':width,'game':i+1,'field':sel,'lines':lines})
+                page.evaluate("()=>document.querySelectorAll('.modal.show').forEach(x=>x.classList.remove('show'))")
+              page.close()
+            browser.close()
+          print(json.dumps({'bad':bad,'rows':rows},ensure_ascii=False,indent=2))
+          if bad: raise SystemExit('Orphan wrap remains')
+          PY
+          python3 /tmp/validate.py
