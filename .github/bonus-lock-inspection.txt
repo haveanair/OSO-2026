@@ -1,0 +1,64 @@
+===== KEY: GPS 획득 필요 COUNT 1 =====
+
+--- GPS 획득 필요 #1 @ 1258891 ---
+
+dArt"><div class="artEmoji">${art}</div></div><b>${state.unlock[g.code]?g.name:'???'}</b><small>${g.desc}</small><div class="best">${state.unlock[g.code]?`🏆 최고 ${state.best[g.code]||0}<span class="miniStars">${stars}</span>`:(g.code==='spacefighter'?'<span class="spaceBonusLock">🔒 7개 게임 획득 시 해금</span>':g.code==='racing'?'<span class="scoreBonusLock">🔒 누적 500,000점 달성 시 해금</span>':g.code==='fantasy'?'<span class="scoreBonusLock">🔒 누적 1,000,000점 달성 시 해금</span>':'🔒 GPS/QR로 획득')}</div></button>`
+ }).join('');
+ $$('[data-game]').forEach(b=>b.onclick=()=>openInfo(b.dataset.game));
+ renderGpsLocations(lastGps);renderOsoShop();renderRanking();
+ const ho=$('#headerOso');if(ho)ho.src=currentOsoSrc();save();
+ if(bonusNew)setTimeout(()=>flashyUnlock('spacefighter'),2100);
+ pendingBonus.forEach((c,i)=>setTimeout(()=>flashyUnlock(c),2100+i*2300))
+}
+function openInfo(code){selected=game(code);const unlocked=!!state.unlock[code];$('#mEm').textContent=selected.icon;$('#mName').textContent=unlocked?selected.name:'잠긴 게임';$('#mDesc').textContent=selected.desc;$('#mArea').textContent='장소 힌트 · '+selected.area.replace(/^해금 위치:\s*/,'');$('#mPlay').disabled=!unlocked;$('#mPlay').textContent=unlocked?'플레이':'GPS 획득 필요';$('#modal').classList.add('show')}
+$('#mClose').onclick=()=>$('#modal').classList.remove('show');$('#mPlay').onclick=()=>{if(selected&&state.unlock[selected.code]){$('#modal').classList.remove('show');startGame(selected.code)}};
+$$('nav button').forEach(b=>b.onclick=()=>{showPage(b.dataset.page);if(b.dataset.page==='mapPage')startGpsWatch()});
+window.unlockFromNative=code=>{
+ const c=parseUnlockQr(code)||normalizeUnlockCode(code);
+ if(c)qrUnlock(c)
+};
+
+function fxText(x,y,text,color='#f39a11'){const s=$('#stage'),r=s.getBoundingClientRect(),e=document.createElement('div');e.className='fxText';e.textContent=text;e.style.left=(x-r.left)+'px';e.style.top=(y-r.top)+'px';e.style.color=color;s.appendChild(e);setTimeout(()=>e.remove(),700)}
+function particles(x,y,emoji='✨',count=6){const s=$('#stage'),r=s.getBoundingClientRect();for(let i=0;i<count;i++){let e=document.createElement('div');e.className='particle';e.textContent=emoji;e.style.left=(x-r.left)+'px';e.style.top=(y-r.top)+'px';e.style.setProperty('--dx',(Math.random()*120-60)+'px');e.style.setProperty('--dy',(-35-Math.random()*85)+'px');e.style.setProperty('--rot',(Math.random()*300-150)+'deg');s.appendChild(e);setTimeout(()=>e.remove(),760)}}
+
+function showComboBurst(text,count=2,kind='combo'){
+ const s=$('#stage');if(!s)return;
+ $$('.comboBurstFX').forEach(e=>e.remove());
+ const tier=count>=10?3:count>=5?2:1,e=document.createElement('div');
+ e.className=`comboBurstFX tier${tier} ${kind||''}`;e.textContent=text;s.appendChild(e);
+ const r=s.getBoundingClientRect(),x=r.left+r.width/2,y=r.top+r.height*.19;
+ particles(x,y,count>=10?'🔥':count>=5?'⭐':'✨',count>=10?18:count>=5?13:9);
+ const p=520+Math.min(12,count)*28;beep(p,.055,.020,'square',p*1.20);setTimeout(()=>beep(p*1.25,.065,.016,'triangle',p*1.33),58);
+ 
+
+===== KEY: 잠긴 게임 COUNT 1 =====
+
+--- 잠긴 게임 #1 @ 1258701 ---
+
+'⭐'.repeat(st)+'☆'.repeat(3-st);
+ return `<button class="gameCard theme-${g.code} ${state.unlock[g.code]?'':'lock'}" data-game="${g.code}"><div class="gameNo">${i+1}</div><div class="gameCardArt"><div class="artEmoji">${art}</div></div><b>${state.unlock[g.code]?g.name:'???'}</b><small>${g.desc}</small><div class="best">${state.unlock[g.code]?`🏆 최고 ${state.best[g.code]||0}<span class="miniStars">${stars}</span>`:(g.code==='spacefighter'?'<span class="spaceBonusLock">🔒 7개 게임 획득 시 해금</span>':g.code==='racing'?'<span class="scoreBonusLock">🔒 누적 500,000점 달성 시 해금</span>':g.code==='fantasy'?'<span class="scoreBonusLock">🔒 누적 1,000,000점 달성 시 해금</span>':'🔒 GPS/QR로 획득')}</div></button>`
+ }).join('');
+ $$('[data-game]').forEach(b=>b.onclick=()=>openInfo(b.dataset.game));
+ renderGpsLocations(lastGps);renderOsoShop();renderRanking();
+ const ho=$('#headerOso');if(ho)ho.src=currentOsoSrc();save();
+ if(bonusNew)setTimeout(()=>flashyUnlock('spacefighter'),2100);
+ pendingBonus.forEach((c,i)=>setTimeout(()=>flashyUnlock(c),2100+i*2300))
+}
+function openInfo(code){selected=game(code);const unlocked=!!state.unlock[code];$('#mEm').textContent=selected.icon;$('#mName').textContent=unlocked?selected.name:'잠긴 게임';$('#mDesc').textContent=selected.desc;$('#mArea').textContent='장소 힌트 · '+selected.area.replace(/^해금 위치:\s*/,'');$('#mPlay').disabled=!unlocked;$('#mPlay').textContent=unlocked?'플레이':'GPS 획득 필요';$('#modal').classList.add('show')}
+$('#mClose').onclick=()=>$('#modal').classList.remove('show');$('#mPlay').onclick=()=>{if(selected&&state.unlock[selected.code]){$('#modal').classList.remove('show');startGame(selected.code)}};
+$$('nav button').forEach(b=>b.onclick=()=>{showPage(b.dataset.page);if(b.dataset.page==='mapPage')startGpsWatch()});
+window.unlockFromNative=code=>{
+ const c=parseUnlockQr(code)||normalizeUnlockCode(code);
+ if(c)qrUnlock(c)
+};
+
+function fxText(x,y,text,color='#f39a11'){const s=$('#stage'),r=s.getBoundingClientRect(),e=document.createElement('div');e.className='fxText';e.textContent=text;e.style.left=(x-r.left)+'px';e.style.top=(y-r.top)+'px';e.style.color=color;s.appendChild(e);setTimeout(()=>e.remove(),700)}
+function particles(x,y,emoji='✨',count=6){const s=$('#stage'),r=s.getBoundingClientRect();for(let i=0;i<count;i++){let e=document.createElement('div');e.className='particle';e.textContent=emoji;e.style.left=(x-r.left)+'px';e.style.top=(y-r.top)+'px';e.style.setProperty('--dx',(Math.random()*120-60)+'px');e.style.setProperty('--dy',(-35-Math.random()*85)+'px');e.style.setProperty('--rot',(Math.random()*300-150)+'deg');s.appendChild(e);setTimeout(()=>e.remove(),760)}}
+
+function showComboBurst(text,count=2,kind='combo'){
+ const s=$('#stage');if(!s)return;
+ $$('.comboBurstFX').forEach(e=>e.remove());
+ const tier=count>=10?3:count>=5?2:1,e=document.createElement('div');
+ e.className=`comboBurstFX tier${tier} ${kind||''}`;e.textContent=text;s.appendChild(e);
+ const r=s.getBoundingClientRect(),x=r.left+r.width/2,y=r.top+r.height*.19;
+ particles(x,y,c
