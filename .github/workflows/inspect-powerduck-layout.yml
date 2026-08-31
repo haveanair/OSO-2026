@@ -1,0 +1,47 @@
+name: Inspect powerduck layout
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/powerduck-layout.trigger'
+
+permissions:
+  contents: write
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Save powerduck layout context
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          s=Path('play/index.html').read_text(encoding='utf-8')
+          keys=['파워덕질 1초 연타왕','1초 목표','BEST 7/s','powerduck','POWER DUCK','연타 파괴 챌린지']
+          out=[]
+          for k in keys:
+              out.append(f'===== {k} =====')
+              start=0
+              count=0
+              while True:
+                  i=s.find(k,start)
+                  if i<0: break
+                  count+=1
+                  a=max(0,i-1800); b=min(len(s),i+2600)
+                  out.append(f'--- hit {count} @ {i} ---')
+                  out.append(s[a:b])
+                  start=i+len(k)
+                  if count>=6: break
+          Path('.github/powerduck-layout-inspection.txt').write_text('\n\n'.join(out),encoding='utf-8')
+          PY
+          git config user.name 'PWDJ Layout Inspect'
+          git config user.email '34460283+haveanair@users.noreply.github.com'
+          git add .github/powerduck-layout-inspection.txt
+          git commit -m 'Save powerduck layout inspection' || exit 0
+          git push
