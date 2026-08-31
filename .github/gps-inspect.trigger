@@ -1,1 +1,1 @@
-Inspect GPS unlock overlap after field test showed four games unlocked at once.
+Apply distributed non-overlapping GPS checkpoints across the seven market zones.
