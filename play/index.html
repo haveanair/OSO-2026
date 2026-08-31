@@ -3532,7 +3532,7 @@ function refresh(){
  if(bonusNew)setTimeout(()=>flashyUnlock('spacefighter'),2100);
  pendingBonus.forEach((c,i)=>setTimeout(()=>flashyUnlock(c),2100+i*2300))
 }
-function openInfo(code){selected=game(code);const unlocked=!!state.unlock[code];$('#mEm').textContent=selected.icon;$('#mName').textContent=unlocked?selected.name:'잠긴 게임';$('#mDesc').textContent=selected.desc;$('#mArea').textContent='장소 힌트 · '+selected.area.replace(/^해금 위치:\s*/,'');$('#mPlay').disabled=!unlocked;$('#mPlay').textContent=unlocked?'플레이':'GPS 획득 필요';$('#modal').classList.add('show')}
+function openInfo(code){selected=game(code);const unlocked=!!state.unlock[code];$('#mEm').textContent=selected.icon;$('#mName').textContent=unlocked?selected.name:'잠긴 게임';$('#mDesc').textContent=selected.desc;$('#mArea').textContent='장소 힌트 · '+selected.area.replace(/^해금 위치:\s*/,'');$('#mPlay').disabled=!unlocked;$('#mPlay').textContent=unlocked?'플레이':(BONUS_GAME_CODES.includes(selected.code)?'조건달성 필요':'GPS 획득 필요');$('#modal').classList.add('show')}
 $('#mClose').onclick=()=>$('#modal').classList.remove('show');$('#mPlay').onclick=()=>{if(selected&&state.unlock[selected.code]){$('#modal').classList.remove('show');startGame(selected.code)}};
 $$('nav button').forEach(b=>b.onclick=()=>{showPage(b.dataset.page);if(b.dataset.page==='mapPage')startGpsWatch()});
 window.unlockFromNative=code=>{
