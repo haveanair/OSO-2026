@@ -1,1 +1,1 @@
-Inspect exact bonus lock labels for condition-required change.
+Apply condition-required labels to bonus games 8 9 10.
