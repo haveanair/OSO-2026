@@ -17,21 +17,18 @@ jobs:
         with:
           ref: main
           fetch-depth: 0
-      - name: Apply final two wrap fixes
+      - name: Apply final wrap fix
         run: |
           python3 - <<'PY'
           from pathlib import Path
           p=Path('play/index.html')
           s=p.read_text(encoding='utf-8')
-          repl={
-            '2단점프 · GREAT 시 3단점프 · LEVEL 5 시장길 질주':'2단점프 · GREAT 시 3단점프 · LEVEL 5 돌파',
-            '해금 조건 · 기존 7개 게임 모두 획득':'해금 조건 · 7개 게임 모두 획득',
-          }
-          for old,new in repl.items():
-              n=s.count(old)
-              if n != 1:
-                  raise SystemExit(f'Expected exactly 1 occurrence, got {n}: {old}')
-              s=s.replace(old,new)
+          old='2단점프 · GREAT 시 3단점프 · LEVEL 5 돌파'
+          new='2단점프 · GREAT 시 3단점프 · LV5 돌파'
+          n=s.count(old)
+          if n != 1:
+              raise SystemExit(f'Expected exactly 1 occurrence, got {n}: {old}')
+          s=s.replace(old,new)
           p.write_text(s,encoding='utf-8')
           PY
           git diff --check
@@ -41,5 +38,5 @@ jobs:
           git config user.name 'PWDJ'
           git config user.email '34460283+haveanair@users.noreply.github.com'
           git add play/index.html
-          git commit -m 'Finish mobile text wrap cleanup'
+          git commit -m 'Finalize mobile text wrap cleanup'
           git push origin HEAD:main
