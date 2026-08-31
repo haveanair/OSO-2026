@@ -2875,38 +2875,13 @@ const GAME_ACQUIRE=[
    해당 구역을 가로지르는 실제 POI feature를 시작/끝 기준점으로 사용한다.
 */
 const GPS_DEFAULTS={
- basket:{type:'circle',lat:35.197412338175,lng:128.08448465174,radius:75,near:210,source:'public-address'},
- fish:{
-  type:'corridor',
-  a:{lat:35.195052980388226,lng:128.085264052382115},
-  b:{lat:35.195345669871315,lng:128.085359345818659},
-  radius:22,near:150,source:'growmaps:project75:1F:1030078-1034002'
- },
- stack:{
-  type:'corridor',
-  a:{lat:35.194661843530056,lng:128.084729818594838},
-  b:{lat:35.194615480555584,lng:128.085613224989288},
-  radius:22,near:150,source:'growmaps:project75:1F:1030104-1020021'
- },
- run:{
-  type:'corridor',
-  a:{lat:35.194188008816820,lng:128.084830429056180},
-  b:{lat:35.194274577002346,lng:128.085685647616630},
-  radius:22,near:160,source:'growmaps:project75:1F:1020051-1020033'
- },
- slice:{
-  type:'corridor',
-  a:{lat:35.194705939189717,lng:128.084666219220139},
-  b:{lat:35.195176299108596,lng:128.084722563351420},
-  radius:22,near:150,source:'growmaps:project75:1F:1030106-1030006'
- },
- tteok:{
-  type:'corridor',
-  a:{lat:35.195176299108596,lng:128.084722563351420},
-  b:{lat:35.195257533904623,lng:128.085105639573698},
-  radius:22,near:150,source:'growmaps:project75:1F:1030006-1030015'
- },
- powerduck:{type:'circle',lat:35.194613594496,lng:128.08480142824,radius:70,near:190,source:'public-address'}
+ basket:{type:'circle',lat:35.197412338175,lng:128.08448465174,radius:45,near:180,source:'public-address'},
+ fish:{type:'circle',lat:35.195345669871315,lng:128.085359345818659,radius:14,near:95,source:'growmaps:project75:1F:3gu-fish-checkpoint'},
+ stack:{type:'circle',lat:35.194615480555584,lng:128.085613224989288,radius:14,near:95,source:'growmaps:project75:1F:2gu-checkpoint'},
+ run:{type:'circle',lat:35.194274577002346,lng:128.085685647616630,radius:14,near:95,source:'growmaps:project75:1F:1gu-checkpoint'},
+ slice:{type:'circle',lat:35.194941119149156,lng:128.084694391285779,radius:14,near:95,source:'growmaps:project75:1F:new-food-alley-checkpoint'},
+ tteok:{type:'circle',lat:35.195225039986212,lng:128.084952409084787,radius:14,near:95,source:'growmaps:project75:1F:north-checkpoint'},
+ powerduck:{type:'circle',lat:35.194613594496,lng:128.08480142824,radius:14,near:95,source:'public-address'}
 };
 let gpsWatchId=null,lastGps=null,lastDirNotice={},gpsGuideTimer=null;
 
@@ -3397,12 +3372,18 @@ function evaluateGpsPosition(pos){
  const z=gpsZones(),acc=Number(pos&&pos.accuracy)||999;
  // 실내 GPS가 지나치게 흔들릴 때 엉뚱한 구역을 해금하지 않는다.
  if(acc>140){renderGpsLocations(pos);return}
- GAME_ACQUIRE.forEach(loc=>{
-  const zone=z[loc.code];if(!zone)return;
-  const d=effectiveZoneDistanceM(pos,zone);
-  if(zoneInside(pos,zone))unlockByGps(loc.code);
-  else if(d <= (zone.near||140) && !acquiredByAny(loc.code))showDirection(loc.code,d,pos,zone)
- });
+ // 한 위치에서는 가장 가까운 구역 하나만 해금 후보가 된다.
+ // 이미 획득한 구역도 거리 비교에 포함해 같은 자리에서 다음 게임이 연쇄 해금되지 않게 한다.
+ const ranked=GAME_ACQUIRE.map(loc=>{
+  const zone=z[loc.code],target=zoneTarget(zone);
+  if(!zone||!target)return null;
+  return {loc,zone,target,centerD:metersBetween(pos,target),d:effectiveZoneDistanceM(pos,zone)}
+ }).filter(Boolean).sort((a,b)=>a.centerD-b.centerD);
+ const closest=ranked[0];
+ if(closest){
+  if(zoneInside(pos,closest.zone))unlockByGps(closest.loc.code);
+  else if(closest.d <= (closest.zone.near||95) && !acquiredByAny(closest.loc.code))showDirection(closest.loc.code,closest.d,pos,closest.zone)
+ }
  renderGpsLocations(pos)
 }
 function renderGpsLocations(pos=lastGps){
