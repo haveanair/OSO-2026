@@ -12,6 +12,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Install Korean font
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y fonts-noto-cjk
+          fc-cache -f
       - name: Install browser driver
         run: python3 -m pip install --quiet playwright
       - name: Run full mobile rendering audit
@@ -30,7 +35,7 @@ jobs:
           from pathlib import Path
           from playwright.sync_api import sync_playwright
 
-          OUT=Path('wrap-audit-output-v2'); OUT.mkdir(exist_ok=True)
+          OUT=Path('wrap-audit-output-v3'); OUT.mkdir(exist_ok=True)
           SHOTS=OUT/'screens'; SHOTS.mkdir(exist_ok=True)
           issues=[]; summary=[]; runtime={}
           viewports=[(320,568),(360,640),(390,844),(412,915)]
@@ -63,22 +68,17 @@ jobs:
               page=browser.new_page(viewport={'width':w,'height':h})
               load(page)
               if not runtime:
-                runtime=page.evaluate("""()=>({pages:[...document.querySelectorAll('.page')].map((x,i)=>({i,id:x.id,cls:x.className,hasCards:!!x.querySelector('.gameCard')})),playFns:Object.getOwnPropertyNames(window).filter(k=>/^play/i.test(k)&&typeof window[k]==='function'),stateType:typeof state,stateKeys:(typeof state==='object'&&state)?Object.keys(state):[]})""")
-              # Every main page, forced visible one at a time.
+                runtime=page.evaluate("""()=>({font:getComputedStyle(document.body).fontFamily,pages:[...document.querySelectorAll('.page')].map((x,i)=>({i,id:x.id,cls:x.className,hasCards:!!x.querySelector('.gameCard')})),playFns:Object.getOwnPropertyNames(window).filter(k=>/^play/i.test(k)&&typeof window[k]==='function')})""")
               pc=page.locator('.page').count()
               for idx in range(pc):
                 page.evaluate("""i=>{document.querySelectorAll('.page').forEach((x,j)=>x.classList.toggle('on',i===j))}""",idx);page.wait_for_timeout(60);scan(page,f'page_{idx:02d}',w,h)
-              # Game card information modal, using DOM click so hidden/scroll state does not block audit.
               page.evaluate("""()=>{const p=[...document.querySelectorAll('.page')].find(x=>x.querySelector('.gameCard'));if(p){document.querySelectorAll('.page').forEach(x=>x.classList.remove('on'));p.classList.add('on')}}""")
               nc=page.locator('.gameCard').count()
               for idx in range(min(nc,10)):
                 page.evaluate("""i=>document.querySelectorAll('.gameCard')[i].click()""",idx);page.wait_for_timeout(60);scan(page,f'modal_{idx+1:02d}',w,h);page.evaluate("""()=>document.querySelectorAll('.modal.show').forEach(x=>x.classList.remove('show'))""")
-              # All globally exposed play functions which look like game launchers.
-              names=page.evaluate("""()=>Object.getOwnPropertyNames(window).filter(k=>/^play[A-Z]/.test(k)&&typeof window[k]==='function'&&!/Bgm|Tone|Sound|Audio|Music|Intro/i.test(k))""")
+              names=page.evaluate("""()=>Object.getOwnPropertyNames(window).filter(k=>/^play[A-Z]/.test(k)&&typeof window[k]==='function'&&!/Bgm|Tone|Sound|Audio|Music|Intro|CoinMilestones/i.test(k))""")
               for name in names:
-                if name in ['playHitSound']: continue
-                load(page)
-                ok=page.evaluate("""n=>{try{window[n]();return true}catch(e){return String(e)}}""",name)
+                load(page);ok=page.evaluate("""n=>{try{window[n]();return true}catch(e){return String(e)}}""",name)
                 if ok is not True: summary.append([f'{w}x{h}',name+'_ERROR',ok]);continue
                 page.wait_for_timeout(120);scan(page,name+'_intro',w,h)
                 page.evaluate("""()=>{const b=document.querySelector('.gameIntro button');if(b)b.click()}""");page.wait_for_timeout(120);scan(page,name+'_active',w,h)
@@ -93,16 +93,13 @@ jobs:
           data={'runtime':runtime,'summary':summary,'issues':issues,'explicit_br_count':len(br),'explicit_br_contexts':br}
           (OUT/'report.json').write_text(json.dumps(data,ensure_ascii=False,indent=2),encoding='utf-8')
           with (OUT/'report.txt').open('w',encoding='utf-8') as f:
-            f.write('RUNTIME '+json.dumps(runtime,ensure_ascii=False)+'\n')
-            f.write('TOTAL '+str(len(issues))+'\nBR '+str(len(br))+'\n')
+            f.write('RUNTIME '+json.dumps(runtime,ensure_ascii=False)+'\nTOTAL '+str(len(issues))+'\nBR '+str(len(br))+'\n')
             for row in summary:f.write('SUMMARY\t'+'\t'.join(map(str,row))+'\n')
-            for x in issues:
-              f.write(f"ISSUE\t{x['viewport']}\t{x['label']}\t{','.join(x['issues'])}\t{x['tag']}#{x['id']}.{x['cls']}\nTEXT\t{x['text']}\nLINES\t{' / '.join(x['lines'])}\n")
-            f.write('\nEXPLICIT_BR\n'+'\n'.join(br))
+            for x in issues:f.write(f"ISSUE\t{x['viewport']}\t{x['label']}\t{','.join(x['issues'])}\nTEXT\t{x['text']}\nLINES\t{' / '.join(x['lines'])}\n")
           print((OUT/'report.txt').read_text(encoding='utf-8'))
           PY
           python3 /tmp/audit.py
       - uses: actions/upload-artifact@v4
         with:
-          name: mobile-wrap-audit-v2
-          path: wrap-audit-output-v2
+          name: mobile-wrap-audit-v3
+          path: wrap-audit-output-v3
