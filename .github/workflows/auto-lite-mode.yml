@@ -1,0 +1,123 @@
+name: Add automatic low-end lite mode
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/perf-lite.trigger'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Add conservative automatic performance mode
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('play/index.html')
+          s=p.read_text(encoding='utf-8')
+
+          css_marker='/* game */'
+          if s.count(css_marker)!=1:
+              raise SystemExit(f'CSS marker count invalid: {s.count(css_marker)}')
+          lite_css=r'''/* ===== AUTO LOW-END LITE MODE ===== */
+html.lowPerf .gameCard,
+html.lowPerf .panel,
+html.lowPerf .modalBox,
+html.lowPerf .result,
+html.lowPerf .startBtn,
+html.lowPerf .titleBottom button,
+html.lowPerf .headHome,
+html.lowPerf .pill,
+html.lowPerf .locationRow,
+html.lowPerf .person,
+html.lowPerf .actions button,
+html.lowPerf .actions a{box-shadow:none!important}
+html.lowPerf .hero img,
+html.lowPerf .splash img,
+html.lowPerf .gameCard{filter:none!important}
+html.lowPerf .sliceTrail{box-shadow:none!important}
+html.lowPerf .particle,
+html.lowPerf .comboBurstFX{filter:none!important;text-shadow:none!important;box-shadow:none!important}
+'''
+          s=s.replace(css_marker,lite_css+'\n'+css_marker,1)
+
+          js_marker="function fxText(x,y,text,color='#f39a11')"
+          if s.count(js_marker)!=1:
+              raise SystemExit(f'JS marker count invalid: {s.count(js_marker)}')
+          perf_js=r'''const PERF_LITE_KEY='jcm-v249-auto-lite-v1';
+window.__OSO_LOW_PERF=false;
+function applyAutoLiteMode(on,remember=false){
+ window.__OSO_LOW_PERF=!!on;
+ document.documentElement.classList.toggle('lowPerf',!!on);
+ if(remember&&on){try{localStorage.setItem(PERF_LITE_KEY,JSON.stringify({on:1,t:Date.now()}))}catch(e){}}
+}
+function initAutoLiteMode(){
+ let saved=false;
+ try{
+  const v=JSON.parse(localStorage.getItem(PERF_LITE_KEY)||'null');
+  saved=!!(v&&v.on&&Date.now()-Number(v.t||0)<7*24*60*60*1000);
+ }catch(e){}
+ if(saved){applyAutoLiteMode(true,false);return}
+ const cores=Number(navigator.hardwareConcurrency)||0;
+ const mem=Number(navigator.deviceMemory)||0;
+ // 명백한 저사양만 사전 판정. 애매한 기기는 실제 프레임 측정으로 결정한다.
+ if((cores>0&&cores<=4)||(mem>0&&mem<=2)){applyAutoLiteMode(true,true);return}
+ let last=performance.now(),winStart=last,frames=0,longFrames=0,badWindows=0;
+ function probe(now){
+  if(window.__OSO_LOW_PERF||document.hidden)return;
+  const dt=now-last;last=now;frames++;
+  if(dt>34)longFrames++;
+  const span=now-winStart;
+  if(span>=2200){
+   const fps=frames*1000/span;
+   const longRatio=frames?longFrames/frames:0;
+   const bad=(fps<42)||(fps<48&&longRatio>.18);
+   badWindows=bad?badWindows+1:Math.max(0,badWindows-1);
+   if(badWindows>=2){applyAutoLiteMode(true,true);return}
+   winStart=now;frames=0;longFrames=0;
+  }
+  requestAnimationFrame(probe)
+ }
+ setTimeout(()=>requestAnimationFrame(t=>{last=t;winStart=t;frames=0;longFrames=0;requestAnimationFrame(probe)}),1800)
+}
+initAutoLiteMode();
+'''
+          s=s.replace(js_marker,perf_js+'\n'+js_marker,1)
+
+          old="function particles(x,y,emoji='✨',count=6){const s=$('#stage'),r=s.getBoundingClientRect();for(let i=0;i<count;i++){"
+          new="function particles(x,y,emoji='✨',count=6){const s=$('#stage'),r=s.getBoundingClientRect();if(window.__OSO_LOW_PERF)count=Math.max(2,Math.ceil(count*.45));for(let i=0;i<count;i++){"
+          if s.count(old)!=1:
+              raise SystemExit(f'particles signature count invalid: {s.count(old)}')
+          s=s.replace(old,new,1)
+
+          # Static safety checks: only rendering/performance additions; gameplay/GPS constants remain present.
+          required=[
+           "const PERF_LITE_KEY='jcm-v249-auto-lite-v1';",
+           'function initAutoLiteMode(){',
+           'badWindows>=2',
+           'window.__OSO_LOW_PERF)count=Math.max(2,Math.ceil(count*.45))',
+           "basket:{type:'circle',lat:35.197412338175,lng:128.08448465174",
+           "powerduck:{type:'circle',lat:35.194613594496,lng:128.08480142824",
+           "BONUS_GAME_CODES.includes(selected.code)?'조건달성 필요':'GPS 획득 필요'"
+          ]
+          for q in required:
+              if q not in s: raise SystemExit('required code missing: '+q)
+          if s.count('function initAutoLiteMode(){')!=1: raise SystemExit('duplicate performance detector')
+          if s.count('/* ===== AUTO LOW-END LITE MODE ===== */')!=1: raise SystemExit('duplicate lite CSS')
+
+          p.write_text(s,encoding='utf-8')
+          PY
+          git config user.name 'PWDJ Performance Fix'
+          git config user.email '34460283+haveanair@users.noreply.github.com'
+          git add play/index.html
+          git commit -m 'Add automatic lite mode for low-end phones'
+          git push
