@@ -17,18 +17,15 @@ jobs:
         with:
           ref: main
           fetch-depth: 0
-      - name: Apply five approved copy fixes
+      - name: Apply final two wrap fixes
         run: |
           python3 - <<'PY'
           from pathlib import Path
           p=Path('play/index.html')
           s=p.read_text(encoding='utf-8')
           repl={
-            '기본 2단점프 · GREAT로 3단점프를 얻어 LEVEL 5 시장길 질주':'2단점프 · GREAT 시 3단점프 · LEVEL 5 시장길 질주',
-            '비빔밥·국수·호떡·김밥·떡볶이·주스·통닭을 높이 띄워 베기':'시장 음식을 높이 띄워 시원하게 베기',
-            '아래쪽의 실제 떡메를 들어 올렸다 절구의 떡을 강하게 내려치기':'떡메를 들어 올려 절구의 떡을 힘껏 내려치기',
-            '해금 조건: 기존 7개 게임을 모두 획득하면 자동 해금':'해금 조건 · 기존 7개 게임 모두 획득',
-            '해금 조건: 누적점수 1,000,000점 달성':'해금 조건 · 누적 1,000,000점 달성',
+            '2단점프 · GREAT 시 3단점프 · LEVEL 5 시장길 질주':'2단점프 · GREAT 시 3단점프 · LEVEL 5 돌파',
+            '해금 조건 · 기존 7개 게임 모두 획득':'해금 조건 · 7개 게임 모두 획득',
           }
           for old,new in repl.items():
               n=s.count(old)
@@ -44,5 +41,5 @@ jobs:
           git config user.name 'PWDJ'
           git config user.email '34460283+haveanair@users.noreply.github.com'
           git add play/index.html
-          git commit -m 'Fix mobile text wrapping in game info'
+          git commit -m 'Finish mobile text wrap cleanup'
           git push origin HEAD:main
