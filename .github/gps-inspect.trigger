@@ -1,1 +1,1 @@
-Apply distributed non-overlapping GPS checkpoints across the seven market zones.
+Retry distributed non-overlapping GPS checkpoints after workflow syntax fix.
