@@ -1,1 +1,1 @@
-Inspect GPS calibration implementation before production hardening.
+Inspect bonus game lock labels before minimal production fix.
