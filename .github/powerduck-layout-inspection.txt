@@ -1,0 +1,673 @@
+===== 파워덕질 1초 연타왕 =====
+
+--- hit 1 @ 511237 ---
+
+000 / 5,000 / 10,000 / 20,000 / 30,000 / 40,000 / 50,000 / 100,000 COIN</b>을 돌파하면 축하 연출이 나옵니다.</p><h3>5. 실제 지도</h3>
+   <p>확인되지 않은 점포 위치는 지도에 임의로 표시하지 않습니다. 게임별 해금 위치는 게임 선택 정보창에서 확인하고, 시장 탐험에서는 실제 지도와 GPS 상태를 확인합니다.</p>
+  </div>
+ </div>
+</div>
+
+<div class="initialModal" id="initialModal" aria-hidden="true">
+ <div class="initialBox">
+   <div class="initialCrown">🏆</div>
+   <h2>누적 순위 기준 돌파!</h2>
+   <p>누적점수 <b id="initialScore">0</b>점<br>랭킹에 남길 이름을 입력하소! 한글/영문/숫자 가능</p>
+   <form id="initialForm">
+     <input id="initialInput" maxlength="8" autocomplete="off" autocapitalize="off" inputmode="text" enterkeyhint="done" lang="ko" placeholder="오소" aria-label="랭킹 이름">
+     <button type="submit">랭킹 등록</button>
+   </form>
+ </div>
+</div>
+
+<div id="gameOverlay"><div class="gameBar"><button id="quit">← 게임목록</button><button id="toTitle" aria-label="타이틀 화면으로" title="타이틀 화면으로">🏠</button><b id="gTitle"></b><span class="gameBest" id="gBest">🏆 최고 0</span><strong id="gScore">0</strong></div><div id="stage"></div></div>
+
+<script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+const GAMES=[{"code":"basket","name":"오소의 장바구니","icon":"🍎","desc":"상품을 받고 폭탄을 피하며 LEVEL 5까지 버티기","area":"해금 위치: 진주중앙시장 주차장"},{"code":"fish","name":"팔딱팔딱 수산시장","icon":"🐟","desc":"흐르는 물 속 생선을 잡고 물방울 콤보를 이어가기","area":"해금 위치: 3구 어시장 인근 전체"},{"code":"stack","name":"차곡차곡 비단쌓기","icon":"🧵","desc":"좌우로 움직이는 비단 보를 정확히 쌓아 15단 완성","area":"해금 위치: 중앙시장 2구통로 전체"},{"code":"run","name":"오소 장보기 RUN","icon":"🏃","desc":"기본 2단점프 · GREAT로 3단점프를 얻어 LEVEL 5 시장길 질주","area":"해금 위치: 1구통로 전체"},{"code":"slice","name":"시장 싹쓸이!","icon":"🍜","desc":"비빔밥·국수·호떡·김밥·떡볶이·주스·통닭을 높이 띄워 베기","area":"해금 위치: 뉴먹자골목 전체"},{"code":"tteok","name":"떡! 떡! 떡!","icon":"🔨","desc":"아래쪽의 실제 떡메를 들어 올렸다 절구의 떡을 강하게 내려치기","area":"해금 위치: 중앙시장 북쪽통로 전체"},{"code":"powerduck","name":"파워덕질 1초 연타왕","icon":"⚡","desc":"과일 5→수박 7→게임패드 10→큰 오락기 13→지구 16회를 1초에 연타해 반으로 부수기","area":"해금 위치: 2층 3구 비단길 전체"},{"code":"spacefighter","name":"오소 우주파이터","icon":"🚀","desc":"종스크롤 슈팅! 5스테이지를 질주하며 지구를 구하소","area":"해금 조건: 기존 7개 게임을 모두 획득하면 자동 해금"},{"code":"racing","name":"오소레이싱","icon":"🏎️","desc":"스크롤되는 진주 도로를 달리며 교통을 피하고 체크포인트를 돌파하소","area":"해금 조건: 누적점수 500,000점 달성"},{"code":"fantasy","name":"오소 환상대모험","icon":"⚔️","desc":"중앙시장의 단서를 따라 보물상자를 찾고 던전과 보스를 돌파해 세계를 구하소","area":"해금 조건: 누적점수 1,000,000점 달성"}];
+const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
+const OSO_SRC='data:image/webp;base64,UklGRog9AABXRUJQVlA4WAoAAAAQAAAA6AAADAEAQUxQSEsCAAABDzD/ERGCarZtmQXn40IgpwRKoaWV66CTbYUO0gJRsUgE4RUzfLzfnJNfFdH/CZB/3Uu0acmmZ5sBm0n7+bDgSMvbINygaEFVdn7To6rityhSNCOpGpAPZj6BSAXCDkdOt8ycpgPwt8ui3doD4DVtFztwGfwCAH8LJ+72mKWYwBfg0lQAoon1LKtwUo7+OIs6AFEjwGXkTRacycxiE22Gt/khNo/1kwpspk3B4XXSjaYRTuNBPUoH7SgfjCMczDOnW0Y490ZBVQiXUVTV18EqGsEqGEVFocDK7YQTFIsSFZOSFIMCRee4XeX4nXCCYlAuhVCiZjKSZr0va2BTKHhN5bhd+6huNDh+N42WEWyKUSW5TTPqRoMk22m0ONko7cD8E3FTKL8jmLjlNpUj+/ZR/aPG9ylhMzk9mshINjNvFmfl6UwAb3TxssAuvgLvS99iMaIs4PqcCQTedfMWA3C8cBOLjvQ0GV4aLqNg4KRCngdDpCYbCQZZtJ2QXtQIUVUJ2QheUxhRI4xsBKdZDK+ZjKAZjGiUNJORNYsBDWwKx+0qx7+lccJb+idcu/EJ8S3z+6TvsL5P/ucG8v848lvW37L5lzU46S39E+JbGufa1U8Iu8LxO+E4I1EuRtZMRtR0RtA0htMUQhT1OnO6fnTJ4Tpwctq/iBy3v6yqy9+lPOVpIvKQzmQzvtF66rf4ugkg27XbRRhGHUASqbdAigbtqdw8oQK4DAqAICI3RxAAXkQWAGFOQERkApnSkW4diBRZ7laBwNmOJP/KAwBWUDggFjsAANCjAJ0BKukADQE+KRCHQiGhCsXe5gwBQlsbvx8mC/AH8AGjc9v+A/IDvIpldI/n/6y/2z/df5f5VOE+bzsZ9h/JH9L/3X+c+Kv+S+wDzo6q8r3xj8u/w/9v/xH/D/yP//+p3+M/w/sH/R/+L9wH+Kfyr/J/27/O/7L+8f/vvE/3T/Pf9r2Af0D+qf6r/A/f/9wH9+/Zj3Ff1P+//+L+8f6P5AP5h/Zf9V+bfxk+wN+53sB/z//L/9f2dP9x/6f9h/wP/h9Fv9S/0//k/0X79fQb/Mv7P/u/2z/7v7//YB/7vUA/73qAfv/7k/Rf+cfij+yHzD+Jfm39E/Hf+r/9H2R/Ffl36P+Pv9o/8X+l+K/+q8dPk/7v/zfIf9X/tP9t/w3+n/vX7rfDX+d/qviX+OfwP95/Mj+0fIF+Ifxz+5f279qf77+z/0kfNf6rtmdM/x/+q9QL1u+e/4b/C/uP/g/QZ/kfQj85/un+L/M//AfYB/Iv5z/fv7n+6X9w////u+v/97/gPEU+5/7D/Qfl39AH8b/pP+h/vf+i/6P+C///2l/wH+v/wn+G/93+c9mv5Z/e/+F/kP8p/4P8D////N+gn8X/m/+Y/t3+R/7n+A////0+5L1y/t17D36wffc297rUZstlXzdetDpZ//FQNoQoXyixObKAcFWJHwnbHrjbO6NawLlSE5kbWtuHkTJZZBEdkX4w0tLtUMbIkFmhH2ZqMxCCcN2/6HczSWgYgcYprZwGJJRLJuYx6LTkAw5/LYVLnBhLX9NFiUsHJHmuBpGB5+DBfczaX8NZcuH7iOmxhtOaNfX+VwnsEenLFvMvCO1dpOBXZHvSRWXrnHuBqhah9gj9Hst277si6VE2KuiZP2dfUr96yhngFSysOJwIt4lWYIXGhtCqvkpyuOfVfUUpW2XEqCxv3uIQsQr6ZMYOEGai+gQ5lCgSRi/m8S1gM8B8zg9EVMJ/6acJG7kALbbK/FE3DDIs4pf07U7gPDm3D5m2vBj82L6aDNPNjEZTZOgugt9A+4Ny+S/+8nolgvHEAfObdSOqveHP5Ma/CBzTU6RuCInh7f2ycgn/IisntmZbHoYBEumCXTc+axf2zexPF4VcSi6RhsrQymZRzJN9k
+
+===== 1초 목표 =====
+
+--- hit 1 @ 1317102 ---
+
+turn Math.max(0,Math.floor(hitCount||0))*(PD_SCORE_MULT[level]||1)+(cleared?(PD_CLEAR_BONUS[level]||0):0)
+ }
+ function updatePdScorePreview(){
+  $('#gScore').textContent=total+pdStageScore(lv,taps,false)
+ }
+ function crack(progress){
+  let c=target.querySelector('.pdCracks');if(!c){c=document.createElement('div');c.className='pdCracks';target.appendChild(c)}c.innerHTML='';let n=Math.floor(progress*7);
+  for(let i=0;i<n;i++){let e=document.createElement('div');e.className='pdCrack';e.style.transform=`translate(-50%,-10%) rotate(${i*51-150}deg)`;e.style.height=(45+Math.random()*45)+'px';c.appendChild(e)}
+ }
+ function showText(t){text.textContent=t;text.classList.remove('show');void text.offsetWidth;text.classList.add('show')}
+ function burst(){let r=target.getBoundingClientRect(),sr=s.getBoundingClientRect();for(let i=0;i<20;i++){let b=document.createElement('div');b.className='pdBurst';b.style.left=(r.left-sr.left+r.width/2)+'px';b.style.top=(r.top-sr.top+r.height/2)+'px';b.style.setProperty('--bx',(Math.random()*240-120)+'px');b.style.setProperty('--by',(Math.random()*240-120)+'px');s.appendChild(b);setTimeout(()=>b.remove(),520)}}
+ function split(icon){
+  let base=target.querySelector('.pdIcon');if(base)base.style.opacity='0';target.classList.add('broken');
+  let wrap=document.createElement('div');wrap.className='pdSplitWrap';wrap.innerHTML=`<div class="pdHalf left">${icon}</div><div class="pdHalf right">${icon}</div><div class="pdCutFlash"></div>`;target.appendChild(wrap);burst()
+ }
+ function loadStage(){
+  let o=targets[lv-1];taps=0;running=false;ended=false;target.classList.remove('broken');target.innerHTML=`<span class="pdIcon">${o.icon}</span>`;target.style.fontSize=lv===4?'104px':lv===5?'118px':'112px';
+  $('#pdLevel').textContent=`LEVEL ${lv}`;need.textContent=`1초 목표: ${o.need}회 이상 · ${o.name} 부수기 · 점수 ×${PD_SCORE_MULT[lv]}`;count.textContent='0 연타';fill.style.width='100%';crack(0);updatePdScorePreview();showText(`${o.name} 준비!`);setBgmLevel(lv)
+ }
+ function finishSecond(){
+  if(ended)return;ended=true;running=false;cancelAnimationFrame(raf);let o=targets[lv-1];state.pdRecord=Math.max(state.pdRecord||0,taps);record.textContent=`BEST ${state.pdRecord}/s`;save();
+  if(taps>=o.need){
+   const gained=pdStageScore(lv,taps,true);total+=gained;$('#gScore').textContent=total;
+   split(o.icon);tone('clear');buzz([30,16,58]);showText(`${taps}회! +${gained}점!`);
+   if(lv>=5){setTimeout(()=>finish('powerduck',total,playPowerduck,true),720)}else{lv++;setTimeout(loadStage,720)}
+  }else{
+   const gained=pdStageScore(lv,taps,false);total+=gained;$('#gScore').textContent=total;
+   tone('bad');buzz(100);showText(`${taps}회 / ${o.need}회 실패 · +${gained}점`);setTimeout(()=>finish('powerduck',total,playPowerduck,false),650)
+  }
+ }
+ function tick(ts){if(!running)return;let elapsed=ts-start,p=Math.max(0,1-elapsed/1000);fill.style.width=(p*100)+'%';if(elapsed>=1000){finishSecond();return}raf=requestAnimationFrame(tick)}
+ target.onclick=()=>{
+  if(ended)return;if(!running){running=true;start=performance.now();raf=requestAnimationFrame(tick)}
+  taps++;tone('tap');buzz(5);target.classList.add('hit');setTimeout(()=>target.classList.remove('hit'),35);count.textContent=`${taps} 연타`;updatePdScorePreview();let o=targets[lv-1],p=Math.min(1,taps/o.need);crack(p);if(taps===o.need)showText(`목표 돌파! LEVEL ${lv} 점수 ×${PD_SCORE_MULT[lv]}!`)
+ };
+ loadStage();cleanup=()=>{ended=true;running=false;cancelAnimationFrame(raf)}
+}
+
+
+
+/* ===== 오소 우주파이터 : 5-STAGE VERTICAL SHOOTER ===== */
+function playSpacefighter(){
+ const s=$('#stage'),skin=currentSkin(),group=skin.group||'oso';
+ const shotIcon=group==='oso'?'📦':'●';
+ const superName=group==='oso'?'만물상 폭격!':'진주 폭풍!';
+
+ s.innerHTML=`<div class="sfWrap">
+   <canvas id="sfCanvas"></canvas>
+   <div class="sfHud"><div id="sfScore">SCORE 0</div><div class="sfStage" id="sfStageText">STAGE 1</div><div class="sfLife" id="sfLife">♥ 3</div></div><div class="sfBonusCoin" id="sfBonusCoin">🪙 +0</div>
+   <div class="sfGauge"><div class="sfGaugeFill" id="sfGaugeFill"></div><div class="sfGaugeText" id="sfGaugeText">초필살기 0%</div></div>
+   <div class="sfUpgrade"><span class="pow" id="sfPower">POWER 1/5</span><span class="opt" id="sfOption">OPTION 0/5</span></div>
+   <div class="sfBossBar" id="sfBossBar"><div class="sfBossFill" id="sfBossFill"></div><div class="sfBossText" id="sfBossText">BOSS 100%</div></div>
+   <button class="sfS
+
+===== BEST 7/s =====
+
+===== powerduck =====
+
+--- hit 1 @ 33465 ---
+
+;opacity:0}}
+
+/* slice */
+.sliceWind{position:absolute;left:0;right:0;top:28%;height:2px;background:#fff8;box-shadow:0 90px #fff6,0 180px #fff4;opacity:.55;pointer-events:none}
+
+/* tteok extra detail and impact */
+.tteokTray{position:absolute;height:18px;background:#9b6638;border:4px solid #704527;border-radius:10px;box-shadow:0 5px #68442b}
+.tteokPiece{position:absolute;width:46px;height:25px;background:radial-gradient(ellipse at 40% 30%,#fff 0 20%,#fff2d7 21% 70%,#e6c596 71%);border:3px solid #b38957;border-radius:50%;box-shadow:0 3px #8b6239}
+.tteokPiece.pink{background:radial-gradient(ellipse at 40% 30%,#fff7f7 0 18%,#f4c1cc 19% 72%,#d58c9c 73%)}
+.tteokPiece.green{background:radial-gradient(ellipse at 40% 30%,#f7fff3 0 18%,#bedb9c 19% 72%,#8aae6b 73%)}
+.mortarImpact{position:absolute;left:50%;top:52%;width:190px;height:90px;transform:translate(-50%,-50%);border-radius:50%;background:radial-gradient(circle,#fff9 0 12%,#ffd84d77 13% 30%,transparent 31%);opacity:0;pointer-events:none}
+.mortarImpact.show{animation:mimpact .22s ease-out}
+@keyframes mimpact{0%{opacity:0;transform:translate(-50%,-50%) scale(.4)}40%{opacity:1}100%{opacity:0;transform:translate(-50%,-50%) scale(1.55)}}
+.tteokScene.impact{animation:sceneImpact .16s linear}
+@keyframes sceneImpact{25%{transform:translateY(7px)}60%{transform:translateY(-3px)}100%{transform:translateY(0)}}
+.impactLine{position:absolute;z-index:14;width:7px;height:52px;background:#fff7;border-radius:999px;transform-origin:bottom;pointer-events:none;animation:iline .3s ease-out forwards}
+@keyframes iline{to{transform:translateY(-48px) scaleY(.2);opacity:0}}
+.malletShadow{position:absolute;left:50%;top:49%;width:135px;height:25px;transform:translateX(-50%);border-radius:50%;background:#0002;filter:blur(4px);pointer-events:none}
+
+/* powerduck mash */
+.powerduckScene{position:absolute;inset:0;background:radial-gradient(circle at 50% 12%,#7d36bd 0,#372148 36%,#171526 78%);overflow:hidden}
+.pdGrid{position:absolute;left:-20%;right:-20%;bottom:-22%;height:70%;background:linear-gradient(#22e8ff22 1px,transparent 1px),linear-gradient(90deg,#22e8ff22 1px,transparent 1px);background-size:38px 38px;transform:perspective(290px) rotateX(58deg);transform-origin:50% 100%;opacity:.75}
+.pdTitle{position:absolute;left:5%;right:5%;top:7%;text-align:center;color:#fff;font-size:24px;font-weight:1000;text-shadow:3px 3px #ff35cf,-3px -2px #1aff83}
+.pdRecord{position:absolute;right:10px;top:10px;background:#fff;border:3px solid #2f1c41;border-radius:999px;padding:6px 10px;font-size:11px;font-weight:1000}
+.pdLevel{position:absolute;left:10px;top:10px;background:#fff;border:3px solid #2f1c41;border-radius:999px;padding:6px 10px;font-size:11px;font-weight:1000}
+.pdNeed{position:absolute;left:50%;top:23%;transform:translateX(-50%);color:#fff;font-size:17px;font-weight:1000;text-shadow:0 3px #2d173b}
+.pdTimer{position:absolute;left:10%;right:10%;top:30%;height:22px;background:#fff;border:4px solid #2b183c;border-radius:999px;overflow:hidden;box-shadow:0 0 18px #27edff}
+.pdTimerFill{height:100%;width:100%;background:linear-gradient(90deg,#2dff7a,#23e5ff,#ff42d3)}
+.pdTarget{position:absolute;left:50%;top:57%;transform:translate(-50%,-50%);width:230px;height:230px;border-radius:34px;border:8px solid #fff;background:radial-gradient(circle at 38% 28%,#fff7 0 8%,#ffda44 9% 18%,#e57c14 19% 64%,#a83d19 65%);box-shadow:0 14px #63211a,0 0 0 10px #342045,0 0 38px #ff32d4;color:#fff;display:flex;align-items:center;justify-content:center;font-size:112px;font-weight:1000;text-shadow:0 4px #4d213a;touch-action:manipulation;user-select:none}
+.pdTarget:active,.pdTarget.hit{transform:translate(-50%,-47%) scale(.94);box-shadow:0 5px #63211a,0 0 0 10px #342045,0 0 50px #35ff8e}
+.pdCracks{position:absolute;inset:0;pointer-events:none}
+.pdCrack{position:absolute;width:5px;height:76px;background:#2e1725;border-radius:999px;left:50%;top:50%;transform-origin:top}
+.pdCount{position:absolute;left:50%;bottom:11%;transform:translateX(-50%);color:#fff;font-size:46px;font-weight:1000;text-shadow:0 4px #351a42;white-space:nowrap}
+.pdBurst{position:absolute;width:18px;height:18px;border-radius:50%;background:#fff;box-shadow:0 0 16px #38fff1;pointer-events:none;animation:pdb .45s ease-out forwards}
+@keyframes pdb{to{transform:translate(var(--bx),var(--by)) scale(.2);opacity:0}}
+.pdStageText{position:absolute;left:50%;top:43%;transform:transla
+
+--- hit 2 @ 33484 ---
+
+ice */
+.sliceWind{position:absolute;left:0;right:0;top:28%;height:2px;background:#fff8;box-shadow:0 90px #fff6,0 180px #fff4;opacity:.55;pointer-events:none}
+
+/* tteok extra detail and impact */
+.tteokTray{position:absolute;height:18px;background:#9b6638;border:4px solid #704527;border-radius:10px;box-shadow:0 5px #68442b}
+.tteokPiece{position:absolute;width:46px;height:25px;background:radial-gradient(ellipse at 40% 30%,#fff 0 20%,#fff2d7 21% 70%,#e6c596 71%);border:3px solid #b38957;border-radius:50%;box-shadow:0 3px #8b6239}
+.tteokPiece.pink{background:radial-gradient(ellipse at 40% 30%,#fff7f7 0 18%,#f4c1cc 19% 72%,#d58c9c 73%)}
+.tteokPiece.green{background:radial-gradient(ellipse at 40% 30%,#f7fff3 0 18%,#bedb9c 19% 72%,#8aae6b 73%)}
+.mortarImpact{position:absolute;left:50%;top:52%;width:190px;height:90px;transform:translate(-50%,-50%);border-radius:50%;background:radial-gradient(circle,#fff9 0 12%,#ffd84d77 13% 30%,transparent 31%);opacity:0;pointer-events:none}
+.mortarImpact.show{animation:mimpact .22s ease-out}
+@keyframes mimpact{0%{opacity:0;transform:translate(-50%,-50%) scale(.4)}40%{opacity:1}100%{opacity:0;transform:translate(-50%,-50%) scale(1.55)}}
+.tteokScene.impact{animation:sceneImpact .16s linear}
+@keyframes sceneImpact{25%{transform:translateY(7px)}60%{transform:translateY(-3px)}100%{transform:translateY(0)}}
+.impactLine{position:absolute;z-index:14;width:7px;height:52px;background:#fff7;border-radius:999px;transform-origin:bottom;pointer-events:none;animation:iline .3s ease-out forwards}
+@keyframes iline{to{transform:translateY(-48px) scaleY(.2);opacity:0}}
+.malletShadow{position:absolute;left:50%;top:49%;width:135px;height:25px;transform:translateX(-50%);border-radius:50%;background:#0002;filter:blur(4px);pointer-events:none}
+
+/* powerduck mash */
+.powerduckScene{position:absolute;inset:0;background:radial-gradient(circle at 50% 12%,#7d36bd 0,#372148 36%,#171526 78%);overflow:hidden}
+.pdGrid{position:absolute;left:-20%;right:-20%;bottom:-22%;height:70%;background:linear-gradient(#22e8ff22 1px,transparent 1px),linear-gradient(90deg,#22e8ff22 1px,transparent 1px);background-size:38px 38px;transform:perspective(290px) rotateX(58deg);transform-origin:50% 100%;opacity:.75}
+.pdTitle{position:absolute;left:5%;right:5%;top:7%;text-align:center;color:#fff;font-size:24px;font-weight:1000;text-shadow:3px 3px #ff35cf,-3px -2px #1aff83}
+.pdRecord{position:absolute;right:10px;top:10px;background:#fff;border:3px solid #2f1c41;border-radius:999px;padding:6px 10px;font-size:11px;font-weight:1000}
+.pdLevel{position:absolute;left:10px;top:10px;background:#fff;border:3px solid #2f1c41;border-radius:999px;padding:6px 10px;font-size:11px;font-weight:1000}
+.pdNeed{position:absolute;left:50%;top:23%;transform:translateX(-50%);color:#fff;font-size:17px;font-weight:1000;text-shadow:0 3px #2d173b}
+.pdTimer{position:absolute;left:10%;right:10%;top:30%;height:22px;background:#fff;border:4px solid #2b183c;border-radius:999px;overflow:hidden;box-shadow:0 0 18px #27edff}
+.pdTimerFill{height:100%;width:100%;background:linear-gradient(90deg,#2dff7a,#23e5ff,#ff42d3)}
+.pdTarget{position:absolute;left:50%;top:57%;transform:translate(-50%,-50%);width:230px;height:230px;border-radius:34px;border:8px solid #fff;background:radial-gradient(circle at 38% 28%,#fff7 0 8%,#ffda44 9% 18%,#e57c14 19% 64%,#a83d19 65%);box-shadow:0 14px #63211a,0 0 0 10px #342045,0 0 38px #ff32d4;color:#fff;display:flex;align-items:center;justify-content:center;font-size:112px;font-weight:1000;text-shadow:0 4px #4d213a;touch-action:manipulation;user-select:none}
+.pdTarget:active,.pdTarget.hit{transform:translate(-50%,-47%) scale(.94);box-shadow:0 5px #63211a,0 0 0 10px #342045,0 0 50px #35ff8e}
+.pdCracks{position:absolute;inset:0;pointer-events:none}
+.pdCrack{position:absolute;width:5px;height:76px;background:#2e1725;border-radius:999px;left:50%;top:50%;transform-origin:top}
+.pdCount{position:absolute;left:50%;bottom:11%;transform:translateX(-50%);color:#fff;font-size:46px;font-weight:1000;text-shadow:0 4px #351a42;white-space:nowrap}
+.pdBurst{position:absolute;width:18px;height:18px;border-radius:50%;background:#fff;box-shadow:0 0 16px #38fff1;pointer-events:none;animation:pdb .45s ease-out forwards}
+@keyframes pdb{to{transform:translate(var(--bx),var(--by)) scale(.2);opacity:0}}
+.pdStageText{position:absolute;left:50%;top:43%;transform:translate(-50%,-50%);z-ind
+
+--- hit 3 @ 42992 ---
+
+73401d 75%);border:5px solid #4f2b17}
+.woodHammerHead:before{left:-15px}.woodHammerHead:after{right:-15px}
+.woodHammerHandle{position:absolute;left:75px;top:62px;width:25px;height:240px;background:linear-gradient(90deg,#653719,#d59b60 45%,#915832 78%,#5a3018);border:5px solid #4f2b17;border-radius:12px;box-shadow:inset 4px 0 #e5b47d}
+.hammerGrip{position:absolute;left:65px;bottom:0;width:45px;height:76px;border-radius:16px;background:repeating-linear-gradient(0deg,#342723 0 9px,#695047 9px 18px);border:5px solid #2b201d}
+.malletShadowV9{position:absolute;left:55%;top:56%;width:150px;height:25px;transform:translateX(-50%);border-radius:50%;background:#0002;filter:blur(5px)}
+.mortarImpactV9{position:absolute;left:55%;top:50%;width:215px;height:120px;transform:translate(-50%,-50%);border-radius:50%;background:radial-gradient(circle,#fff 0 7%,#ffd849dd 8% 21%,#ff8f2177 22% 38%,transparent 39%);opacity:0;pointer-events:none;z-index:12}
+.mortarImpactV9.show{animation:mimpactV9 .23s ease-out}
+@keyframes mimpactV9{0%{opacity:0;transform:translate(-50%,-50%) scale(.3)}35%{opacity:1}100%{opacity:0;transform:translate(-50%,-50%) scale(1.65)}}
+.tteokSceneV9.impact{animation:tteokImpactV9 .18s linear}
+@keyframes tteokImpactV9{18%{transform:translateY(9px)}42%{transform:translateY(-5px)}70%{transform:translateY(3px)}100%{transform:translateY(0)}}
+.tteokSceneV9 .rhythmTarget{left:55%;bottom:auto;top:43%;transform:translate(-50%,-50%)}
+.tteokSceneV9 .rhythmRing{left:55%;bottom:auto;top:43%;margin-left:-59px;margin-top:-59px}
+.impactLineV9{position:absolute;z-index:14;width:7px;height:56px;background:#fff9;border-radius:999px;transform-origin:bottom;pointer-events:none;animation:ilineV9 .32s ease-out forwards}
+@keyframes ilineV9{to{transform:translateY(-52px) scaleY(.2);opacity:0}}
+
+/* powerduck - split into actual visual halves */
+.pdTarget.broken{background:transparent!important;border-color:transparent!important;box-shadow:none!important}
+.pdTarget .pdIcon{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;z-index:2}
+.pdSplitWrap{position:absolute;inset:0;pointer-events:none;z-index:8}
+.pdHalf{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:inherit;line-height:1;filter:drop-shadow(0 7px 4px #0005)}
+.pdHalf.left{clip-path:inset(0 50% 0 0);animation:pdSplitL .65s cubic-bezier(.15,.75,.2,1) forwards}
+.pdHalf.right{clip-path:inset(0 0 0 50%);animation:pdSplitR .65s cubic-bezier(.15,.75,.2,1) forwards}
+@keyframes pdSplitL{0%{transform:translate(0,0) rotate(0);opacity:1}100%{transform:translate(-105px,112px) rotate(-46deg);opacity:.06}}
+@keyframes pdSplitR{0%{transform:translate(0,0) rotate(0);opacity:1}100%{transform:translate(105px,112px) rotate(46deg);opacity:.06}}
+.pdCutFlash{position:absolute;left:50%;top:10%;bottom:10%;width:10px;transform:translateX(-50%) rotate(7deg);background:#fff;box-shadow:0 0 25px #fff,0 0 48px #27f5ff;animation:pdCut .28s ease-out forwards;z-index:10}
+@keyframes pdCut{to{transform:translateX(-50%) rotate(7deg) scaleY(1.6);opacity:0}}
+
+
+/* ===== v1.0 daily coins + persistent ranking + attract mode ===== */
+#rankSplash{background:linear-gradient(#14243e,#251b42 58%,#4b2452);color:#fff}
+.rankScreen{width:min(92%,520px);margin:auto;background:#0d1323dd;border:4px solid #f4c94b;border-radius:28px;padding:18px 14px 16px;box-shadow:0 0 0 7px #472f5e,0 12px 35px #0007}
+.rankTop{text-align:center;font-size:25px;font-weight:1000;color:#ffe174;text-shadow:0 3px #7f4d17}
+.rankSub{text-align:center;font-size:11px;font-weight:900;opacity:.75;margin:5px 0 10px}
+.rankToday{text-align:center;background:#fff7db;color:#3b2b24;border-top:2px solid #f4c94b;border-bottom:4px solid #d39d22;border-left:none;border-right:none;border-radius:0;padding:6px 14px;font-weight:1000;margin:0 auto 10px;width:max-content;max-width:100%;box-shadow:none}
+.rankTable{display:grid;gap:5px}
+.rankRow{display:grid;grid-template-columns:38px 1fr 84px 72px;gap:6px;align-items:center;background:#ffffff10;border:1px solid #ffffff25;border-radius:10px;padding:6px 8px;font-size:12px;font-weight:900}
+.rankRow.top1{background:#f7c94025;border-color:#f7c94088}
+.rankRow.top2{background:#c8d1de20}.rankRow.top3{background:#d98e5622}
+.rankPos{text-align:center;color:#ffe174;font-size:14px}.rankName{letter-spacing:2px}.rankScore{text-align:right;color:#fff0a8}.rankDate{text-align:right;font-s
+
+--- hit 4 @ 75940 ---
+
+ 0,#eef8ff 45%,#fff2d0 100%)}
+#gamesPage .sectionTitle{display:inline-block;background:linear-gradient(#ff9eb9,#f47b9e);color:#fff;border:3px solid #b95478;border-radius:18px;padding:9px 14px;box-shadow:0 5px #d8889f;text-shadow:0 2px #9a4262}
+.library{gap:11px}
+.gameCard{overflow:hidden;min-height:216px;padding:9px 9px 11px;border-width:3px;display:flex;flex-direction:column;align-items:stretch;background:#fffdf5}
+.gameCard .gameNo{position:absolute;left:8px;top:8px;width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:#fff;border:3px solid #6c4931;font-size:14px;font-weight:1000;z-index:3;box-shadow:0 3px #b68b5a}
+.gameCardArt{height:86px;border-radius:15px;margin-bottom:8px;border:2px solid #ffffffb0;display:flex;align-items:center;justify-content:center;overflow:hidden;box-shadow:inset 0 -12px #00000008}
+.gameCardArt .artEmoji{font-size:31px;letter-spacing:-5px;filter:drop-shadow(0 4px 2px #0002);transform:rotate(-2deg)}
+.gameCard b{font-size:14px;line-height:1.2;margin:1px 0 5px}
+.gameCard small{font-size:9px;line-height:1.35;min-height:36px}
+.gameCard .best{margin-top:auto;border-top:1px dashed #7b5b4144;padding-top:6px;font-size:9px;display:flex;justify-content:space-between;gap:3px;align-items:center}
+.miniStars{font-size:8px;white-space:nowrap}
+.theme-basket .gameCardArt{background:linear-gradient(135deg,#f1ffd8,#ffd983)}
+.theme-fish .gameCardArt{background:linear-gradient(135deg,#cdeeff,#76c8f8)}
+.theme-stack .gameCardArt{background:linear-gradient(135deg,#f1e0ff,#cf9fff)}
+.theme-run .gameCardArt{background:linear-gradient(135deg,#fff2c8,#ffc879)}
+.theme-slice .gameCardArt{background:linear-gradient(135deg,#ffdcd9,#ffaaa4)}
+.theme-tteok .gameCardArt{background:linear-gradient(135deg,#dff6f0,#9bd9c7)}
+.theme-powerduck .gameCardArt{background:linear-gradient(135deg,#e5e2ff,#aeb4ff)}
+.gameCard.lock .gameCardArt{filter:grayscale(1);opacity:.5}
+
+#bookPage{background:linear-gradient(180deg,#fff6cf,#edf8ff 46%,#fff3d0)}
+.osoShop{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.shopGroupHead{grid-column:1/-1;border:4px solid #775035;border-radius:18px;padding:10px 12px;background:#fff;box-shadow:0 5px #d6af72;margin-top:5px;display:flex;flex-direction:column}
+.shopGroupHead b{font-size:17px}.shopGroupHead small{font-size:10px;font-weight:850;opacity:.7;margin-top:3px}
+.shopGroupHead.oso{background:linear-gradient(#fff7ad,#ffe16a)}
+.shopGroupHead.ayo{background:linear-gradient(#ffe3d5,#ffc49f)}
+.shopGroupHead.hamo{background:linear-gradient(#e5f5ff,#afd9ff)}
+.skinCard{position:relative;overflow:hidden;background:#fff;border-radius:21px;padding-top:22px}
+.skinCard img{height:142px;width:100%;object-fit:contain;filter:drop-shadow(0 4px 2px #0002)}
+.skinCard.group-ayo{border-color:#b76636;box-shadow:0 5px #e1a575}
+.skinCard.group-hamo{border-color:#4575a3;box-shadow:0 5px #8cb5d8}
+.charBadge{position:absolute;left:7px;top:7px;padding:3px 7px;border-radius:999px;color:#fff;font-size:8px;font-weight:1000;z-index:3;border:2px solid #fff}
+.charBadge.oso{background:#174899}.charBadge.ayo{background:#e47731}.charBadge.hamo{background:#4e8fd0}
+.osoShopHead{background:linear-gradient(#fffdf3,#fff1be)}
+.osoShopHero{background:#fff;border:3px solid #d2a76a;border-radius:16px}
+.fishGrid .hole{touch-action:manipulation}
+.fishTargetIcon{font-size:50px!important}
+
+
+/* ===== v1.7.1 coin milestone celebration ===== */
+.coinMilestone{
+ width:min(92%,430px)!important;
+ left:50%!important;
+ transform:translateX(-50%)!important;
+ text-align:center!important;
+ line-height:1.15!important;
+ padding:16px 18px!important;
+ border-radius:24px!important;
+ background:linear-gradient(#fffbd9,#ffe46b)!important;
+ border:5px solid #8b552b!important;
+ box-shadow:0 8px #bd7935,0 0 28px #fff4a0!important;
+ color:#5c341d!important;
+ z-index:80!important;
+}
+.coinMilestone small{
+ display:block;
+ margin-top:8px;
+ font-size:14px;
+ font-weight:1000;
+ color:#8a5a32;
+ -webkit-text-stroke:0;
+ text-shadow:none;
+}
+
+
+/* ===== v1.7.8 long coin celebration ===== */
+.coinCelebrateScreen{position:absolute;inset:0;z-index:95;display:flex;align-items:center;justify-content:center;background:rgba(42,26,16,.56);backdrop-filter:blur(2px);animation:coinCelebrateFadeIn .22s ease-out both;pointer-events:none}
+.coinCelebrateScreen.closing{animation:coinCelebrateFadeOut .25s ease-in both}
+.coinCelebrateCard{width:min(88
+
+--- hit 5 @ 511218 ---
+
+><p>현재 보유 코인이 <b>1,000 / 5,000 / 10,000 / 20,000 / 30,000 / 40,000 / 50,000 / 100,000 COIN</b>을 돌파하면 축하 연출이 나옵니다.</p><h3>5. 실제 지도</h3>
+   <p>확인되지 않은 점포 위치는 지도에 임의로 표시하지 않습니다. 게임별 해금 위치는 게임 선택 정보창에서 확인하고, 시장 탐험에서는 실제 지도와 GPS 상태를 확인합니다.</p>
+  </div>
+ </div>
+</div>
+
+<div class="initialModal" id="initialModal" aria-hidden="true">
+ <div class="initialBox">
+   <div class="initialCrown">🏆</div>
+   <h2>누적 순위 기준 돌파!</h2>
+   <p>누적점수 <b id="initialScore">0</b>점<br>랭킹에 남길 이름을 입력하소! 한글/영문/숫자 가능</p>
+   <form id="initialForm">
+     <input id="initialInput" maxlength="8" autocomplete="off" autocapitalize="off" inputmode="text" enterkeyhint="done" lang="ko" placeholder="오소" aria-label="랭킹 이름">
+     <button type="submit">랭킹 등록</button>
+   </form>
+ </div>
+</div>
+
+<div id="gameOverlay"><div class="gameBar"><button id="quit">← 게임목록</button><button id="toTitle" aria-label="타이틀 화면으로" title="타이틀 화면으로">🏠</button><b id="gTitle"></b><span class="gameBest" id="gBest">🏆 최고 0</span><strong id="gScore">0</strong></div><div id="stage"></div></div>
+
+<script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+const GAMES=[{"code":"basket","name":"오소의 장바구니","icon":"🍎","desc":"상품을 받고 폭탄을 피하며 LEVEL 5까지 버티기","area":"해금 위치: 진주중앙시장 주차장"},{"code":"fish","name":"팔딱팔딱 수산시장","icon":"🐟","desc":"흐르는 물 속 생선을 잡고 물방울 콤보를 이어가기","area":"해금 위치: 3구 어시장 인근 전체"},{"code":"stack","name":"차곡차곡 비단쌓기","icon":"🧵","desc":"좌우로 움직이는 비단 보를 정확히 쌓아 15단 완성","area":"해금 위치: 중앙시장 2구통로 전체"},{"code":"run","name":"오소 장보기 RUN","icon":"🏃","desc":"기본 2단점프 · GREAT로 3단점프를 얻어 LEVEL 5 시장길 질주","area":"해금 위치: 1구통로 전체"},{"code":"slice","name":"시장 싹쓸이!","icon":"🍜","desc":"비빔밥·국수·호떡·김밥·떡볶이·주스·통닭을 높이 띄워 베기","area":"해금 위치: 뉴먹자골목 전체"},{"code":"tteok","name":"떡! 떡! 떡!","icon":"🔨","desc":"아래쪽의 실제 떡메를 들어 올렸다 절구의 떡을 강하게 내려치기","area":"해금 위치: 중앙시장 북쪽통로 전체"},{"code":"powerduck","name":"파워덕질 1초 연타왕","icon":"⚡","desc":"과일 5→수박 7→게임패드 10→큰 오락기 13→지구 16회를 1초에 연타해 반으로 부수기","area":"해금 위치: 2층 3구 비단길 전체"},{"code":"spacefighter","name":"오소 우주파이터","icon":"🚀","desc":"종스크롤 슈팅! 5스테이지를 질주하며 지구를 구하소","area":"해금 조건: 기존 7개 게임을 모두 획득하면 자동 해금"},{"code":"racing","name":"오소레이싱","icon":"🏎️","desc":"스크롤되는 진주 도로를 달리며 교통을 피하고 체크포인트를 돌파하소","area":"해금 조건: 누적점수 500,000점 달성"},{"code":"fantasy","name":"오소 환상대모험","icon":"⚔️","desc":"중앙시장의 단서를 따라 보물상자를 찾고 던전과 보스를 돌파해 세계를 구하소","area":"해금 조건: 누적점수 1,000,000점 달성"}];
+const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
+const OSO_SRC='data:image/webp;base64,UklGRog9AABXRUJQVlA4WAoAAAAQAAAA6AAADAEAQUxQSEsCAAABDzD/ERGCarZtmQXn40IgpwRKoaWV66CTbYUO0gJRsUgE4RUzfLzfnJNfFdH/CZB/3Uu0acmmZ5sBm0n7+bDgSMvbINygaEFVdn7To6rityhSNCOpGpAPZj6BSAXCDkdOt8ycpgPwt8ui3doD4DVtFztwGfwCAH8LJ+72mKWYwBfg0lQAoon1LKtwUo7+OIs6AFEjwGXkTRacycxiE22Gt/khNo/1kwpspk3B4XXSjaYRTuNBPUoH7SgfjCMczDOnW0Y490ZBVQiXUVTV18EqGsEqGEVFocDK7YQTFIsSFZOSFIMCRee4XeX4nXCCYlAuhVCiZjKSZr0va2BTKHhN5bhd+6huNDh+N42WEWyKUSW5TTPqRoMk22m0ONko7cD8E3FTKL8jmLjlNpUj+/ZR/aPG9ylhMzk9mshINjNvFmfl6UwAb3TxssAuvgLvS99iMaIs4PqcCQTedfMWA3C8cBOLjvQ0GV4aLqNg4KRCngdDpCYbCQZZtJ2QXtQIUVUJ2QheUxhRI4xsBKdZDK+ZjKAZjGiUNJORNYsBDWwKx+0qx7+lccJb+idcu/EJ8S3z+6TvsL5P/ucG8v848lvW37L5lzU46S39E+JbGufa1U8Iu8LxO+E4I1EuRtZMRtR0RtA0htMUQhT1OnO6fnTJ4Tpwctq/iBy3v6yqy9+lPOVpIvKQzmQzvtF66rf4ugkg27XbRRhGHUASqbdAigbtqdw8oQK4DAqAICI3RxAAXkQWAGFOQERkApnSkW4diBRZ7laBwNmOJP/KAwBWUDggFjsAANCjAJ0BKukADQE+KRCHQiGhCsXe5gwBQlsbvx8mC/AH8AGjc9v+A/IDvIpldI/n/6y/2z/df5f5VOE+bzsZ9h/JH9L/3X+c+Kv+S+wDzo6q8r3xj8u/w/9v/xH/D/yP//+p3+M/w/sH/R/+L9wH+Kfyr/J/27/O/7L+8f/vvE/3T/Pf9r2Af0D+qf6r/A/f/9wH9+/Zj3Ff1P+//+L+8f6P5AP5h/Zf9V+bfxk+wN+53sB/z//L/9f2dP9x/6f9h/wP/h9Fv9S/0//k/0X79fQb/Mv7P/u/2z/7v7//YB/7vUA/73qAfv/7k/Rf+cfij+yHzD+Jfm39E/Hf+r/9H2R/Ffl36P+Pv9o/8X+l+K/+q8dPk/7v/zfIf9X/tP9t/w3+n/vX7rfDX+d/qviX+OfwP95/Mj+0fIF+Ifxz+5f279qf77+z/0kfNf6rtmdM/x/+q9QL1u+e/4b/C/uP/g/QZ/kfQj85/un+L/M//AfYB/Iv5z/fv7n+6X9w////u+v/97/gPEU+5/7D/Qfl39AH8b/pP+h/vf+i/6P+C///2l/wH+v/wn+G/93+c9mv5Z/e/+F/kP8p/4P8D////N+gn8X/m/+Y/t3+R/7n+A////0+5L1y/t17D36wffc297rUZstlXzdetDpZ//FQNoQoXyixObKAcFWJHwnbHrjbO6NawLlSE5kbWtuHkTJZZBEdkX4w0tLtUMbIkFmhH2ZqMxCCcN2/6HczSWgYgcYprZwGJJRLJuYx6LTkAw5/LYVLnBhLX9NFiUsHJHmuBpGB5+DBfczaX8NZcuH7iOmxhtOaNfX+VwnsEenLFvMvCO1dpOBXZHvSRWXrnHuBqhah9gj9Hst277si6VE2KuiZP2dfUr96yhngFSysOJwIt4lWYIXGhtCqvkpyuOfVfUUpW2XEqCxv3uIQsQr6ZMYOEGai+gQ5lCgSRi/m8S1gM8B8zg9EVMJ/6acJG7kALbbK/FE3DDIs4pf07U7gPDm3D5m2vBj82L6aDNPNjEZTZOgugt9A+4Ny+S/+8nolgvHEAfObdSOqveHP5Ma/CBzTU6RuCInh7f2ycgn/IisntmZbHoYBEumCXTc+axf2zexPF4
+
+--- hit 6 @ 1221457 ---
+
+T9/PyFcZPaNtLRAWau3UaEVVzrMTKpAnoIIgTLOAfy56SwY9DhuvcuykPFAkvspFDhOS0lz/D5CfOH0W/hjyokiEfFk9yTzKG9WCzet8OAi8y3883d45SBq9RvAwxwxUAqQK2bQS6PVaYH4yu14AknWyIZg7aBnQ48SKj7zUNUwljaWkfWGjOH/sn6G/AztfD+PlfQlryU3PKfuu3xfjl1Cui6IvjE1s87zeOH0IPM9dJ6V/7WyrKNnftXobWJxJaKiKD1aHPEcfUCuVnkueAIb1fqWdprRxJ/m65WHSHiN8r7OgXVBN1sYDnSG7nCk0m2622rImJWz3M+aFrSdOG1xN9F+Pa5E+vxYGBJWznoZNVHo+idqqbe79xzK2rdit5Z9yHRbPOekDJRQhCjq3pQttJeJQcViepxryjl1/v9LPhy7VW5a+WGpjeRVrqx1Bz6lwr+umUq/H/srdNXJvTSrO/8POkDwNn5ArvtPAAuuBXDjLwMYED8xF3yf2sxJO7Z7bln02vCTLxBHXY12xW1VjOuKTzNucrNUGjjhOML4zJnr0ZcR65wf5qP+gobYaqyYAJ8O+p1ECG7uVO+s+DbU6Xr+PcsPDj4Igi668nREDGXGkF3BuKfottDYz7z2RY0wR7Vr6TabJEVpLlAvYw8i7yUG/QIXgwDpE6LI1K2Nk5/+f61pYeomddpkGDa4iecUPHWTitvb/OgV5Jj1GnoZ+Mr+bZtrjAFwaiTv6NanB3M1xw62WGOMY/GLZDP5956rFDf4jhtXu8M4peaqkWfvaaTflN3a/vhY47TSt0JHYAHSKxOpD7tluBX3sPmkCvwuv+emCf6RT7KPuxSpCZMwJigbknT9OBE91ia+WURwGSnqUwfxEedGhNH0HFMu8WM/XhOOvuZmxvILyqemz8x/5a9srMAzQFC+5L7eJY74zsNkYry7vzqaYjUNkqdcCnnjFKHNPgDJKMt5pB6LtDtoHzpGwU7S/7/7EWAANscOJRR0xKNiGmQiGF5PBqmjJQ3ni4TZ2l4V46tRZ/dEcKQCtU2ouKKSEM+e3Wef01m8+4zY6rthjxtIw/ECUk0+9EQcGtp7Kh+c6U3LJDwvUogRIDXow/3RLo1WFdqt9Wo/83AjLYHdvDnF3I//r5krh9b/AgdOaKTbFGQM6J/itzncmn9CtRju8oLoB+e9c322llt+uAsFbz9HvKckzHWgAJhRnLNkEinInKMnil7JBPw+RPhLFaImeEAAA=","note":"깃발을 높이 든 하모","group":"hamo","badge":"하모"}];
+const GAME_ACQUIRE=[
+ {code:'basket',place:'진주중앙시장 주차장',detail:'주차장 구역에 들어오면 획득',confirmed:true},
+ {code:'fish',place:'3구 어시장 인근 전부',detail:'3구 어시장 인근 통로 범위에서 획득',confirmed:false},
+ {code:'stack',place:'중앙시장 2구통로 전체',detail:'중앙시장 2구통로 구간에서 획득',confirmed:false},
+ {code:'run',place:'1구통로 전체',detail:'중앙시장 1구통로 구간에서 획득',confirmed:false},
+ {code:'slice',place:'뉴먹자골목 전부',detail:'뉴먹자골목 구간에서 획득',confirmed:false},
+ {code:'tteok',place:'중앙시장 북쪽통로 전부',detail:'북쪽통로 구간에서 획득',confirmed:false},
+ {code:'powerduck',place:'2층 3구 비단길 전체',detail:'비단길 건물 범위에 들어오면 획득',confirmed:true}
+];
+/*
+ GPS 기본값:
+ - v257에서 이미 고정되어 있던 주차장/비단길 좌표는 그대로 유지한다.
+ - 기존에 비어 있던 내부 통로 5곳만 GrowMaps 프로젝트 75의 공식 floorDisplay 좌표로 고정한다.
+ - GrowMaps에 사용자 구역명(2구통로/1구통로/뉴먹자골목/북쪽통로)이 별도 문자열로 저장되어 있지는 않으므로,
+   해당 구역을 가로지르는 실제 POI feature를 시작/끝 기준점으로 사용한다.
+*/
+const GPS_DEFAULTS={
+ basket:{type:'circle',lat:35.197412338175,lng:128.08448465174,radius:45,near:180,source:'public-address'},
+ fish:{type:'circle',lat:35.195345669871315,lng:128.085359345818659,radius:14,near:95,source:'growmaps:project75:1F:3gu-fish-checkpoint'},
+ stack:{type:'circle',lat:35.194615480555584,lng:128.085613224989288,radius:14,near:95,source:'growmaps:project75:1F:2gu-checkpoint'},
+ run:{type:'circle',lat:35.194274577002346,lng:128.085685647616630,radius:14,near:95,source:'growmaps:project75:1F:1gu-checkpoint'},
+ slice:{type:'circle',lat:35.194941119149156,lng:128.084694391285779,radius:14,near:95,source:'growmaps:project75:1F:new-food-alley-checkpoint'},
+ tteok:{type:'circle',lat:35.195225039986212,lng:128.084952409084787,radius:14,near:95,source:'growmaps:project75:1F:north-checkpoint'},
+ powerduck:{type:'circle',lat:35.194613594496,lng:128.08480142824,radius:14,near:95,source:'public-address'}
+};
+let gpsWatchId=null,lastGps=null,lastDirNotice={},gpsGuideTimer=null;
+
+function gpsZones(){
+ const z={...GPS_DEFAULTS};
+ const cal=state.gpsCalibration||{};
+ Object.keys(cal).forEach(k=>{if(cal[k])z[k]=cal[k]});
+ return z
+}
+function rad(d){return d*Math.PI/180}
+function metersBetween(a,b){
+ const R=6371000,dLat=rad(b.lat-a.lat),dLon=rad(b.lng-a.lng),la1=rad(a.lat),la2=rad(b.lat);
+ const h=Math.sin(dLat/2)**2+Math.cos(la1)*Math.cos(la2)*Math.sin(dLon/2)**2;
+ return 2*R*Math.asin(Math.min(1,Math.sqrt(h)))
+}
+function pointSegmentDistanceM(p,a,b){
+ const lat0=rad((a.lat+b.lat+p.lat)/3),mx=111320*Math.cos(lat0),my=110540;
+ const ax=a.lng*mx,ay=a.lat*my,bx=b.lng*mx,by=b.lat*my,px=p.lng*mx,py=p.lat*my;
+ const dx=bx-ax,dy=by-ay,l2=dx*dx+dy*dy;
+ if(!l2)return Math.hypot(px-ax,py-ay);
+ let t=((px-ax)*dx+(py-ay)*dy)/l2;t=Math.max(0,Math.min(1,t));
+ return Math.hypot(px-(ax+t*dx),py-(ay+t*dy))
+}
+function zoneDistanceM(pos,z){
+ if(!z)return Infinity;
+ if(z.type==='circle')return Math.max(0,metersBetween(pos,{lat:z.lat,lng:z.lng})-(z.radius||0));
+ if(z.type==='corridor')return Math.max(0,pointSegmentDistanceM(pos,z.a,z.b)-(z.radius||22));
+ return Infinity
+}
+function gpsAccuracyMargin(pos){const a=Number(pos&&pos.accuracy)||0;return Math.max(0,Math.min(38,a*.62))}
+function effectiveZoneDistanceM(pos,z){return Math.max(0,zoneDistanceM(pos,z)-
+
+===== POWER DUCK =====
+
+--- hit 1 @ 1314566 ---
+
+olor=color;
+  if(pts>0&&combo>=2){
+   showComboBurst(`COMBO ×${combo}`,combo,'combo');
+   if(combo%5===0){tone('perfect');buzz([16,7,28])}
+  }
+  grade.classList.remove('show');void grade.offsetWidth;grade.classList.add('show');
+
+  impactFx(q);
+  level=updateLevel('tteok',score,level);
+  nextBeat();
+  hud();
+ }
+
+ $('#hitBtn').onclick=hit;
+ s.onpointerdown=e=>{if(e.target.id!=='hitBtn')hit()};
+
+ function loop(ts){
+  if(!alive)return;
+  let dt=Math.min(.033,(ts-prev)/1000);
+  prev=ts;
+
+  if(feverTime>0){
+   feverTime=Math.max(0,feverTime-dt);
+   if(feverTime===0)fever=35;
+  }else if(fever>0){
+   fever=Math.max(0,fever-dt*1.2);
+  }
+
+  phase+=dt*speedNow();
+
+  if(phase>=1){
+   combo=0;
+   fever=Math.max(0,fever-6);
+   grade.textContent='MISS';
+   grade.style.color='#d84a43';
+   grade.classList.remove('show');void grade.offsetWidth;grade.classList.add('show');
+   tone('bad');
+   nextBeat();
+  }
+
+  const scale=2.75-1.75*phase;
+  ring.style.transform=`scale(${scale})`;
+  ring.style.borderColor=feverTime>0?'#ff3ccb':'#ffc928';
+
+  hud();
+  raf=requestAnimationFrame(loop);
+ }
+
+ nextBeat();
+
+ let ti=setInterval(()=>{
+  t--;
+  $('#tm').textContent=t;
+  if(t<=0){
+   alive=false;
+   clearInterval(ti);
+   cancelAnimationFrame(raf);
+   finish('tteok',score,playTteok,true);
+  }
+ },1000);
+
+ raf=requestAnimationFrame(loop);
+ cleanup=()=>{
+  alive=false;
+  clearInterval(ti);
+  cancelAnimationFrame(raf);
+  s.onpointerdown=null;
+ };
+}
+
+/* POWERDUCK: 1 second mash, objects 1~5 */
+function playPowerduck(){
+ const s=$('#stage');const targets=[
+  {name:'과일',icon:'🍎',need:5},
+  {name:'수박',icon:'🍉',need:7},
+  {name:'게임패드',icon:'🎮',need:10},
+  {name:'큰 오락기',icon:'🕹️',need:13},
+  {name:'지구',icon:'🌍',need:16}
+ ];
+ s.innerHTML=`<div class="powerduckScene"><div class="pdGrid"></div><div class="pdTitle">POWER DUCK<br>1초 연타 파괴 챌린지</div><div class="pdRecord" id="pdRecord">BEST ${state.pdRecord||0}/s</div><div class="pdLevel" id="pdLevel">LEVEL 1</div><div class="pdNeed" id="pdNeed"></div><div class="pdTimer"><div class="pdTimerFill" id="pdFill"></div></div><button class="pdTarget" id="pdTarget"></button><div class="pdStageText" id="pdText"></div><div class="pdCount" id="pdCount">0 연타</div></div>`;
+ const PD_SCORE_MULT=[0,1,4,12,40,160];
+ const PD_CLEAR_BONUS=[0,0,30,120,500,2000];
+ let lv=1,taps=0,total=0,running=false,start=0,raf=null,ended=false;const target=$('#pdTarget'),fill=$('#pdFill'),need=$('#pdNeed'),count=$('#pdCount'),text=$('#pdText'),record=$('#pdRecord');
+ function pdStageScore(level,hitCount,cleared=false){
+  return Math.max(0,Math.floor(hitCount||0))*(PD_SCORE_MULT[level]||1)+(cleared?(PD_CLEAR_BONUS[level]||0):0)
+ }
+ function updatePdScorePreview(){
+  $('#gScore').textContent=total+pdStageScore(lv,taps,false)
+ }
+ function crack(progress){
+  let c=target.querySelector('.pdCracks');if(!c){c=document.createElement('div');c.className='pdCracks';target.appendChild(c)}c.innerHTML='';let n=Math.floor(progress*7);
+  for(let i=0;i<n;i++){let e=document.createElement('div');e.className='pdCrack';e.style.transform=`translate(-50%,-10%) rotate(${i*51-150}deg)`;e.style.height=(45+Math.random()*45)+'px';c.appendChild(e)}
+ }
+ function showText(t){text.textContent=t;text.classList.remove('show');void text.offsetWidth;text.classList.add('show')}
+ function burst(){let r=target.getBoundingClientRect(),sr=s.getBoundingClientRect();for(let i=0;i<20;i++){let b=document.createElement('div');b.className='pdBurst';b.style.left=(r.left-sr.left+r.width/2)+'px';b.style.top=(r.top-sr.top+r.height/2)+'px';b.style.setProperty('--bx',(Math.random()*240-120)+'px');b.style.setProperty('--by',(Math.random()*240-120)+'px');s.appendChild(b);setTimeout(()=>b.remove(),520)}}
+ function split(icon){
+  let base=target.querySelector('.pdIcon');if(base)base.style.opacity='0';target.classList.add('broken');
+  let wrap=document.createElement('div');wrap.className='pdSplitWrap';wrap.innerHTML=`<div class="pdHalf left">${icon}</div><div class="pdHalf right">${icon}</div><div class="pdCutFlash"></div>`;target.appendChild(wrap);burst()
+ }
+ function loadStage(){
+  let o=targets[lv-1];taps=0;running=false;ended=false;target.classList.remove('broken');target.innerHTML=`<span class="pdIcon">${o.icon}</span>`;target.style.fontSize=lv===4?'104px':lv===5?'118px':'112px';
+  $('#pdLevel').textContent=`LEVEL ${lv}`;need.textContent=`1초 목표: ${o.need}회 이상 · ${o.name} 부수기 · 점수 ×${PD_SCORE_MULT[lv]}`
+
+===== 연타 파괴 챌린지 =====
+
+--- hit 1 @ 1314583 ---
+
+pts>0&&combo>=2){
+   showComboBurst(`COMBO ×${combo}`,combo,'combo');
+   if(combo%5===0){tone('perfect');buzz([16,7,28])}
+  }
+  grade.classList.remove('show');void grade.offsetWidth;grade.classList.add('show');
+
+  impactFx(q);
+  level=updateLevel('tteok',score,level);
+  nextBeat();
+  hud();
+ }
+
+ $('#hitBtn').onclick=hit;
+ s.onpointerdown=e=>{if(e.target.id!=='hitBtn')hit()};
+
+ function loop(ts){
+  if(!alive)return;
+  let dt=Math.min(.033,(ts-prev)/1000);
+  prev=ts;
+
+  if(feverTime>0){
+   feverTime=Math.max(0,feverTime-dt);
+   if(feverTime===0)fever=35;
+  }else if(fever>0){
+   fever=Math.max(0,fever-dt*1.2);
+  }
+
+  phase+=dt*speedNow();
+
+  if(phase>=1){
+   combo=0;
+   fever=Math.max(0,fever-6);
+   grade.textContent='MISS';
+   grade.style.color='#d84a43';
+   grade.classList.remove('show');void grade.offsetWidth;grade.classList.add('show');
+   tone('bad');
+   nextBeat();
+  }
+
+  const scale=2.75-1.75*phase;
+  ring.style.transform=`scale(${scale})`;
+  ring.style.borderColor=feverTime>0?'#ff3ccb':'#ffc928';
+
+  hud();
+  raf=requestAnimationFrame(loop);
+ }
+
+ nextBeat();
+
+ let ti=setInterval(()=>{
+  t--;
+  $('#tm').textContent=t;
+  if(t<=0){
+   alive=false;
+   clearInterval(ti);
+   cancelAnimationFrame(raf);
+   finish('tteok',score,playTteok,true);
+  }
+ },1000);
+
+ raf=requestAnimationFrame(loop);
+ cleanup=()=>{
+  alive=false;
+  clearInterval(ti);
+  cancelAnimationFrame(raf);
+  s.onpointerdown=null;
+ };
+}
+
+/* POWERDUCK: 1 second mash, objects 1~5 */
+function playPowerduck(){
+ const s=$('#stage');const targets=[
+  {name:'과일',icon:'🍎',need:5},
+  {name:'수박',icon:'🍉',need:7},
+  {name:'게임패드',icon:'🎮',need:10},
+  {name:'큰 오락기',icon:'🕹️',need:13},
+  {name:'지구',icon:'🌍',need:16}
+ ];
+ s.innerHTML=`<div class="powerduckScene"><div class="pdGrid"></div><div class="pdTitle">POWER DUCK<br>1초 연타 파괴 챌린지</div><div class="pdRecord" id="pdRecord">BEST ${state.pdRecord||0}/s</div><div class="pdLevel" id="pdLevel">LEVEL 1</div><div class="pdNeed" id="pdNeed"></div><div class="pdTimer"><div class="pdTimerFill" id="pdFill"></div></div><button class="pdTarget" id="pdTarget"></button><div class="pdStageText" id="pdText"></div><div class="pdCount" id="pdCount">0 연타</div></div>`;
+ const PD_SCORE_MULT=[0,1,4,12,40,160];
+ const PD_CLEAR_BONUS=[0,0,30,120,500,2000];
+ let lv=1,taps=0,total=0,running=false,start=0,raf=null,ended=false;const target=$('#pdTarget'),fill=$('#pdFill'),need=$('#pdNeed'),count=$('#pdCount'),text=$('#pdText'),record=$('#pdRecord');
+ function pdStageScore(level,hitCount,cleared=false){
+  return Math.max(0,Math.floor(hitCount||0))*(PD_SCORE_MULT[level]||1)+(cleared?(PD_CLEAR_BONUS[level]||0):0)
+ }
+ function updatePdScorePreview(){
+  $('#gScore').textContent=total+pdStageScore(lv,taps,false)
+ }
+ function crack(progress){
+  let c=target.querySelector('.pdCracks');if(!c){c=document.createElement('div');c.className='pdCracks';target.appendChild(c)}c.innerHTML='';let n=Math.floor(progress*7);
+  for(let i=0;i<n;i++){let e=document.createElement('div');e.className='pdCrack';e.style.transform=`translate(-50%,-10%) rotate(${i*51-150}deg)`;e.style.height=(45+Math.random()*45)+'px';c.appendChild(e)}
+ }
+ function showText(t){text.textContent=t;text.classList.remove('show');void text.offsetWidth;text.classList.add('show')}
+ function burst(){let r=target.getBoundingClientRect(),sr=s.getBoundingClientRect();for(let i=0;i<20;i++){let b=document.createElement('div');b.className='pdBurst';b.style.left=(r.left-sr.left+r.width/2)+'px';b.style.top=(r.top-sr.top+r.height/2)+'px';b.style.setProperty('--bx',(Math.random()*240-120)+'px');b.style.setProperty('--by',(Math.random()*240-120)+'px');s.appendChild(b);setTimeout(()=>b.remove(),520)}}
+ function split(icon){
+  let base=target.querySelector('.pdIcon');if(base)base.style.opacity='0';target.classList.add('broken');
+  let wrap=document.createElement('div');wrap.className='pdSplitWrap';wrap.innerHTML=`<div class="pdHalf left">${icon}</div><div class="pdHalf right">${icon}</div><div class="pdCutFlash"></div>`;target.appendChild(wrap);burst()
+ }
+ function loadStage(){
+  let o=targets[lv-1];taps=0;running=false;ended=false;target.classList.remove('broken');target.innerHTML=`<span class="pdIcon">${o.icon}</span>`;target.style.fontSize=lv===4?'104px':lv===5?'118px':'112px';
+  $('#pdLevel').textContent=`LEVEL ${lv}`;need.textContent=`1초 목표: ${o.need}회 이상 · ${o.name} 부수기 · 점수 ×${PD_SCORE_MULT[lv]}`;count.textConten
