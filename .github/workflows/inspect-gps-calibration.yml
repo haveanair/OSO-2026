@@ -1,4 +1,4 @@
-name: Inspect bonus lock labels
+name: Fix bonus lock labels
 
 on:
   push:
@@ -10,37 +10,38 @@ permissions:
   contents: write
 
 jobs:
-  inspect:
+  fix:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Save exact lock-label context
+      - name: Use condition-required label for bonus games
         shell: bash
         run: |
           set -euo pipefail
           python3 - <<'PY'
           from pathlib import Path
-          s=Path('play/index.html').read_text(encoding='utf-8')
-          keys=['GPS 획득 필요','잠긴 게임']
-          out=[]
-          for k in keys:
-              out.append(f'===== KEY: {k} COUNT {s.count(k)} =====')
-              start=0
-              n=0
-              while True:
-                  i=s.find(k,start)
-                  if i<0: break
-                  n+=1
-                  a=max(0,i-1200); b=min(len(s),i+1800)
-                  out.append(f'--- {k} #{n} @ {i} ---')
-                  out.append(s[a:b])
-                  start=i+len(k)
-          Path('.github/bonus-lock-inspection.txt').write_text('\n\n'.join(out),encoding='utf-8')
+          p=Path('play/index.html')
+          s=p.read_text(encoding='utf-8')
+          old="$('#mPlay').textContent=unlocked?'플레이':'GPS 획득 필요';"
+          new="$('#mPlay').textContent=unlocked?'플레이':(BONUS_GAME_CODES.includes(selected.code)?'조건달성 필요':'GPS 획득 필요');"
+          if s.count(old)!=1:
+              raise SystemExit(f'expected exactly 1 old lock-label line, found {s.count(old)}')
+          s=s.replace(old,new,1)
+          if s.count(new)!=1:
+              raise SystemExit('replacement verification failed')
+          if "g.code==='spacefighter'?'<span class=\"spaceBonusLock\">🔒 7개 게임 획득 시 해금</span>'" not in s:
+              raise SystemExit('spacefighter unlock condition text unexpectedly changed')
+          if "g.code==='racing'?'<span class=\"scoreBonusLock\">🔒 누적 500,000점 달성 시 해금</span>'" not in s:
+              raise SystemExit('racing unlock condition text unexpectedly changed')
+          if "g.code==='fantasy'?'<span class=\"scoreBonusLock\">🔒 누적 1,000,000점 달성 시 해금</span>'" not in s:
+              raise SystemExit('fantasy unlock condition text unexpectedly changed')
+          p.write_text(s,encoding='utf-8')
+          print('verified: games 1-7 keep GPS label; games 8-10 use condition-required label')
           PY
           git config user.name 'PWDJ Web Fix'
           git config user.email '34460283+haveanair@users.noreply.github.com'
-          git add .github/bonus-lock-inspection.txt
-          git commit -m 'Save bonus lock label inspection' || exit 0
+          git add play/index.html
+          git commit -m 'Use condition-required label for bonus games'
           git push
