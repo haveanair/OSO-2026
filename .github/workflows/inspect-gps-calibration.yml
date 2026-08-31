@@ -1,4 +1,4 @@
-name: Fix bonus lock labels
+name: Inspect GPS unlock overlap
 
 on:
   push:
@@ -10,38 +10,43 @@ permissions:
   contents: write
 
 jobs:
-  fix:
+  inspect:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Use condition-required label for bonus games
+      - name: Save GPS unlock contexts
         shell: bash
         run: |
           set -euo pipefail
           python3 - <<'PY'
           from pathlib import Path
-          p=Path('play/index.html')
-          s=p.read_text(encoding='utf-8')
-          old="$('#mPlay').textContent=unlocked?'플레이':'GPS 획득 필요';"
-          new="$('#mPlay').textContent=unlocked?'플레이':(BONUS_GAME_CODES.includes(selected.code)?'조건달성 필요':'GPS 획득 필요');"
-          if s.count(old)!=1:
-              raise SystemExit(f'expected exactly 1 old lock-label line, found {s.count(old)}')
-          s=s.replace(old,new,1)
-          if s.count(new)!=1:
-              raise SystemExit('replacement verification failed')
-          if "g.code==='spacefighter'?'<span class=\"spaceBonusLock\">🔒 7개 게임 획득 시 해금</span>'" not in s:
-              raise SystemExit('spacefighter unlock condition text unexpectedly changed')
-          if "g.code==='racing'?'<span class=\"scoreBonusLock\">🔒 누적 500,000점 달성 시 해금</span>'" not in s:
-              raise SystemExit('racing unlock condition text unexpectedly changed')
-          if "g.code==='fantasy'?'<span class=\"scoreBonusLock\">🔒 누적 1,000,000점 달성 시 해금</span>'" not in s:
-              raise SystemExit('fantasy unlock condition text unexpectedly changed')
-          p.write_text(s,encoding='utf-8')
-          print('verified: games 1-7 keep GPS label; games 8-10 use condition-required label')
+          s=Path('play/index.html').read_text(encoding='utf-8')
+          keys=['35.197412338175','35.194613594496','1030078','1034002','1030104','1020021','1020051','1020033','1030106','1030006','1030015','startGpsWatch','watchPosition','getCurrentPosition','gpsUnlock','GPS_UNLOCK','unlockByGps','pointToSegment','distanceToSegment','haversine']
+          out=[]
+          seen=[]
+          for k in keys:
+              positions=[]
+              start=0
+              while True:
+                  i=s.find(k,start)
+                  if i<0: break
+                  positions.append(i); start=i+len(k)
+              out.append(f'===== KEY: {k} COUNT {len(positions)} =====')
+              for n,i in enumerate(positions[:8],1):
+                  a=max(0,i-1800); b=min(len(s),i+2600)
+                  # de-dupe very similar windows
+                  sig=(a,b)
+                  if any(abs(a-x)<500 for x,_ in seen):
+                      continue
+                  seen.append(sig)
+                  out.append(f'--- {k} #{n} @ {i} ---')
+                  out.append(s[a:b])
+          Path('.github/gps-overlap-inspection.txt').write_text('\n\n'.join(out),encoding='utf-8')
           PY
-          git config user.name 'PWDJ Web Fix'
+          git config user.name 'PWDJ GPS Inspect'
           git config user.email '34460283+haveanair@users.noreply.github.com'
-          git add play/index.html
-          git commit -m 'Use condition-required label for bonus games'
+          git add .github/gps-overlap-inspection.txt
+          git commit -m 'Save GPS overlap inspection' || exit 0
           git push
