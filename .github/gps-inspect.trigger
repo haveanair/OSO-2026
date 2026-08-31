@@ -1,1 +1,1 @@
-Apply condition-required labels to bonus games 8 9 10.
+Inspect GPS unlock overlap after field test showed four games unlocked at once.
