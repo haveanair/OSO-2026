@@ -3475,6 +3475,7 @@ function saveCalPoint(kind){
  renderGpsLocations(lastGps)
 }
 function initGpsUi(){
+ if(!DEV_ALL_UNLOCKED){const p=$('.gpsCalPanel');if(p)p.style.display='none'}
  const sel=$('#calZoneSelect');if(sel){
   sel.innerHTML=GAME_ACQUIRE.map(x=>`<option value="${x.code}">${game(x.code).name} — ${x.place}</option>`).join('');
   $('#calOutput').textContent=JSON.stringify(state.gpsCalibration||{},null,2)
