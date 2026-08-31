@@ -55,6 +55,25 @@ nav{height:69px;background:#fff;border-top:3px solid #ddb979;display:grid;grid-t
 .people{display:grid;grid-template-columns:repeat(3,1fr);gap:7px}.person{background:#fff;border:3px solid var(--line);border-radius:20px;text-align:center;padding:7px}.person img{width:100%;height:115px;object-fit:contain}.person b{font-size:11px}
 /* modal */
 .modal{position:fixed;inset:0;background:#2c1b128d;z-index:50;display:none;align-items:flex-end;justify-content:center}.modal.show{display:flex}.modalBox{width:min(650px,100%);background:#fff7da;border:4px solid var(--line);border-bottom:0;border-radius:26px 26px 0 0;padding:15px}.modalTop{display:flex;gap:10px;align-items:center}.modalTop .em{font-size:50px}.modalTop h2{margin:0;font-size:19px}.modalTop p{margin:3px 0;font-size:11px;font-weight:750;opacity:.68}.actions{display:flex;gap:7px;margin-top:12px}.actions button,.actions a{flex:1;text-align:center;text-decoration:none;border:3px solid var(--line);background:#fff;border-radius:15px;padding:10px;font-weight:1000}.actions .primary{background:var(--yellow)}
+/* ===== AUTO LOW-END LITE MODE ===== */
+html.lowPerf .gameCard,
+html.lowPerf .panel,
+html.lowPerf .modalBox,
+html.lowPerf .result,
+html.lowPerf .startBtn,
+html.lowPerf .titleBottom button,
+html.lowPerf .headHome,
+html.lowPerf .pill,
+html.lowPerf .locationRow,
+html.lowPerf .person,
+html.lowPerf .actions button,
+html.lowPerf .actions a{box-shadow:none!important}
+html.lowPerf .hero img,
+html.lowPerf .splash img,
+html.lowPerf .gameCard{filter:none!important}
+html.lowPerf .sliceTrail{box-shadow:none!important}
+html.lowPerf .particle,
+html.lowPerf .comboBurstFX{filter:none!important;text-shadow:none!important;box-shadow:none!important}
 /* game */
 #gameOverlay{z-index:80;background:#fff1c4;display:none;flex-direction:column}#gameOverlay.show{display:flex}.gameBar{height:72px;background:#fff;border-bottom:3px solid #d7a660;display:grid;grid-template-columns:auto auto minmax(0,1fr) auto;grid-template-rows:38px 22px;align-items:center;column-gap:7px;padding:5px 7px 4px;position:relative}.gameBar button{border:0;background:#ffe174;border-radius:13px;padding:9px;font-weight:1000;grid-row:1/3;align-self:center}.gameBar b{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px;grid-column:3;grid-row:1}.gameBar strong{font-size:18px;grid-column:4;grid-row:1/3;align-self:center}.gameBest{position:absolute;left:50%;bottom:4px;transform:translateX(-50%);z-index:6;background:transparent;border:0;border-radius:0;padding:0;font-size:12px;line-height:18px;font-weight:1000;white-space:nowrap;box-shadow:none;pointer-events:none;color:#5b402b;text-shadow:0 1px #fff}#stage{flex:1;min-height:0;position:relative;overflow:hidden;touch-action:none;background:linear-gradient(#dff7ff,#fff2ba)}
 .counter{position:absolute;top:10px;left:10px;z-index:10;background:#fff;border:3px solid var(--line);border-radius:999px;padding:5px 9px;font-weight:1000}.result{position:absolute;left:7%;right:7%;top:50%;transform:translateY(-50%);z-index:20;background:#fff;border:4px solid var(--line);border-radius:24px;text-align:center;padding:15px;box-shadow:0 9px #d1a26b}.result img{height:100px}.result .score{font-size:37px;font-weight:1000}
@@ -3521,8 +3540,46 @@ window.unlockFromNative=code=>{
  if(c)qrUnlock(c)
 };
 
+const PERF_LITE_KEY='jcm-v249-auto-lite-v1';
+window.__OSO_LOW_PERF=false;
+function applyAutoLiteMode(on,remember=false){
+ window.__OSO_LOW_PERF=!!on;
+ document.documentElement.classList.toggle('lowPerf',!!on);
+ if(remember&&on){try{localStorage.setItem(PERF_LITE_KEY,JSON.stringify({on:1,t:Date.now()}))}catch(e){}}
+}
+function initAutoLiteMode(){
+ let saved=false;
+ try{
+  const v=JSON.parse(localStorage.getItem(PERF_LITE_KEY)||'null');
+  saved=!!(v&&v.on&&Date.now()-Number(v.t||0)<7*24*60*60*1000);
+ }catch(e){}
+ if(saved){applyAutoLiteMode(true,false);return}
+ const cores=Number(navigator.hardwareConcurrency)||0;
+ const mem=Number(navigator.deviceMemory)||0;
+ // 명백한 저사양만 사전 판정. 애매한 기기는 실제 프레임 측정으로 결정한다.
+ if((cores>0&&cores<=4)||(mem>0&&mem<=2)){applyAutoLiteMode(true,true);return}
+ let last=performance.now(),winStart=last,frames=0,longFrames=0,badWindows=0;
+ function probe(now){
+  if(window.__OSO_LOW_PERF)return;
+  if(document.hidden){last=now;winStart=now;frames=0;longFrames=0;requestAnimationFrame(probe);return}
+  const dt=now-last;last=now;frames++;
+  if(dt>34)longFrames++;
+  const span=now-winStart;
+  if(span>=2200){
+   const fps=frames*1000/span;
+   const longRatio=frames?longFrames/frames:0;
+   const bad=(fps<42)||(fps<48&&longRatio>.18);
+   badWindows=bad?badWindows+1:Math.max(0,badWindows-1);
+   if(badWindows>=2){applyAutoLiteMode(true,true);return}
+   winStart=now;frames=0;longFrames=0;
+  }
+  requestAnimationFrame(probe)
+ }
+ setTimeout(()=>requestAnimationFrame(t=>{last=t;winStart=t;frames=0;longFrames=0;requestAnimationFrame(probe)}),1800)
+}
+initAutoLiteMode();
 function fxText(x,y,text,color='#f39a11'){const s=$('#stage'),r=s.getBoundingClientRect(),e=document.createElement('div');e.className='fxText';e.textContent=text;e.style.left=(x-r.left)+'px';e.style.top=(y-r.top)+'px';e.style.color=color;s.appendChild(e);setTimeout(()=>e.remove(),700)}
-function particles(x,y,emoji='✨',count=6){const s=$('#stage'),r=s.getBoundingClientRect();for(let i=0;i<count;i++){let e=document.createElement('div');e.className='particle';e.textContent=emoji;e.style.left=(x-r.left)+'px';e.style.top=(y-r.top)+'px';e.style.setProperty('--dx',(Math.random()*120-60)+'px');e.style.setProperty('--dy',(-35-Math.random()*85)+'px');e.style.setProperty('--rot',(Math.random()*300-150)+'deg');s.appendChild(e);setTimeout(()=>e.remove(),760)}}
+function particles(x,y,emoji='✨',count=6){const s=$('#stage'),r=s.getBoundingClientRect();if(window.__OSO_LOW_PERF)count=Math.max(2,Math.ceil(count*.45));for(let i=0;i<count;i++){let e=document.createElement('div');e.className='particle';e.textContent=emoji;e.style.left=(x-r.left)+'px';e.style.top=(y-r.top)+'px';e.style.setProperty('--dx',(Math.random()*120-60)+'px');e.style.setProperty('--dy',(-35-Math.random()*85)+'px');e.style.setProperty('--rot',(Math.random()*300-150)+'deg');s.appendChild(e);setTimeout(()=>e.remove(),760)}}
 
 function showComboBurst(text,count=2,kind='combo'){
  const s=$('#stage');if(!s)return;
