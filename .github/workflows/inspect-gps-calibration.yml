@@ -7,30 +7,40 @@ on:
       - '.github/gps-inspect.trigger'
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   inspect:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Inspect bonus lock label code
+        with:
+          fetch-depth: 0
+      - name: Save exact lock-label context
         shell: bash
         run: |
+          set -euo pipefail
           python3 - <<'PY'
           from pathlib import Path
           s=Path('play/index.html').read_text(encoding='utf-8')
-          keys=['GPS 획득 필요','획득 필요','잠긴 게임','BONUS_GAME_CODES','spacefighter','racing','fantasy']
+          keys=['GPS 획득 필요','잠긴 게임']
+          out=[]
           for k in keys:
-              print('\n===== KEY:',k,'COUNT',s.count(k),'=====')
+              out.append(f'===== KEY: {k} COUNT {s.count(k)} =====')
               start=0
               n=0
               while True:
                   i=s.find(k,start)
                   if i<0: break
                   n+=1
-                  a=max(0,i-700); b=min(len(s),i+1200)
-                  print(f'--- {k} #{n} @ {i} ---')
-                  print(s[a:b].replace('\n','\\n'))
+                  a=max(0,i-1200); b=min(len(s),i+1800)
+                  out.append(f'--- {k} #{n} @ {i} ---')
+                  out.append(s[a:b])
                   start=i+len(k)
+          Path('.github/bonus-lock-inspection.txt').write_text('\n\n'.join(out),encoding='utf-8')
           PY
+          git config user.name 'PWDJ Web Fix'
+          git config user.email '34460283+haveanair@users.noreply.github.com'
+          git add .github/bonus-lock-inspection.txt
+          git commit -m 'Save bonus lock label inspection' || exit 0
+          git push
