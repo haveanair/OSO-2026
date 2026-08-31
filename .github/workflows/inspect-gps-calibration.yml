@@ -16,88 +16,37 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Replace overlapping corridors with distributed checkpoints
+      - name: Replace overlapping GPS zones
         shell: bash
         run: |
           set -euo pipefail
           python3 - <<'PY'
           from pathlib import Path
-          import math,re
+          import base64,math
           p=Path('play/index.html')
           s=p.read_text(encoding='utf-8')
-
-          # Keep all seven named zones, but use one representative checkpoint inside each zone.
-          # Points were selected along the existing GrowMaps corridor references to maximize separation.
-          new_defaults="""const GPS_DEFAULTS={
- basket:{type:'circle',lat:35.197412338175,lng:128.08448465174,radius:45,near:180,source:'public-address'},
- fish:{type:'circle',lat:35.195345669871315,lng:128.085359345818659,radius:14,near:95,source:'growmaps:project75:1F:3gu-fish-checkpoint'},
- stack:{type:'circle',lat:35.194615480555584,lng:128.085613224989288,radius:14,near:95,source:'growmaps:project75:1F:2gu-checkpoint'},
- run:{type:'circle',lat:35.194274577002346,lng:128.085685647616630,radius:14,near:95,source:'growmaps:project75:1F:1gu-checkpoint'},
- slice:{type:'circle',lat:35.194941119149156,lng:128.084694391285779,radius:14,near:95,source:'growmaps:project75:1F:new-food-alley-checkpoint'},
- tteok:{type:'circle',lat:35.195225039986212,lng:128.084952409084787,radius:14,near:95,source:'growmaps:project75:1F:north-checkpoint'},
- powerduck:{type:'circle',lat:35.194613594496,lng:128.08480142824,radius:14,near:95,source:'public-address'}
-};"""
-
+          defaults_b64='Y29uc3QgR1BTX0RFRkFVTFRTPXsKIGJhc2tldDp7dHlwZTonY2lyY2xlJyxsYXQ6MzUuMTk3NDEyMzM4MTc1LGxuZzoxMjguMDg0NDg0NjUxNzQscmFkaXVzOjQ1LG5lYXI6MTgwLHNvdXJjZToncHVibGljLWFkZHJlc3MnfSwKIGZpc2g6e3R5cGU6J2NpcmNsZScsbGF0OjM1LjE5NTM0NTY2OTg3MTMxNSxsbmc6MTI4LjA4NTM1OTM0NTgxODY1OSxyYWRpdXM6MTQsbmVhcjo5NSxzb3VyY2U6J2dyb3dtYXBzOnByb2plY3Q3NToxRjozZ3UtZmlzaC1jaGVja3BvaW50J30sCiBzdGFjazp7dHlwZTonY2lyY2xlJyxsYXQ6MzUuMTk0NjE1NDgwNTU1NTg0LGxuZzoxMjguMDg1NjEzMjI0OTg5Mjg4LHJhZGl1czoxNCxuZWFyOjk1LHNvdXJjZTonZ3Jvd21hcHM6cHJvamVjdDc1OjFGOjJndS1jaGVja3BvaW50J30sCiBydW46e3R5cGU6J2NpcmNsZScsbGF0OjM1LjE5NDI3NDU3NzAwMjM0Nixsbmc6MTI4LjA4NTY4NTY0NzYxNjYzMCxyYWRpdXM6MTQsbmVhcjo5NSxzb3VyY2U6J2dyb3dtYXBzOnByb2plY3Q3NToxRjoxZ3UtY2hlY2twb2ludCd9LAogc2xpY2U6e3R5cGU6J2NpcmNsZScsbGF0OjM1LjE5NDk0MTExOTE0OTE1Nixsbmc6MTI4LjA4NDY5NDM5MTI4NTc3OSxyYWRpdXM6MTQsbmVhcjo5NSxzb3VyY2U6J2dyb3dtYXBzOnByb2plY3Q3NToxRjpuZXctZm9vZC1hbGxleS1jaGVja3BvaW50J30sCiB0dGVvazp7dHlwZTonY2lyY2xlJyxsYXQ6MzUuMTk1MjI1MDM5OTg2MjEyLGxuZzoxMjguMDg0OTUyNDA5MDg0Nzg3LHJhZGl1czoxNCxuZWFyOjk1LHNvdXJjZTonZ3Jvd21hcHM6cHJvamVjdDc1OjFGOm5vcnRoLWNoZWNrcG9pbnQnfSwKIHBvd2VyZHVjazp7dHlwZTonY2lyY2xlJyxsYXQ6MzUuMTk0NjEzNTk0NDk2LGxuZzoxMjguMDg0ODAxNDI4MjQscmFkaXVzOjE0LG5lYXI6OTUsc291cmNlOidwdWJsaWMtYWRkcmVzcyd9Cn07'
+          eval_b64='ZnVuY3Rpb24gZXZhbHVhdGVHcHNQb3NpdGlvbihwb3MpewogY29uc3Qgej1ncHNab25lcygpLGFjYz1OdW1iZXIocG9zJiZwb3MuYWNjdXJhY3kpfHw5OTk7CiAvLyDsi6TrgrQgR1BT6rCAIOyngOuCmOy5mOqyjCDtnZTrk6TrprQg65WMIOyXieuase2VnCDqtazsl63snYQg7ZW06riI7ZWY7KeAIOyViuuKlOuLpC4KIGlmKGFjYz4xNDApe3JlbmRlckdwc0xvY2F0aW9ucyhwb3MpO3JldHVybn0KIC8vIO2VnCDsnITsuZjsl5DshJzripQg6rCA7J6lIOqwgOq5jOyatCDqtazsl60g7ZWY64KY66eMIO2VtOq4iCDtm4Trs7TqsIAg65Cc64ukLgogLy8g7J2066+4IO2ajeuTne2VnCDqtazsl63rj4Qg6rGw66asIOu5hOq1kOyXkCDtj6ztlajtlbQg6rCZ7J2AIOyekOumrOyXkOyEnCDri6TsnYwg6rKM7J6E7J20IOyXsOyHhCDtlbTquIjrkJjsp4Ag7JWK6rKMIO2VnOuLpC4KIGNvbnN0IHJhbmtlZD1HQU1FX0FDUVVJUkUubWFwKGxvYz0+ewogIGNvbnN0IHpvbmU9eltsb2MuY29kZV0sdGFyZ2V0PXpvbmVUYXJnZXQoem9uZSk7CiAgaWYoIXpvbmV8fCF0YXJnZXQpcmV0dXJuIG51bGw7CiAgcmV0dXJuIHtsb2Msem9uZSx0YXJnZXQsY2VudGVyRDptZXRlcnNCZXR3ZWVuKHBvcyx0YXJnZXQpLGQ6ZWZmZWN0aXZlWm9uZURpc3RhbmNlTShwb3Msem9uZSl9CiB9KS5maWx0ZXIoQm9vbGVhbikuc29ydCgoYSxiKT0+YS5jZW50ZXJELWIuY2VudGVyRCk7CiBjb25zdCBjbG9zZXN0PXJhbmtlZFswXTsKIGlmKGNsb3Nlc3QpewogIGlmKHpvbmVJbnNpZGUocG9zLGNsb3Nlc3Quem9uZSkpdW5sb2NrQnlHcHMoY2xvc2VzdC5sb2MuY29kZSk7CiAgZWxzZSBpZihjbG9zZXN0LmQgPD0gKGNsb3Nlc3Quem9uZS5uZWFyfHw5NSkgJiYgIWFjcXVpcmVkQnlBbnkoY2xvc2VzdC5sb2MuY29kZSkpc2hvd0RpcmVjdGlvbihjbG9zZXN0LmxvYy5jb2RlLGNsb3Nlc3QuZCxwb3MsY2xvc2VzdC56b25lKQogfQogcmVuZGVyR3BzTG9jYXRpb25zKHBvcykKfQ=='
+          new_defaults=base64.b64decode(defaults_b64).decode('utf-8')
+          new_eval=base64.b64decode(eval_b64).decode('utf-8')
           a=s.find('const GPS_DEFAULTS={')
-          if a<0: raise SystemExit('GPS_DEFAULTS start not found')
           b=s.find('\n};\nlet gpsWatchId',a)
-          if b<0: raise SystemExit('GPS_DEFAULTS end not found')
-          b+=3
-          s=s[:a]+new_defaults+s[b:]
-
-          old_start=s.find('function evaluateGpsPosition(pos){')
-          if old_start<0: raise SystemExit('evaluateGpsPosition start not found')
-          old_end=s.find('\nfunction renderGpsLocations',old_start)
-          if old_end<0: raise SystemExit('evaluateGpsPosition end not found')
-          new_eval="""function evaluateGpsPosition(pos){
- const z=gpsZones(),acc=Number(pos&&pos.accuracy)||999;
- // 실내 GPS가 지나치게 흔들릴 때 엉뚱한 구역을 해금하지 않는다.
- if(acc>140){renderGpsLocations(pos);return}
- // 한 위치에서는 가장 가까운 구역 하나만 해금 후보가 된다.
- // 이미 획득한 구역도 거리 비교에 포함해 같은 자리에서 다음 게임이 연쇄 해금되지 않게 한다.
- const ranked=GAME_ACQUIRE.map(loc=>{
-  const zone=z[loc.code],target=zoneTarget(zone);
-  if(!zone||!target)return null;
-  return {loc,zone,target,centerD:metersBetween(pos,target),d:effectiveZoneDistanceM(pos,zone)}
- }).filter(Boolean).sort((a,b)=>a.centerD-b.centerD);
- const closest=ranked[0];
- if(closest){
-  if(zoneInside(pos,closest.zone))unlockByGps(closest.loc.code);
-  else if(closest.d <= (closest.zone.near||95) && !acquiredByAny(closest.loc.code))showDirection(closest.loc.code,closest.d,pos,closest.zone)
- }
- renderGpsLocations(pos)
-}"""
-          s=s[:old_start]+new_eval+s[old_end:]
-
-          # Static verification.
-          if s.count('function evaluateGpsPosition(pos){')!=1: raise SystemExit('evaluate function count invalid')
-          eval_block=s[s.find('function evaluateGpsPosition(pos){'):s.find('\nfunction renderGpsLocations',s.find('function evaluateGpsPosition(pos){'))]
-          if eval_block.count('unlockByGps(')!=1: raise SystemExit('evaluateGpsPosition must have exactly one unlock call')
-          if 'const closest=ranked[0]' not in eval_block: raise SystemExit('nearest-zone guard missing')
-
-          pts={
-           'fish':(35.195345669871315,128.085359345818659),'stack':(35.194615480555584,128.085613224989288),
-           'run':(35.194274577002346,128.085685647616630),'slice':(35.194941119149156,128.084694391285779),
-           'tteok':(35.195225039986212,128.084952409084787),'powerduck':(35.194613594496,128.08480142824)
-          }
-          def dist(x,y):
-           lat1,lon1=x;lat2,lon2=y
-           r=6371000
-           p1=math.radians(lat1);p2=math.radians(lat2)
-           dp=math.radians(lat2-lat1);dl=math.radians(lon2-lon1)
-           h=math.sin(dp/2)**2+math.cos(p1)*math.cos(p2)*math.sin(dl/2)**2
-           return 2*r*math.asin(math.sqrt(h))
-          pairs=[]
-          names=list(pts)
-          for i in range(len(names)):
-           for j in range(i+1,len(names)):
-            d=dist(pts[names[i]],pts[names[j]])
-            pairs.append((d,names[i],names[j]))
+          if a<0 or b<0: raise SystemExit('GPS_DEFAULTS block not found')
+          s=s[:a]+new_defaults+s[b+3:]
+          a=s.find('function evaluateGpsPosition(pos){')
+          b=s.find('\nfunction renderGpsLocations',a)
+          if a<0 or b<0: raise SystemExit('evaluateGpsPosition block not found')
+          s=s[:a]+new_eval+s[b:]
+          block=s[s.find('function evaluateGpsPosition(pos){'):s.find('\nfunction renderGpsLocations',s.find('function evaluateGpsPosition(pos){'))]
+          if block.count('unlockByGps(')!=1: raise SystemExit('expected exactly one GPS unlock call')
+          if 'const closest=ranked[0]' not in block: raise SystemExit('nearest-zone guard missing')
+          pts={'fish':(35.195345669871315,128.085359345818659),'stack':(35.194615480555584,128.085613224989288),'run':(35.194274577002346,128.085685647616630),'slice':(35.194941119149156,128.084694391285779),'tteok':(35.195225039986212,128.084952409084787),'powerduck':(35.194613594496,128.08480142824)}
+          def d(a,b):
+              R=6371000; p1=math.radians(a[0]); p2=math.radians(b[0]); dp=math.radians(b[0]-a[0]); dl=math.radians(b[1]-a[1]); h=math.sin(dp/2)**2+math.cos(p1)*math.cos(p2)*math.sin(dl/2)**2; return 2*R*math.asin(math.sqrt(h))
+          pairs=[(d(pts[a],pts[b]),a,b) for i,a in enumerate(pts) for b in list(pts)[i+1:]]
           mind=min(pairs)
-          if mind[0] <= 28: raise SystemExit(f'checkpoint circles overlap: {mind}')
-          print('minimum inner checkpoint separation:',round(mind[0],1),'m',mind[1],mind[2])
-          print('verified: raw 14m checkpoint circles do not overlap and only nearest zone can unlock')
-
+          if mind[0] <= 28: raise SystemExit('14m checkpoint circles overlap')
+          print('minimum checkpoint separation',round(mind[0],1),'m',mind[1],mind[2])
           p.write_text(s,encoding='utf-8')
           PY
           git config user.name 'PWDJ GPS Fix'
