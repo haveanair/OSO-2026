@@ -18,16 +18,18 @@ jobs:
       - name: Decode all QR SVG files
         shell: bash
         run: |
-          set -euo pipefail
+          set -u
           echo '=== QR AUDIT START ==='
+          fail=0
           for f in qr/play.svg qr/unlock.svg qr/basket.svg qr/fish.svg qr/stack.svg qr/run.svg qr/slice.svg qr/tteok.svg qr/powerduck.svg; do
             png="/tmp/$(basename "$f" .svg).png"
-            rsvg-convert -w 1000 -h 1000 "$f" -o "$png"
+            rsvg-convert --background-color white -w 1000 -h 1000 "$f" -o "$png"
             value="$(zbarimg --quiet --raw "$png" 2>/dev/null || true)"
             printf '%s => %s\n' "$f" "$value"
             if [ -z "$value" ]; then
               echo "FAILED_TO_DECODE: $f"
-              exit 1
+              fail=1
             fi
           done
           echo '=== QR AUDIT END ==='
+          exit "$fail"
