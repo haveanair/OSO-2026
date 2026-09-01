@@ -1,1 +1,1 @@
-validate visit-counter-v1
+validate visit-counter-v2
