@@ -1,1 +1,1 @@
-apply visit-counter-v1
+apply visit-counter-v2
