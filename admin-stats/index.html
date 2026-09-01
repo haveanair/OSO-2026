@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow,noarchive,nosnippet">
+<meta name="theme-color" content="#24190f">
+<title>OSO-2026 접속 통계</title>
+<style>
+:root{color-scheme:dark;--bg:#17110c;--panel:#241a12;--line:#5d4632;--gold:#ffc928;--text:#fff7e7;--muted:#bda993}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at top,#352312 0,#17110c 48%);color:var(--text);font-family:system-ui,-apple-system,"Noto Sans KR",sans-serif;min-height:100vh}
+.wrap{width:min(760px,100%);margin:auto;padding:28px 16px 48px}h1{font-size:24px;margin:0 0 6px}.sub{color:var(--muted);font-size:12px;margin-bottom:20px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.card{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:17px}.label{color:var(--muted);font-size:12px;font-weight:800}.value{font-size:34px;font-weight:1000;letter-spacing:-1px;margin-top:5px}.wide{grid-column:1/-1}.wide .value{font-size:17px;letter-spacing:0}.bar{display:flex;gap:8px;margin-top:14px}.btn{flex:1;border:1px solid #76572f;border-radius:14px;padding:12px;background:var(--gold);color:#33210e;font-weight:1000;font-size:14px}.status{margin-top:14px;color:var(--muted);font-size:11px;line-height:1.55}.err{color:#ff9b92}.ok{color:#9fe6a8}@media(max-width:360px){.value{font-size:29px}.wrap{padding-left:12px;padding-right:12px}}
+</style>
+</head>
+<body>
+<main class="wrap">
+  <h1>어서오소! 접속 통계</h1>
+  <div class="sub">OSO-2026 · 한국시간 기준 · 관리자 확인용</div>
+  <section class="grid">
+    <div class="card"><div class="label">누적 고유 방문자</div><div class="value" id="totalUnique">-</div></div>
+    <div class="card"><div class="label">총 접속 횟수</div><div class="value" id="totalVisits">-</div></div>
+    <div class="card"><div class="label">오늘 고유 방문자</div><div class="value" id="todayUnique">-</div></div>
+    <div class="card"><div class="label">오늘 접속 횟수</div><div class="value" id="todayVisits">-</div></div>
+    <div class="card wide"><div class="label">최근 접속</div><div class="value" id="latest">-</div></div>
+  </section>
+  <div class="bar"><button class="btn" id="refresh" type="button">통계 새로고침</button></div>
+  <div class="status" id="status">불러오는 중…</div>
+  <div class="status">고유 방문자는 브라우저 기준입니다. 같은 브라우저의 30분 이내 반복 접속은 총 접속 횟수에 다시 더하지 않습니다. 이 페이지는 게임 화면 어디에도 연결되어 있지 않습니다.</div>
+</main>
+<script>
+const ENDPOINT='https://kfxagkjaczfwxebfvfav.supabase.co/functions/v1/get-oso-stats';
+const $=id=>document.getElementById(id);
+const nf=new Intl.NumberFormat('ko-KR');
+const dt=new Intl.DateTimeFormat('ko-KR',{timeZone:'Asia/Seoul',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit'});
+function n(v){return nf.format(Number(v||0))}
+async function load(){
+  $('status').className='status';$('status').textContent='불러오는 중…';$('refresh').disabled=true;
+  try{
+    const r=await fetch(ENDPOINT,{method:'GET',cache:'no-store',credentials:'omit'});
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    const j=await r.json(); if(!j.ok||!j.stats) throw new Error('invalid response');
+    const s=j.stats;
+    $('totalUnique').textContent=n(s.total_unique_visitors);
+    $('totalVisits').textContent=n(s.total_visits);
+    $('todayUnique').textContent=n(s.today_unique_visitors);
+    $('todayVisits').textContent=n(s.today_visits);
+    $('latest').textContent=s.latest_visit_at?dt.format(new Date(s.latest_visit_at)):'아직 접속 없음';
+    $('status').className='status ok';$('status').textContent='업데이트 · '+dt.format(new Date());
+  }catch(e){
+    $('status').className='status err';$('status').textContent='통계를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.';
+  }finally{$('refresh').disabled=false}
+}
+$('refresh').addEventListener('click',load);load();setInterval(load,60000);
+</script>
+</body>
+</html>
