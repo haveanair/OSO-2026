@@ -1,4 +1,4 @@
-name: Validate live visit counter
+name: Validate live admin stats page
 
 on:
   push:
@@ -15,7 +15,7 @@ jobs:
     steps:
       - name: Install browser driver
         run: python3 -m pip install --quiet playwright
-      - name: Open live play page and verify counter request
+      - name: Open admin stats page and verify aggregate response
         shell: bash
         run: |
           set -euo pipefail
@@ -23,20 +23,26 @@ jobs:
           test -n "$CHROME"
           export CHROME
           cat > /tmp/validate.py <<'PY'
-          import os,time
+          import os
           from playwright.sync_api import sync_playwright
-          target='https://haveanair.github.io/OSO-2026/play/'
-          endpoint='https://kfxagkjaczfwxebfvfav.supabase.co/functions/v1/record-oso-visit'
+          target='https://haveanair.github.io/OSO-2026/admin-stats/'
+          endpoint='https://kfxagkjaczfwxebfvfav.supabase.co/functions/v1/get-oso-stats'
           with sync_playwright() as p:
               browser=p.chromium.launch(headless=True,executable_path=os.environ['CHROME'],args=['--no-sandbox','--disable-dev-shm-usage'])
               page=browser.new_page(viewport={'width':390,'height':844})
               seen=[]
               page.on('response', lambda r: seen.append((r.url,r.status)) if endpoint in r.url else None)
-              page.goto(target,wait_until='domcontentloaded',timeout=60000)
-              page.wait_for_timeout(6000)
-              print('counter responses:',seen)
+              resp=page.goto(target,wait_until='domcontentloaded',timeout=60000)
+              if not resp or resp.status != 200:
+                  raise SystemExit(f'admin page HTTP status {resp.status if resp else None}')
+              page.wait_for_timeout(5000)
+              print('stats responses:',seen)
               if not any(url==endpoint and status==200 for url,status in seen):
-                  raise SystemExit('visit counter did not return HTTP 200')
+                  raise SystemExit('stats endpoint did not return HTTP 200')
+              txt=page.locator('#totalUnique').inner_text().strip()
+              if txt == '-':
+                  raise SystemExit('stats UI did not render')
+              print('totalUnique:',txt)
               browser.close()
           PY
           python3 /tmp/validate.py
