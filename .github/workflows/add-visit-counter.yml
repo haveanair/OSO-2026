@@ -1,0 +1,74 @@
+name: Add private anonymous visit counter
+
+on:
+  push:
+    branches: [qa-wrap-audit]
+    paths:
+      - '.github/visit-counter.trigger'
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Insert anonymous visit tracker
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('play/index.html')
+          s=p.read_text(encoding='utf-8')
+          marker='/* OSO_PRIVATE_VISIT_COUNTER_V1 */'
+          if marker in s:
+              print('visit counter already present')
+              raise SystemExit(0)
+          needle='</script>'
+          idx=s.rfind(needle)
+          if idx < 0:
+              raise SystemExit('closing script tag not found')
+          block=r'''
+/* OSO_PRIVATE_VISIT_COUNTER_V1 */
+(function(){
+  try{
+    if(!location.pathname.includes('/OSO-2026/play/')) return;
+    const KEY='oso-private-visitor-id-v1';
+    let visitorId=localStorage.getItem(KEY);
+    if(!visitorId){
+      visitorId=(crypto.randomUUID ? crypto.randomUUID() : (Date.now().toString(36)+'_'+Math.random().toString(36).slice(2)+Math.random().toString(36).slice(2)));
+      localStorage.setItem(KEY,visitorId);
+    }
+    fetch('https://kfxagkjaczfwxebfvfav.supabase.co/functions/v1/record-oso-visit',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({visitorId}),
+      keepalive:true,
+      cache:'no-store',
+      credentials:'omit'
+    }).catch(()=>{});
+  }catch(_e){}
+})();
+'''
+          s=s[:idx]+block+s[idx:]
+          p.write_text(s,encoding='utf-8')
+          PY
+          git diff --check
+          grep -q 'OSO_PRIVATE_VISIT_COUNTER_V1' play/index.html
+          grep -q "location.pathname.includes('/OSO-2026/play/')" play/index.html
+          git diff -- play/index.html
+      - name: Commit to main
+        shell: bash
+        run: |
+          set -euo pipefail
+          if git diff --quiet; then exit 0; fi
+          git config user.name 'PWDJ'
+          git config user.email '34460283+haveanair@users.noreply.github.com'
+          git add play/index.html
+          git commit -m 'Add private anonymous visit counter'
+          git push origin HEAD:main
