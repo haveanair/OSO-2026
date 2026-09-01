@@ -1,1 +1,1 @@
-validate admin-stats-v1
+validate admin-stats-v2
