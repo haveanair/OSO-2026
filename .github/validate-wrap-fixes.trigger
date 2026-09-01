@@ -1,1 +1,1 @@
-validate visit-counter-v2
+validate admin-stats-v1
