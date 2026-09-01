@@ -6856,5 +6856,26 @@ refresh();renderRanking();initGpsUi();initQrUi();boot();
 
 
 
+
+/* OSO_PRIVATE_VISIT_COUNTER_V1 */
+(function(){
+  try{
+    if(!location.pathname.includes('/OSO-2026/play/')) return;
+    const KEY='oso-private-visitor-id-v1';
+    let visitorId=localStorage.getItem(KEY);
+    if(!visitorId){
+      visitorId=(crypto.randomUUID ? crypto.randomUUID() : (Date.now().toString(36)+'_'+Math.random().toString(36).slice(2)+Math.random().toString(36).slice(2)));
+      localStorage.setItem(KEY,visitorId);
+    }
+    fetch('https://kfxagkjaczfwxebfvfav.supabase.co/functions/v1/record-oso-visit',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({visitorId}),
+      keepalive:true,
+      cache:'no-store',
+      credentials:'omit'
+    }).catch(()=>{});
+  }catch(_e){}
+})();
 </script>
 </body></html>
