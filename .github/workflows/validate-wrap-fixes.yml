@@ -1,4 +1,4 @@
-name: Inspect tteok rendered underlay
+name: Inspect stack game logic
 
 on:
   push:
@@ -13,65 +13,26 @@ jobs:
   inspect:
     runs-on: ubuntu-latest
     steps:
-      - name: Install browser driver
-        run: python3 -m pip install --quiet playwright
-      - name: Render tteok and inspect under button
+      - name: Inspect current production stack source
         shell: bash
         run: |
           set -euo pipefail
-          CHROME="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium || true)"
-          test -n "$CHROME"
-          export CHROME
-          cat > /tmp/tteok_probe.py <<'PY'
-          import os, json
-          from playwright.sync_api import sync_playwright
-          target='https://haveanair.github.io/OSO-2026/unlock/'
-          with sync_playwright() as p:
-              b=p.chromium.launch(headless=True,executable_path=os.environ['CHROME'],args=['--no-sandbox','--disable-dev-shm-usage'])
-              page=b.new_page(viewport={'width':390,'height':844}, device_scale_factor=1)
-              page.goto(target,wait_until='domcontentloaded',timeout=60000)
-              page.wait_for_timeout(3000)
-              ok=page.evaluate("typeof playTteok === 'function'")
-              print('playTteok exists:',ok)
-              if not ok: raise SystemExit('playTteok missing')
-              page.evaluate("""
-                if(document.querySelector('#boot')) document.querySelector('#boot').style.display='none';
-                if(document.querySelector('#app')) document.querySelector('#app').style.display='none';
-                const go=document.querySelector('#gameOverlay'); if(go){go.style.display='flex';go.classList.add('show');}
-                playTteok();
-              """)
-              page.wait_for_timeout(1200)
-              info=page.evaluate("""
-                () => {
-                  const btn=document.querySelector('#hitBtn');
-                  const stage=document.querySelector('#stage');
-                  const br=btn.getBoundingClientRect(), sr=stage.getBoundingClientRect();
-                  const rows=[];
-                  for(const el of stage.querySelectorAll('*')){
-                    const r=el.getBoundingClientRect();
-                    if(r.width<=0||r.height<=0) continue;
-                    if(r.bottom >= br.bottom-2 && r.top <= sr.bottom && r.left < br.right && r.right > br.left){
-                      const cs=getComputedStyle(el);
-                      rows.push({tag:el.tagName,id:el.id,cls:el.className,rect:{x:+r.x.toFixed(1),y:+r.y.toFixed(1),w:+r.width.toFixed(1),h:+r.height.toFixed(1),bottom:+r.bottom.toFixed(1)},z:cs.zIndex,pos:cs.position,bg:cs.background,bgc:cs.backgroundColor,border:cs.border,shadow:cs.boxShadow,opacity:cs.opacity,pointer:cs.pointerEvents});
-                    }
-                  }
-                  const pts=[];
-                  for(const y of [br.bottom+1,br.bottom+5,Math.min(sr.bottom-2,br.bottom+12),sr.bottom-3]){
-                    const els=document.elementsFromPoint((br.left+br.right)/2,y).map(el=>({tag:el.tagName,id:el.id,cls:el.className,z:getComputedStyle(el).zIndex,bg:getComputedStyle(el).backgroundColor}));
-                    pts.push({y:+y.toFixed(1),els});
-                  }
-                  return {button:{x:br.x,y:br.y,w:br.width,h:br.height,bottom:br.bottom},stage:{y:sr.y,bottom:sr.bottom,h:sr.height},rows,pts,html:stage.innerHTML.slice(-2500)};
-                }
-              """)
-              print(json.dumps(info,ensure_ascii=False,indent=2))
-              page.screenshot(path='/tmp/tteok.png',full_page=True)
-              b.close()
+          curl -fsSL 'https://raw.githubusercontent.com/haveanair/OSO-2026/main/play/index.html' -o /tmp/play.html
+          python3 - <<'PY'
+          from pathlib import Path
+          s=Path('/tmp/play.html').read_text(encoding='utf-8')
+          needles=['function playStack','playStack(){','stackBlock','stackGuide','비단쌓기','stackScore','MISS']
+          for needle in needles:
+              print('\n===== ',needle,' =====')
+              start=0; n=0
+              while True:
+                  i=s.find(needle,start)
+                  if i<0: break
+                  n+=1
+                  a=max(0,i-1800); b=min(len(s),i+7000)
+                  print(f'--- occurrence {n} at {i} ---')
+                  print(s[a:b].replace('><','>\n<'))
+                  start=i+len(needle)
+                  if n>=5: break
+              if n==0: print('NOT FOUND')
           PY
-          python3 /tmp/tteok_probe.py | tee /tmp/tteok-inspect.txt
-      - name: Upload tteok inspection
-        uses: actions/upload-artifact@v4
-        with:
-          name: tteok-render-inspection
-          path: |
-            /tmp/tteok.png
-            /tmp/tteok-inspect.txt
