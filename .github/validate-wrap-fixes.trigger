@@ -1,1 +1,1 @@
-inspect tteok-ui-v1
+inspect tteok-ui-v2
