@@ -1,4 +1,4 @@
-name: Validate live admin stats page
+name: Inspect tteok UI layers
 
 on:
   push:
@@ -10,39 +10,29 @@ permissions:
   contents: read
 
 jobs:
-  validate:
+  inspect:
     runs-on: ubuntu-latest
     steps:
-      - name: Install browser driver
-        run: python3 -m pip install --quiet playwright
-      - name: Open admin stats page and verify aggregate response
+      - name: Inspect current production tteok source
         shell: bash
         run: |
           set -euo pipefail
-          CHROME="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium || true)"
-          test -n "$CHROME"
-          export CHROME
-          cat > /tmp/validate.py <<'PY'
-          import os
-          from playwright.sync_api import sync_playwright
-          target='https://haveanair.github.io/OSO-2026/admin-stats/'
-          endpoint='https://kfxagkjaczfwxebfvfav.supabase.co/functions/v1/get-oso-stats'
-          with sync_playwright() as p:
-              browser=p.chromium.launch(headless=True,executable_path=os.environ['CHROME'],args=['--no-sandbox','--disable-dev-shm-usage'])
-              page=browser.new_page(viewport={'width':390,'height':844})
-              seen=[]
-              page.on('response', lambda r: seen.append((r.url,r.status)) if endpoint in r.url else None)
-              resp=page.goto(target,wait_until='domcontentloaded',timeout=60000)
-              if not resp or resp.status != 200:
-                  raise SystemExit(f'admin page HTTP status {resp.status if resp else None}')
-              page.wait_for_timeout(5000)
-              print('stats responses:',seen)
-              if not any(url==endpoint and status==200 for url,status in seen):
-                  raise SystemExit('stats endpoint did not return HTTP 200')
-              txt=page.locator('#totalUnique').inner_text().strip()
-              if txt == '-':
-                  raise SystemExit('stats UI did not render')
-              print('totalUnique:',txt)
-              browser.close()
+          curl -fsSL 'https://raw.githubusercontent.com/haveanair/OSO-2026/main/play/index.html' -o /tmp/play.html
+          python3 - <<'PY'
+          from pathlib import Path
+          s=Path('/tmp/play.html').read_text(encoding='utf-8')
+          needles=['tteokBtn','meterWrap','meterNeedle','hammer','떡메 내려치기','startTteok','tteokHit','function tteok']
+          for needle in needles:
+              print('\n===== ',needle,' =====')
+              start=0; n=0
+              while True:
+                  i=s.find(needle,start)
+                  if i<0: break
+                  n+=1
+                  a=max(0,i-1000); b=min(len(s),i+1800)
+                  print(f'--- occurrence {n} at {i} ---')
+                  print(s[a:b].replace('><','>\n<'))
+                  start=i+len(needle)
+                  if n>=8: break
+              if n==0: print('NOT FOUND')
           PY
-          python3 /tmp/validate.py
