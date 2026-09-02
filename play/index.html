@@ -3870,11 +3870,12 @@ function playStack(){
  <div class="counter" id="floorHud">0 / 15 단</div>
  <div class="comboHud" id="perfectHud">정확도 0%</div>
  <div class="levelHud" id="levelHud">LEVEL 1</div>
+  <div class="lifeHud" id="stackLife">❤️❤️❤️</div>
  
  <div class="gameTip">비단 폭이 점점 좁아지고 속도가 빨라집니다 · 15단 완성 목표</div>`;
  const lane=$('#silkLane');
  const stackClamp=(v,a,b)=>Math.max(a,Math.min(b,v));
- let score=0,floor=0,alive=true,raf,last=0,current=null,x=0,dir=1,perfect=0,accuracyTotal=0,level=1,lastDropAt=-1e9,retrying=false;
+ let score=0,floor=0,alive=true,raf,last=0,current=null,x=0,dir=1,perfect=0,accuracyTotal=0,level=1,lastDropAt=-1e9,retrying=false,lives=3;
  const W=()=>lane.getBoundingClientRect().width, baseW=Math.min(235,W()*.58), baseX=(W()-baseW)/2;
  const patterns=[
    ['#f8d5e2','#f0aac3','#d36a93'],
@@ -3892,6 +3893,7 @@ function playStack(){
   $('#floorHud').textContent=`${floor} / 15 단`;
   const acc=floor?Math.round(accuracyTotal/floor):0;
   $('#perfectHud').textContent=`정확도 ${acc}%`;
+   $('#stackLife').textContent='❤️'.repeat(lives)+'🖤'.repeat(Math.max(0,3-lives));
  }
  const base=document.createElement('div');
  base.className='silkBase';
@@ -3904,8 +3906,11 @@ function playStack(){
   e.className='silkPiece';
   e.setAttribute('aria-hidden','true');
   e.style.pointerEvents='none';
-  let w=Math.max(90,baseW-floor*12);
-  e.style.width=w+'px';
+  const placed=lane.querySelectorAll('.silkPiece,.silkBase');
+   const prevPlaced=placed[placed.length-1];
+   let w=prevPlaced?parseFloat(prevPlaced.style.width):baseW;
+   if(!Number.isFinite(w)||w<=0)w=baseW;
+   e.style.width=w+'px';
   e.style.bottom=(135+floor*21)+'px';
   e.style.left=x+'px';
   e.innerHTML=silkHTML(floor+1);
@@ -3940,8 +3945,17 @@ function playStack(){
    retrying=true;
    const failed=current;
    failed.classList.add('miss');
-   score=Math.max(0,score-30);$('#gScore').textContent=score;
-   tone('bad');buzz(110);softShake();showComboBurst('MISS! 다시!',2,'multi');
+   lives=Math.max(0,lives-1);
+    score=Math.max(0,score-60);hud();
+   tone('bad');buzz(110);softShake();
+    if(lives<=0){
+     alive=false;
+     cancelAnimationFrame(raf);
+     showComboBurst('GAME OVER',3,'multi');
+     setTimeout(()=>finish('stack',score,playStack,false),560);
+     return;
+    }
+    showComboBurst(`MISS! ❤️ ${lives}/3`,2,'multi');
    setTimeout(()=>{
     if(!alive)return;
     failed.remove();
@@ -3958,20 +3972,19 @@ function playStack(){
   current.style.left=left+'px';
   current.style.width=overlap+'px';
   let centered=Math.abs((l+w/2)-(pl+pw/2));
-  let q=overlap/pw;
   let placementAcc=stackClamp(100-(centered/Math.max(1,pw*.5))*100,0,100);
-  let bonus=Math.max(0,Math.round(100-centered));
-  score += Math.round(130*q)+bonus;
+   let pts=placementAcc>=97?360:placementAcc>=88?220:placementAcc>=75?110:40;
+   score += pts;
   accuracyTotal+=placementAcc;
   if(placementAcc>=97){
    perfect++;current.classList.add('good','stackPerfect');tone('perfect');buzz([32,12,48,12,72]);
-   showComboBurst('PERFECT!',10,'great');particles(innerWidth*.5,innerHeight*.38,'✨',12)
+   showComboBurst(`PERFECT! +${pts}`,10,'great');particles(innerWidth*.5,innerHeight*.38,'✨',12)
   }else if(placementAcc>=88){
-   current.classList.add('good');tone('perfect');buzz([32,12,48]);showComboBurst('GREAT!',5,'great')
+   current.classList.add('good');tone('perfect');buzz([32,12,48]);showComboBurst(`GREAT! +${pts}`,5,'great')
   }else if(placementAcc>=75){
-   current.classList.add('ok');tone('good');buzz(32);showComboBurst('GOOD!',2,'combo')
+   current.classList.add('ok');tone('good');buzz(32);showComboBurst(`GOOD! +${pts}`,2,'combo')
   }else{
-   current.classList.add('ok');tone('good');buzz(32);showComboBurst('아슬아슬!',2,'combo')
+   current.classList.add('ok');tone('good');buzz(32);showComboBurst(`아슬아슬! +${pts}`,2,'combo')
   }
 
   floor++;
