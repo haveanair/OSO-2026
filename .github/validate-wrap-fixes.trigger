@@ -1,1 +1,1 @@
-apply stack-game-v7
+apply stack-game-v8
