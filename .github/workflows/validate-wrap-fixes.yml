@@ -21,7 +21,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          curl -fsSL 'https://raw.githubusercontent.com/haveanair/OSO-2026/qa-wrap-audit/.github/stack_patch.py' -o /tmp/stack_patch.py
+          curl -fsSL 'https://raw.githubusercontent.com/haveanair/OSO-2026/446905cb638e2eb7dbc0b9f3005fbe907f27e8c4/.github/stack_patch.py' -o /tmp/stack_patch.py
           python3 /tmp/stack_patch.py play/index.html
           git diff --check
           git diff -- play/index.html
