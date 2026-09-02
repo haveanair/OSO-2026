@@ -9,8 +9,8 @@ before, block, after = s[:start], s[start:end], s[end:]
 
 replacements = [
     (
-        '<div class="gameTip">비단 폭이 점점 좁아지고 속도가 빨라집니다 · 15단 완성 목표</div>',
-        '<div class="lifeHud" id="stackLife">❤️❤️❤️</div>\n  <div class="gameTip">폭 유지가 핵심 · MISS 시 ❤️ -1 · 15단 완성</div>'
+        '<div class="levelHud" id="levelHud">LEVEL 1</div>',
+        '<div class="levelHud" id="levelHud">LEVEL 1</div>\n  <div class="lifeHud" id="stackLife">❤️❤️❤️</div>'
     ),
     (
         'let score=0,floor=0,alive=true,raf,last=0,current=null,x=0,dir=1,perfect=0,accuracyTotal=0,level=1,lastDropAt=-1e9,retrying=false;',
@@ -56,13 +56,12 @@ for idx, (old, new) in enumerate(replacements, 1):
         raise SystemExit(f'replacement {idx}: expected exactly 1 occurrence inside playStack, found {count}')
     block = block.replace(old, new, 1)
 
-# Safety assertions: expected new behavior must exist only in the stack block.
 checks = [
-    "id=\"stackLife\"",
-    "lives=3",
-    "prevPlaced?parseFloat(prevPlaced.style.width):baseW",
+    'id="stackLife"',
+    'lives=3',
+    'prevPlaced?parseFloat(prevPlaced.style.width):baseW',
     "finish('stack',score,playStack,false)",
-    "placementAcc>=97?360:placementAcc>=88?220:placementAcc>=75?110:40",
+    'placementAcc>=97?360:placementAcc>=88?220:placementAcc>=75?110:40',
 ]
 for token in checks:
     if token not in block:
