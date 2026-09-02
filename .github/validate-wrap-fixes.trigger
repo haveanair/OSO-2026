@@ -1,1 +1,1 @@
-validate admin-stats-v2
+inspect tteok-ui-v1
