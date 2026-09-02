@@ -1,4 +1,4 @@
-name: Apply stack difficulty fix
+name: Validate live stack gameplay
 
 on:
   push:
@@ -7,30 +7,123 @@ on:
       - '.github/validate-wrap-fixes.trigger'
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  patch:
+  validate:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Install browser driver
+        run: python3 -m pip install --quiet playwright
+      - name: Validate persistent width and hearts
+        shell: bash
+        run: |
+          set -euo pipefail
+          CHROME="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium || true)"
+          test -n "$CHROME"
+          export CHROME
+          cat > /tmp/stack_probe.py <<'PY'
+          import os, json, math
+          from playwright.sync_api import sync_playwright
+
+          target='https://haveanair.github.io/OSO-2026/unlock/'
+          with sync_playwright() as p:
+              browser=p.chromium.launch(headless=True,executable_path=os.environ['CHROME'],args=['--no-sandbox','--disable-dev-shm-usage'])
+              page=browser.new_page(viewport={'width':390,'height':844}, device_scale_factor=1)
+              resp=page.goto(target,wait_until='domcontentloaded',timeout=60000)
+              if not resp or resp.status != 200:
+                  raise SystemExit(f'HTTP {resp.status if resp else None}')
+              page.wait_for_timeout(3500)
+              if not page.evaluate("typeof playStack === 'function'"):
+                  raise SystemExit('playStack missing')
+              page.evaluate("""
+                if(document.querySelector('#boot')) document.querySelector('#boot').style.display='none';
+                if(document.querySelector('#app')) document.querySelector('#app').style.display='none';
+                const go=document.querySelector('#gameOverlay'); if(go){go.style.display='flex';go.classList.add('show');}
+                playStack();
+              """)
+              page.wait_for_timeout(150)
+
+              initial=page.evaluate("""() => {
+                const life=document.querySelector('#stackLife');
+                const base=document.querySelector('#silkLane .silkBase');
+                const cur=document.querySelector('#silkLane .silkPiece:last-of-type');
+                const ids=['stackLife','floorHud','perfectHud','levelHud'];
+                const rects={};
+                for(const id of ids){const e=document.getElementById(id);const r=e.getBoundingClientRect();rects[id]={x:r.x,y:r.y,w:r.width,h:r.height,right:r.right,bottom:r.bottom};}
+                return {life:life.textContent,baseW:parseFloat(base.style.width),baseX:parseFloat(base.style.left),curW:parseFloat(cur.style.width),rects,src:playStack.toString().slice(-1400)};
+              }""")
+              print('INITIAL',json.dumps(initial,ensure_ascii=False))
+              if initial['life']!='❤️❤️❤️': raise SystemExit('initial hearts are not 3')
+              if abs(initial['baseW']-initial['curW'])>0.2: raise SystemExit('first silk width does not match base')
+
+              # Hearts must not overlap the other top HUD chips.
+              a=initial['rects']['stackLife']
+              for oid in ['floorHud','perfectHud','levelHud']:
+                  b=initial['rects'][oid]
+                  overlap=max(0,min(a['right'],b['right'])-max(a['x'],b['x'])) * max(0,min(a['bottom'],b['bottom'])-max(a['y'],b['y']))
+                  print('HUD_OVERLAP',oid,overlap)
+                  if overlap>1: raise SystemExit(f'heart HUD overlaps {oid}')
+
+              def do_drop(left):
+                  return page.evaluate("""(left) => {
+                    const lane=document.querySelector('#silkLane');
+                    const pieces=[...lane.querySelectorAll('.silkPiece')];
+                    const cur=pieces[pieces.length-1];
+                    cur.style.left=left+'px';
+                    const stage=document.querySelector('#stage');
+                    const src=playStack.toString();
+                    let type=src.includes('pointerdown')?'pointerdown':(src.includes('touchstart')?'touchstart':'click');
+                    if(type==='pointerdown') stage.dispatchEvent(new PointerEvent('pointerdown',{bubbles:true,pointerType:'touch'}));
+                    else if(type==='touchstart') stage.dispatchEvent(new Event('touchstart',{bubbles:true}));
+                    else stage.dispatchEvent(new MouseEvent('click',{bubbles:true}));
+                    return type;
+                  }""", left)
+
+              # Deliberately trim the first placement by 32 px.
+              event_type=do_drop(initial['baseX']+32)
+              page.wait_for_timeout(100)
+              trimmed=page.evaluate("""() => {
+                const pieces=[...document.querySelectorAll('#silkLane .silkPiece')];
+                const placed=pieces[pieces.length-2],cur=pieces[pieces.length-1];
+                return {count:pieces.length,floor:document.querySelector('#floorHud').textContent,placedW:parseFloat(placed.style.width),curW:parseFloat(cur.style.width),placedX:parseFloat(placed.style.left),score:Number(document.querySelector('#gScore').textContent),life:document.querySelector('#stackLife').textContent};
+              }""")
+              print('TRIMMED',event_type,json.dumps(trimmed,ensure_ascii=False))
+              if trimmed['count']<2 or not trimmed['floor'].strip().startswith('1 / 15'):
+                  raise SystemExit('trimmed placement did not register')
+              if abs(trimmed['placedW']-trimmed['curW'])>0.2:
+                  raise SystemExit(f'next silk width {trimmed["curW"]} != trimmed width {trimmed["placedW"]}')
+              if trimmed['placedW'] >= initial['baseW']-5:
+                  raise SystemExit('test placement did not actually trim the silk')
+              if trimmed['life']!='❤️❤️❤️': raise SystemExit('successful placement incorrectly lost a heart')
+
+              # Three complete misses must consume the three hearts.
+              expected=['❤️❤️🖤','❤️🖤🖤','🖤🖤🖤']
+              for i,exp in enumerate(expected,1):
+                  if i>1: page.wait_for_timeout(430)
+                  info=page.evaluate("""() => {
+                    const pieces=[...document.querySelectorAll('#silkLane .silkPiece')];
+                    const placed=pieces.length>=2?pieces[pieces.length-2]:document.querySelector('#silkLane .silkBase');
+                    const x=parseFloat(placed.style.left),w=parseFloat(placed.style.width);
+                    return {missX:x+w+60,floor:document.querySelector('#floorHud').textContent};
+                  }""")
+                  do_drop(info['missX'])
+                  page.wait_for_timeout(80)
+                  life=page.evaluate("document.querySelector('#stackLife')?document.querySelector('#stackLife').textContent:''")
+                  text=page.evaluate("document.body.innerText")
+                  print('MISS',i,'life=',life,'gameover=',('GAME OVER' in text))
+                  if life!=exp: raise SystemExit(f'miss {i}: expected {exp}, got {life}')
+                  if i==3 and 'GAME OVER' not in text: raise SystemExit('third miss did not show GAME OVER')
+
+              page.screenshot(path='/tmp/stack-validated.png',full_page=True)
+              print('STACK_VALIDATION_OK')
+              browser.close()
+          PY
+          python3 /tmp/stack_probe.py | tee /tmp/stack-validation.txt
+      - name: Upload validation evidence
+        uses: actions/upload-artifact@v4
         with:
-          ref: main
-          fetch-depth: 0
-      - name: Apply strict stack-only patch
-        shell: bash
-        run: |
-          set -euo pipefail
-          curl -fsSL 'https://raw.githubusercontent.com/haveanair/OSO-2026/446905cb638e2eb7dbc0b9f3005fbe907f27e8c4/.github/stack_patch.py' -o /tmp/stack_patch.py
-          python3 /tmp/stack_patch.py play/index.html
-          git diff --check
-          git diff -- play/index.html
-      - name: Commit production change
-        shell: bash
-        run: |
-          set -euo pipefail
-          git config user.name 'PWDJ'
-          git config user.email '34460283+haveanair@users.noreply.github.com'
-          git add play/index.html
-          git commit -m 'Make silk stacking width persistent and add lives'
-          git push origin HEAD:main
+          name: stack-live-validation
+          path: |
+            /tmp/stack-validated.png
+            /tmp/stack-validation.txt
