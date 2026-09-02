@@ -1,4 +1,5 @@
 from pathlib import Path
+import re
 import sys
 
 path = Path(sys.argv[1] if len(sys.argv) > 1 else 'play/index.html')
@@ -7,7 +8,7 @@ start = s.index('function playStack(){')
 end = s.index('/* run - stable dt + 2 jumps */', start)
 before, block, after = s[:start], s[start:end], s[end:]
 
-replacements = [
+exact_replacements = [
     (
         '<div class="levelHud" id="levelHud">LEVEL 1</div>',
         '<div class="levelHud" id="levelHud">LEVEL 1</div>\n  <div class="lifeHud" id="stackLife">❤️❤️❤️</div>'
@@ -19,10 +20,6 @@ replacements = [
     (
         "$('#perfectHud').textContent=`정확도 ${acc}%`;",
         "$('#perfectHud').textContent=`정확도 ${acc}%`;\n   $('#stackLife').textContent='❤️'.repeat(lives)+'🖤'.repeat(Math.max(0,3-lives));"
-    ),
-    (
-        "let w=Math.max(90,baseW-floor*12);\n   e.style.width=w+'px';",
-        "const placed=lane.querySelectorAll('.silkPiece,.silkBase');\n   const prevPlaced=placed[placed.length-1];\n   let w=prevPlaced?parseFloat(prevPlaced.style.width):baseW;\n   if(!Number.isFinite(w)||w<=0)w=baseW;\n   e.style.width=w+'px';"
     ),
     (
         "score=Math.max(0,score-30);$('#gScore').textContent=score;\n    tone('bad');buzz(110);softShake();showComboBurst('MISS! 다시!',2,'multi');\n    setTimeout(()=>{",
@@ -50,11 +47,17 @@ replacements = [
     ),
 ]
 
-for idx, (old, new) in enumerate(replacements, 1):
+for idx, (old, new) in enumerate(exact_replacements, 1):
     count = block.count(old)
     if count != 1:
-        raise SystemExit(f'replacement {idx}: expected exactly 1 occurrence inside playStack, found {count}')
+        raise SystemExit(f'exact replacement {idx}: expected exactly 1 occurrence inside playStack, found {count}')
     block = block.replace(old, new, 1)
+
+width_pattern = r"let\s+w\s*=\s*Math\.max\(\s*90\s*,\s*baseW\s*-\s*floor\s*\*\s*12\s*\)\s*;\s*e\.style\.width\s*=\s*w\s*\+\s*['\"]px['\"]\s*;"
+width_new = "const placed=lane.querySelectorAll('.silkPiece,.silkBase');\n   const prevPlaced=placed[placed.length-1];\n   let w=prevPlaced?parseFloat(prevPlaced.style.width):baseW;\n   if(!Number.isFinite(w)||w<=0)w=baseW;\n   e.style.width=w+'px';"
+block, n = re.subn(width_pattern, width_new, block, count=1)
+if n != 1:
+    raise SystemExit(f'width replacement: expected exactly 1 occurrence inside playStack, found {n}')
 
 checks = [
     'id="stackLife"',
@@ -69,4 +72,4 @@ for token in checks:
 
 s = before + block + after
 path.write_text(s, encoding='utf-8')
-print(f'patched {len(replacements)} replacements inside playStack only')
+print(f'patched {len(exact_replacements)} exact replacements plus persistent-width logic inside playStack only')
