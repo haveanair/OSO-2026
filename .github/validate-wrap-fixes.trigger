@@ -1,1 +1,1 @@
-apply stack-game-v8
+validate stack-live-v1
