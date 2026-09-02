@@ -22,7 +22,7 @@ jobs:
           CHROME="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium || true)"
           test -n "$CHROME"
           export CHROME
-          cat > /tmp/inspect.py <<'PY'
+          cat > /tmp/tteok_probe.py <<'PY'
           import os, json
           from playwright.sync_api import sync_playwright
           target='https://haveanair.github.io/OSO-2026/unlock/'
@@ -67,7 +67,7 @@ jobs:
               page.screenshot(path='/tmp/tteok.png',full_page=True)
               b.close()
           PY
-          python3 /tmp/inspect.py | tee /tmp/tteok-inspect.txt
+          python3 /tmp/tteok_probe.py | tee /tmp/tteok-inspect.txt
       - name: Upload tteok inspection
         uses: actions/upload-artifact@v4
         with:
