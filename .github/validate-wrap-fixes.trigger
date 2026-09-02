@@ -1,1 +1,1 @@
-inspect tteok-ui-v3
+inspect stack-game-v1
