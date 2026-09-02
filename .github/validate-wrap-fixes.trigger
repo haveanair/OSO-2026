@@ -1,1 +1,1 @@
-inspect stack-game-v1
+apply stack-game-v2
