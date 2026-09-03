@@ -34,7 +34,7 @@ function unlockIfReady(){
  return false;
 }
 function unlocked(){ensureState();return !!state.specialUnlocks.sotris||unlockIfReady()}
-function progress(){const a=osoItems();return {owned:a.filter(s=>state.ownedSkins.includes(s.id)).length,total:a.length}}
+function progress(){const a=osoItems();return {owned:1+a.filter(s=>state.ownedSkins.includes(s.id)).length,total:1+a.length}}
 function sp1CardOsoSrc(){
  try{
   const a=Array.isArray(OSO_SKINS)?OSO_SKINS:[];
@@ -76,7 +76,7 @@ function ensureHost(){
 }
 function updateCoin(){const e=document.getElementById('sp1Coin');if(e)e.textContent='🪙 '+Number(state.coins||0).toLocaleString()}
 function toast(t,d=1900){const e=document.getElementById('sp1Toast');if(!e)return;e.textContent=t;e.classList.add('show');clearTimeout(e._t);e._t=setTimeout(()=>e.classList.remove('show'),d)}
-function launch(){if(!unlocked())return;ensureHost();settled.clear();pendingRank=false;pendingMilestones=[];try{if(typeof stopBGM==='function')stopBGM()}catch(_){}updateCoin();host.classList.add('show');frame.src=SP1_URL+'?v=20260903-hard300';}
+function launch(){if(!unlocked())return;ensureHost();settled.clear();pendingRank=false;pendingMilestones=[];try{if(typeof stopBGM==='function')stopBGM()}catch(_){}updateCoin();host.classList.add('show');frame.src=SP1_URL+'?v=20260903-hard300-progress19';}
 function close(){if(!host)return;try{frame.src='about:blank'}catch(_){}host.classList.remove('show');try{if(typeof refresh==='function')refresh();if(typeof startBGM==='function')startBGM('hub',1)}catch(_){}if(pendingRank){pendingRank=false;setTimeout(()=>{try{promptInitialsIfNeeded(null)}catch(_){}},350)}}
 function settle(d){
  ensureState();const session=String(d.session||''),attempt=Math.max(0,Math.floor(Number(d.attempt)||0));if(!session||!attempt)return;const key=session+':'+attempt;if(settled.has(key))return;settled.add(key);
