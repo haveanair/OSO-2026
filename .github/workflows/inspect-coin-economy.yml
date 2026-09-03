@@ -1,0 +1,44 @@
+name: Inspect coin economy
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/coin-economy-inspect.trigger'
+
+permissions:
+  contents: write
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Extract coin reward contexts
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          s=Path('play/index.html').read_text(encoding='utf-8')
+          keys=['120','coins+=','coins +=','coin','COIN','finish(','fantasy','rpg','환상대모험','spacefighter','reward','bonusCoins','collectedCoins','coinCount']
+          out=[f'PLAY_LEN={len(s)}']
+          for key in keys:
+              poss=[]; st=0
+              while True:
+                  i=s.find(key,st)
+                  if i<0: break
+                  poss.append(i); st=i+1
+              out.append(f'\n===== KEY {key!r} COUNT {len(poss)} =====')
+              for n,i in enumerate(poss[:80],1):
+                  a=max(0,i-1000); b=min(len(s),i+1800)
+                  out.append(f'\n--- {key} #{n} @ {i} ---\n{s[a:b]}')
+          Path('.github/coin-economy-inspection.txt').write_text('\n'.join(out),encoding='utf-8')
+          PY
+          git config user.name 'PWDJ Coin Inspector'
+          git config user.email '34460283+haveanair@users.noreply.github.com'
+          git add .github/coin-economy-inspection.txt
+          git commit -m 'Inspect current coin reward economy'
+          git push
