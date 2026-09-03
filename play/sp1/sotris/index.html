@@ -1124,6 +1124,19 @@ input,textarea,[contenteditable="true"],.allow-select,.allow-select *{
   }
 }
 
+
+/* ===== v3.8.1 COMBO TWO-LINE FIX ===== */
+.comboText.comboTwoLine{
+  width:min(92vw,760px)!important;
+  white-space:normal!important;
+  text-align:center!important;
+  line-height:.82!important;
+  font-size:clamp(38px,8vw,76px)!important;
+}
+.comboText.sotrisMega.comboTwoLine{
+  font-size:clamp(44px,10vw,104px)!important;
+  line-height:.78!important;
+}
 </style>
 </head><body>
 <audio id="titleBgm" preload="auto" loop></audio>
@@ -1798,7 +1811,7 @@ function finishLineClear(rows){
 function showClearFx(lines,streak){
  const msg=clearLineText(lines),text=$('#comboText'),layer=$('#comboLayer'),mega=lines>=4;
 
- text.textContent=streak>=2?`${msg}  ${streak} COMBO!`:msg;
+ if(streak>=2){text.innerHTML=`${msg}<br>${streak} COMBO!`;text.classList.add('comboTwoLine')}else{text.textContent=msg;text.classList.remove('comboTwoLine')}
  text.classList.toggle('sotrisMega',mega);
  text.classList.remove('show');
  void text.offsetWidth;
