@@ -1,0 +1,84 @@
+name: Add official Oso to SP1 card
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/sp1-card-oso.trigger'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Add existing official Oso asset to SP1 card
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          play=Path('play/index.html')
+          integ=Path('play/sp1/sotris-integration.js')
+          ps=play.read_text(encoding='utf-8')
+          js=integ.read_text(encoding='utf-8')
+
+          old_tag='<script src="sp1/sotris-integration.js?v=20260903-unlockfix1"></script>'
+          new_tag='<script src="sp1/sotris-integration.js?v=20260903-cardoso1"></script>'
+          if ps.count(old_tag)!=1:
+              raise SystemExit(f'SP1 loader tag count invalid: {ps.count(old_tag)}')
+          ps=ps.replace(old_tag,new_tag,1)
+
+          old_css=".sp1Card{width:100%;min-height:132px;text-align:left;position:relative;overflow:hidden;border:3px solid #704a31;border-radius:22px;background:radial-gradient(circle at 88% 15%,#75dcff55,transparent 29%),linear-gradient(135deg,#071226,#17375f 58%,#6a4a92);color:#fff;box-shadow:0 6px #b18455,0 14px 24px #88603a20;padding:13px 14px 12px;touch-action:manipulation}"
+          new_css=".sp1Card{width:100%;min-height:150px;text-align:left;position:relative;overflow:hidden;border:3px solid #704a31;border-radius:22px;background:radial-gradient(circle at 88% 15%,#75dcff55,transparent 29%),linear-gradient(135deg,#071226,#17375f 58%,#6a4a92);color:#fff;box-shadow:0 6px #b18455,0 14px 24px #88603a20;padding:16px 132px 14px 14px;touch-action:manipulation}"
+          if js.count(old_css)!=1:
+              raise SystemExit(f'SP1 card CSS anchor count invalid: {js.count(old_css)}')
+          js=js.replace(old_css,new_css,1)
+
+          old_css2=".sp1Card .medal{font-size:35px;margin-right:7px}.sp1Card b{font-size:17px;vertical-align:8px}.sp1Card p{font-size:10px;margin:5px 0 0;color:#dce8ff;font-weight:800}.sp1Card .best{margin-top:9px;font-size:11px;font-weight:1000;color:#ffe477}"
+          new_css2=".sp1Card .medal{font-size:35px;margin-right:7px}.sp1Card b{font-size:17px;vertical-align:8px}.sp1Card p{font-size:10px;margin:7px 0 0;color:#dce8ff;font-weight:800}.sp1Card .best{margin-top:11px;font-size:11px;font-weight:1000;color:#ffe477}.sp1Card .sp1Oso{position:absolute;right:12px;bottom:-7px;width:108px;height:132px;object-fit:contain;object-position:center bottom;filter:drop-shadow(0 7px 7px #0007);pointer-events:none;z-index:1}.sp1Card:before{z-index:3}.sp1Card>span,.sp1Card>b,.sp1Card>p,.sp1Card>.best{position:relative;z-index:2}@media(max-width:390px){.sp1Card{padding-right:116px}.sp1Card .sp1Oso{right:7px;width:98px;height:123px}}"
+          if js.count(old_css2)!=1:
+              raise SystemExit(f'SP1 card text CSS anchor count invalid: {js.count(old_css2)}')
+          js=js.replace(old_css2,new_css2,1)
+
+          anchor="function progress(){const a=osoItems();return {owned:a.filter(s=>state.ownedSkins.includes(s.id)).length,total:a.length}}\n"
+          helper="function progress(){const a=osoItems();return {owned:a.filter(s=>state.ownedSkins.includes(s.id)).length,total:a.length}}\nfunction sp1CardOsoSrc(){\n try{\n  const a=Array.isArray(OSO_SKINS)?OSO_SKINS:[];\n  const s=a.find(x=>x.id==='default')||a.find(x=>(x.group||'oso')==='oso');\n  return s&&s.src?s.src:'';\n }catch(_){return ''}\n}\n"
+          if js.count(anchor)!=1:
+              raise SystemExit(f'progress helper anchor count invalid: {js.count(anchor)}')
+          js=js.replace(anchor,helper,1)
+
+          old_render="const ok=unlocked(),p=progress(),best=Math.max(0,Math.floor(Number(state.best.sotris)||0));\n sec.innerHTML=`<div class=\"sp1SectionTitle\">🏅 SPECIAL GAME<small>일반 게임 1~10과 별도인 컬렉션 해금 게임</small></div><button id=\"sp1Card\" class=\"sp1Card ${ok?'':'lock'}\"><span class=\"medal\">🏅</span><b>${ok?'SP1 · 소트리스':'SP1 · ???'}</b><p>${ok?'5 STAGES · 아케이드 퍼즐':'오소 도감 전부 수집 시 해금'}</p><div class=\"best\">${ok?`🏆 최고 ${best.toLocaleString()}점`:`오소 수집 ${p.owned} / ${p.total}`}</div></button>`;"
+          new_render="const ok=unlocked(),p=progress(),best=Math.max(0,Math.floor(Number(state.best.sotris)||0)),osoSrc=sp1CardOsoSrc();\n sec.innerHTML=`<div class=\"sp1SectionTitle\">🏅 SPECIAL GAME<small>일반 게임 1~10과 별도인 컬렉션 해금 게임</small></div><button id=\"sp1Card\" class=\"sp1Card ${ok?'':'lock'}\"><span class=\"medal\">🏅</span><b>${ok?'SP1 · 소트리스':'SP1 · ???'}</b><p>${ok?'5 STAGES · 아케이드 퍼즐':'오소 도감 전부 수집 시 해금'}</p><div class=\"best\">${ok?`🏆 최고 ${best.toLocaleString()}점`:`오소 수집 ${p.owned} / ${p.total}`}</div>${osoSrc?`<img class=\"sp1Oso\" src=\"${osoSrc}\" alt=\"오소\">`:''}</button>`;"
+          if js.count(old_render)!=1:
+              raise SystemExit(f'SP1 render anchor count invalid: {js.count(old_render)}')
+          js=js.replace(old_render,new_render,1)
+
+          old_banner='/* JCM SP1 SOTRIS LIVE INTEGRATION 2026-09-03 · UNLOCK FIX v3.9 */'
+          new_banner='/* JCM SP1 SOTRIS LIVE INTEGRATION 2026-09-03 · CARD OSO v3.9.1 */'
+          if js.count(old_banner)==1:
+              js=js.replace(old_banner,new_banner,1)
+
+          play.write_text(ps,encoding='utf-8')
+          integ.write_text(js,encoding='utf-8')
+
+          assert 'sp1/sotris-integration.js?v=20260903-cardoso1' in ps
+          assert 'function sp1CardOsoSrc()' in js
+          assert "x.id==='default'" in js
+          assert 'class="sp1Oso"' in js
+          assert '.sp1Card .sp1Oso{' in js
+          assert 'data:image' not in js  # 새 이미지/새 인라인 이미지 추가 금지
+          PY
+
+          node --check play/sp1/sotris-integration.js
+          git diff --check
+          git config user.name 'PWDJ SP1 Card Fix'
+          git config user.email '34460283+haveanair@users.noreply.github.com'
+          git add play/index.html play/sp1/sotris-integration.js
+          git commit -m 'Add official Oso artwork to SP1 card'
+          git push
