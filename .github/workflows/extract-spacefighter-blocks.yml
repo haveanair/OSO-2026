@@ -1,0 +1,47 @@
+name: Extract spacefighter blocks
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/spacefighter-blocks.trigger'
+
+permissions:
+  contents: write
+
+jobs:
+  extract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Extract exact blocks
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          s=Path('play/index.html').read_text(encoding='utf-8')
+          out=[]
+          def grab(label, needle, before=600, after=5000):
+              i=s.find(needle)
+              out.append(f'\n===== {label} @ {i} =====\n')
+              if i>=0: out.append(s[max(0,i-before):min(len(s),i+after)])
+          grab('START_GAME', 'function startGame', 500, 5000)
+          grab('LAUNCH', 'function launch', 500, 5000)
+          grab('SPACE_START', 'function playSpacefighter(){', 0, 5500)
+          grab('FIRE_PATTERN', 'function firePattern(', 700, 5200)
+          grab('USE_SUPER', 'function useSuper(){', 1000, 7000)
+          grab('FINISH_BOSS', 'function finishBoss(){', 1000, 6500)
+          grab('PLAYER_DRAW_1', 'ctx.drawImage(playerImg', 2500, 4500)
+          grab('SHOTS_DRAW', 'for(const o of shots)', 2200, 5000)
+          grab('FINISH_DEF', 'function finish(', 800, 5000)
+          grab('STATE_SAVE', 'function save()', 1200, 2800)
+          Path('.github/spacefighter-blocks.txt').write_text(''.join(out),encoding='utf-8')
+          PY
+          git config user.name 'PWDJ Spacefighter Inspector'
+          git config user.email '34460283+haveanair@users.noreply.github.com'
+          git add .github/spacefighter-blocks.txt
+          git commit -m 'Extract exact spacefighter blocks'
+          git push
