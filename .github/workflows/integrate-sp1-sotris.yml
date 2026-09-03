@@ -1,7 +1,7 @@
 name: Integrate SP1 Sotris Live
 on:
   push:
-    branches: [main]
+    branches: [sp1-sotris-live-20260903]
     paths:
       - '.github/sp1-sotris.trigger'
 permissions:
@@ -21,14 +21,31 @@ jobs:
           set -euo pipefail
           test -s play/sp1/sotris/index.html
           grep -Fq 'SP1 SOTRIS LIVE INTEGRATION' play/index.html
-          grep -Fq 'sotris-sp1' play/sp1/sotris/index.html
+          grep -Fq 'SP1 SOTRIS LIVE v3.8-webslim' play/sp1/sotris/index.html
+          grep -Fq "source:'sotris-sp1'" play/sp1/sotris/index.html
+          test "$(grep -o 'sp1/sotris-integration.js?v=20260903' play/index.html | wc -l)" -eq 1
           node --check play/sp1/sotris-integration.js
-      - name: Commit deployed integration
+          python - <<'PY'
+          from pathlib import Path
+          import hashlib,re,subprocess,tempfile
+          p=Path('play/sp1/sotris/index.html')
+          b=p.read_bytes(); t=b.decode('utf-8')
+          assert hashlib.sha256(b).hexdigest()=='d5e9b481a6e5ecf84004b3b446d9db40d93c967ee8311dc633ee874c6536c148'
+          assert len(b)==255703
+          assert t.count('data:image/webp;base64,')==7
+          assert 'data:audio/' not in t
+          scripts=re.findall(r'<script[^>]*>(.*?)</script>',t,re.S)
+          assert scripts
+          q=Path('/tmp/sp1-sotris.js');q.write_text('\n'.join(scripts),encoding='utf-8')
+          subprocess.run(['node','--check',str(q)],check=True)
+          print('SP1 HTML static verification: OK')
+          PY
+      - name: Commit integrated game
         shell: bash
         run: |
           set -euo pipefail
           git config user.name "PWDJ Pages Builder"
           git config user.email "34460283+haveanair@users.noreply.github.com"
           git add -A
-          git commit -m "Integrate SP1 Sotris into live game" || exit 0
+          git commit -m "Integrate SP1 Sotris into live game"
           git push
