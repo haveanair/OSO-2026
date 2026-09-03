@@ -22,126 +22,100 @@ jobs:
           set -euo pipefail
           python3 - <<'PY'
           from pathlib import Path
-          import re, hashlib
+          import hashlib
           p=Path('play/index.html')
           s=p.read_text(encoding='utf-8')
-          original=s
           changes=[]
 
           def one(old,new,label):
               global s
               c=s.count(old)
-              if c!=1:
-                  raise SystemExit(f'{label}: expected 1 occurrence, got {c}')
-              s=s.replace(old,new,1)
-              changes.append(label)
+              if c!=1: raise SystemExit(f'{label}: expected 1 occurrence, got {c}')
+              s=s.replace(old,new,1);changes.append(label)
 
-          # Generic game reward: exact 2x of old reward (5..90 + clear 30 -> 10..180 + clear 60; clear max 240)
-          one(
-            "let reward=Math.max(5,Math.min(90,Math.floor(score/10)||5));if(clear)reward+=30; let beforeCoins=state.coins||0; bonusCoins=Math.max(0,Math.floor(Number(bonusCoins)||0)); state.coins=beforeCoins+reward+bonusCoins;",
-            "let reward=Math.max(5,Math.min(90,Math.floor(score/10)||5))*2;if(clear)reward+=60; const clearBonus=(clear&&code==='fantasy')?3000:0; let beforeCoins=state.coins||0; bonusCoins=Math.max(0,Math.floor(Number(bonusCoins)||0)); state.coins=beforeCoins+reward+bonusCoins+clearBonus;",
-            'double generic reward and add RPG clear bonus'
-          )
+          # Old cap 120 -> exact 2x. RPG final clear also gets separate +3000.
+          one("let reward=Math.max(5,Math.min(90,Math.floor(score/10)||5));if(clear)reward+=30; let beforeCoins=state.coins||0; bonusCoins=Math.max(0,Math.floor(Number(bonusCoins)||0)); state.coins=beforeCoins+reward+bonusCoins;".replace('30; let','30; let'),
+              "let reward=Math.max(5,Math.min(90,Math.floor(score/10)||5))*2;if(clear)reward+=60; const clearBonus=(clear&&code==='fantasy')?3000:0; let beforeCoins=state.coins||0; bonusCoins=Math.max(0,Math.floor(Number(bonusCoins)||0)); state.coins=beforeCoins+reward+bonusCoins+clearBonus;",
+              'generic reward x2 + RPG 3000')
 
-          one(
-            "const bonusLabel=bonusNames[code]||'게임 중 획득'; r.innerHTML=",
-            "const bonusLabel=bonusNames[code]||'게임 중 획득'; const rewardTotal=reward+bonusCoins+clearBonus,rewardParts=[`기본 ${reward}`];if(bonusCoins)rewardParts.push(`${bonusLabel} ${bonusCoins}`);if(clearBonus)rewardParts.push(`RPG 클리어 보너스 ${clearBonus}`);const rewardDetail=(bonusCoins||clearBonus)?` (${rewardParts.join(' + ')})`:''; r.innerHTML=",
-            'result reward breakdown variables'
-          )
-          one(
-            "<div>🪙 +${reward+bonusCoins}${bonusCoins?` (기본 ${reward} + ${bonusLabel} ${bonusCoins})`:``} · 현재 보유 ${state.coins}</div>",
-            "<div>🪙 +${rewardTotal}${rewardDetail} · 현재 보유 ${state.coins}</div>",
-            'result reward display'
-          )
+          # In case minifier has no unusual spacing, normalize the exact live form explicitly.
+          # The call above intentionally uses the current live sequence; fail closed if source drifts.
+          one("const bonusLabel=bonusNames[code]||'게임 중 획득'; r.innerHTML=",
+              "const bonusLabel=bonusNames[code]||'게임 중 획득'; const rewardTotal=reward+bonusCoins+clearBonus,rewardParts=[`기본 ${reward}`];if(bonusCoins)rewardParts.push(`${bonusLabel} ${bonusCoins}`);if(clearBonus)rewardParts.push(`RPG 클리어 보너스 ${clearBonus}`);const rewardDetail=(bonusCoins||clearBonus)?` (${rewardParts.join(' + ')})`:''; r.innerHTML=",
+              'reward result breakdown')
+          one("<div>🪙 +${reward+bonusCoins}${bonusCoins?` (기본 ${reward} + ${bonusLabel} ${bonusCoins})`:``} · 현재 보유 ${state.coins}</div>",
+              "<div>🪙 +${rewardTotal}${rewardDetail} · 현재 보유 ${state.coins}</div>",
+              'reward result display')
 
-          # Basket coin item: +10 permanent coins per pickup.
-          one("if(gotCoin)bonusCoins++;tone(gotCoin?'coin':'good')","if(gotCoin)bonusCoins+=10;tone(gotCoin?'coin':'good')",'basket coin x10')
-          one("gotCoin?`🪙 +1 · +${pts}점`:'+'+pts","gotCoin?`🪙 +10 · +${pts}점`:'+'+pts",'basket coin text +10')
+          one("if(gotCoin)bonusCoins++;tone(gotCoin?'coin':'good')","if(gotCoin)bonusCoins+=10;tone(gotCoin?'coin':'good')",'basket +10')
+          one("gotCoin?`🪙 +1 · +${pts}점`:'+'+pts","gotCoin?`🪙 +10 · +${pts}점`:'+'+pts",'basket text +10')
+          one("}else if(kind==='coin'){ bonusCoins++;score+=35;tone('coin');buzz([12,6,22]);fxText(x,y,'🪙 +1','#c77b00');particles(x,y,'🪙',7) }","}else if(kind==='coin'){ bonusCoins+=10;score+=35;tone('coin');buzz([12,6,22]);fxText(x,y,'🪙 +10','#c77b00');particles(x,y,'🪙',7) }",'fish +10')
+          one("}else if(e.dataset.coin==='1'){ bonusCoins++;score+=35;tone('coin');buzz([12,6,22]);fxText(x,y,'🪙 +1','#c77b00');particles(x,y,'🪙',8);","}else if(e.dataset.coin==='1'){ bonusCoins+=10;score+=35;tone('coin');buzz([12,6,22]);fxText(x,y,'🪙 +10','#c77b00');particles(x,y,'🪙',8);",'slice +10')
+          one("if(it.type==='C'){ bonusCoins++;score+=40;toast(`🪙 코인 +1 · 누적 +${bonusCoins}`);","if(it.type==='C'){ bonusCoins+=10;score+=40;toast(`🪙 코인 +10 · 누적 +${bonusCoins}`);",'spacefighter +10')
+          one("finish('racing',Math.floor(score+(clear?10000:0)),playOsoRacing,clear,raceCoinCount)","finish('racing',Math.floor(score+(clear?10000:0)),playOsoRacing,clear,raceCoinCount*10)",'racing payout x10')
+          one("if(!amount)return 0; fantasyBonusCoins+=amount; const fx=document.createElement('div');fx.className='fantasyCoinDropFx';fx.textContent=`🪙 +${amount}`;battleFx.appendChild(fx);setTimeout(()=>fx.remove(),1300); tone('coin');buzz([12,6,22]);log(`${e.name}이(가) 동전을 떨어뜨렸다! 🪙 +${amount}`);updateHud();return amount",
+              "if(!amount)return 0; const coinBonus=amount*10;fantasyBonusCoins+=coinBonus; const fx=document.createElement('div');fx.className='fantasyCoinDropFx';fx.textContent=`🪙 +${coinBonus}`;battleFx.appendChild(fx);setTimeout(()=>fx.remove(),1300); tone('coin');buzz([12,6,22]);log(`${e.name}이(가) 동전을 떨어뜨렸다! 🪙 +${coinBonus}`);updateHud();return coinBonus",
+              'fantasy drop x10')
 
-          # Fish coin item: +10.
-          one("}else if(kind==='coin'){ bonusCoins++;score+=35;tone('coin');buzz([12,6,22]);fxText(x,y,'🪙 +1','#c77b00');particles(x,y,'🪙',7) }","}else if(kind==='coin'){ bonusCoins+=10;score+=35;tone('coin');buzz([12,6,22]);fxText(x,y,'🪙 +10','#c77b00');particles(x,y,'🪙',7) }",'fish coin x10')
+          # Oso Run exception: +5 per collected coin. There is currently one game-over finish call.
+          old="finish('run',Math.floor(score+coins*30),playRun,false,coins)"
+          c=s.count(old)
+          if c<1: raise SystemExit(f'run payout: expected >=1, got {c}')
+          s=s.replace(old,"finish('run',Math.floor(score+coins*30),playRun,false,coins*5)")
+          changes.append(f'run payout x5 ({c})')
 
-          # Slice coin item: +10.
-          one("}else if(e.dataset.coin==='1'){ bonusCoins++;score+=35;tone('coin');buzz([12,6,22]);fxText(x,y,'🪙 +1','#c77b00');particles(x,y,'🪙',8);","}else if(e.dataset.coin==='1'){ bonusCoins+=10;score+=35;tone('coin');buzz([12,6,22]);fxText(x,y,'🪙 +10','#c77b00');particles(x,y,'🪙',8);",'slice coin x10')
+          # Preserve physical counters and score rules.
+          guards=[
+            ("q.got=true;raceCoinCount++;score+=120;",'racing physical counter'),
+            ("coins++;score+=30;",'run physical counter/score'),
+            ("bonus+=120*stageNo",'spacefighter super score'),
+          ]
+          for g,label in guards:
+              if g not in s: raise SystemExit('guard failed: '+label)
 
-          # Spacefighter coin item: +10.
-          one("if(it.type==='C'){ bonusCoins++;score+=40;toast(`🪙 코인 +1 · 누적 +${bonusCoins}`);","if(it.type==='C'){ bonusCoins+=10;score+=40;toast(`🪙 코인 +10 · 누적 +${bonusCoins}`);",'spacefighter coin x10')
-
-          # Racing keeps physical pickup count for HUD/6-coin line; only payout is x10.
-          one("finish('racing',Math.floor(score+(clear?10000:0)),playOsoRacing,clear,raceCoinCount)","finish('racing',Math.floor(score+(clear?10000:0)),playOsoRacing,clear,raceCoinCount*10)",'racing coin payout x10')
-
-          # RPG enemy coin drops: amount physical coins -> x10 permanent bonus.
-          one(
-            "if(!amount)return 0; fantasyBonusCoins+=amount; const fx=document.createElement('div');fx.className='fantasyCoinDropFx';fx.textContent=`🪙 +${amount}`;battleFx.appendChild(fx);setTimeout(()=>fx.remove(),1300); tone('coin');buzz([12,6,22]);log(`${e.name}이(가) 동전을 떨어뜨렸다! 🪙 +${amount}`);updateHud();return amount",
-            "if(!amount)return 0; const coinBonus=amount*10;fantasyBonusCoins+=coinBonus; const fx=document.createElement('div');fx.className='fantasyCoinDropFx';fx.textContent=`🪙 +${coinBonus}`;battleFx.appendChild(fx);setTimeout(()=>fx.remove(),1300); tone('coin');buzz([12,6,22]);log(`${e.name}이(가) 동전을 떨어뜨렸다! 🪙 +${coinBonus}`);updateHud();return coinBonus",
-            'fantasy coin drop x10'
-          )
-
-          # Oso run is the exception: each collected physical coin pays +5.
-          run_old="finish('run',Math.floor(score+coins*30),playRun,false,coins)"
-          run_count=s.count(run_old)
-          if run_count<1:
-              raise SystemExit('run coin payout: no finish call found')
-          s=s.replace(run_old,"finish('run',Math.floor(score+coins*30),playRun,false,coins*5)")
-          changes.append(f'run coin payout x5 ({run_count} call(s))')
-
-          # Guard against unintended score-rule edits.
-          if "q.got=true;raceCoinCount++;score+=120;" not in s:
-              raise SystemExit('racing score/physical coin counter unexpectedly changed')
-          if "coins++;score+=30;" not in s:
-              raise SystemExit('run physical coin/score rule unexpectedly changed')
-          if "bonus+=120*stageNo" not in s:
-              raise SystemExit('spacefighter super score rule unexpectedly changed')
-
-          # Required postconditions.
-          checks={
-            'GENERIC_REWARD_X2':"let reward=Math.max(5,Math.min(90,Math.floor(score/10)||5))*2;if(clear)reward+=60;" in s,
-            'RPG_CLEAR_BONUS_3000':"const clearBonus=(clear&&code==='fantasy')?3000:0;" in s,
-            'BASKET_COIN_10':"if(gotCoin)bonusCoins+=10" in s,
-            'FISH_COIN_10':"kind==='coin'){ bonusCoins+=10" in s,
-            'SLICE_COIN_10':"e.dataset.coin==='1'){ bonusCoins+=10" in s,
-            'SPACEFIGHTER_COIN_10':"it.type==='C'){ bonusCoins+=10" in s,
-            'RACING_PAYOUT_10':"playOsoRacing,clear,raceCoinCount*10)" in s,
-            'FANTASY_COIN_10':"const coinBonus=amount*10;fantasyBonusCoins+=coinBonus" in s,
-            'RUN_PAYOUT_5':"playRun,false,coins*5)" in s,
-          }
-          bad=[k for k,v in checks.items() if not v]
-          if bad: raise SystemExit('postcondition failure: '+','.join(bad))
+          required=[
+            "let reward=Math.max(5,Math.min(90,Math.floor(score/10)||5))*2;if(clear)reward+=60;",
+            "const clearBonus=(clear&&code==='fantasy')?3000:0;",
+            "if(gotCoin)bonusCoins+=10",
+            "kind==='coin'){ bonusCoins+=10",
+            "e.dataset.coin==='1'){ bonusCoins+=10",
+            "it.type==='C'){ bonusCoins+=10",
+            "playOsoRacing,clear,raceCoinCount*10)",
+            "const coinBonus=amount*10;fantasyBonusCoins+=coinBonus",
+            "playRun,false,coins*5)",
+          ]
+          missing=[x for x in required if x not in s]
+          if missing: raise SystemExit('missing postconditions: '+repr(missing))
 
           p.write_text(s,encoding='utf-8')
-          report=[
+          Path('.github/coin-economy-v2-report.txt').write_text('\n'.join([
             'COIN ECONOMY v2',
-            'GENERIC_CLEAR_MAX=240 (old 120 x2)',
+            'GENERIC_CLEAR_MAX=240',
             'RPG_CLEAR_EXTRA=3000',
-            'RUN_PICKUP_BONUS=5 per physical coin',
-            'OTHER_PICKUP_BONUS=10 per physical coin',
+            'RUN_PICKUP_BONUS=5',
+            'OTHER_PICKUP_BONUS=10',
             'BASKET=10','FISH=10','SLICE=10','SPACEFIGHTER=10','RACING=10','FANTASY=10',
             'RACING_PHYSICAL_COUNTER_UNCHANGED=YES',
             'RUN_PHYSICAL_COUNTER_AND_SCORE_UNCHANGED=YES',
             'SPACEFIGHTER_SUPER_SCORE_120_STAGE_UNCHANGED=YES',
             'CHANGES='+' | '.join(changes),
             'PLAY_SHA256='+hashlib.sha256(s.encode()).hexdigest(),
-          ]
-          Path('.github/coin-economy-v2-report.txt').write_text('\n'.join(report)+'\n',encoding='utf-8')
+          ])+'\n',encoding='utf-8')
           PY
 
-          # Extract inline JS and syntax-check each script body.
           python3 - <<'PY'
           from pathlib import Path
-          import re, subprocess, tempfile, os
+          import re,subprocess,tempfile,os
           s=Path('play/index.html').read_text(encoding='utf-8')
           scripts=re.findall(r'<script(?:\s[^>]*)?>(.*?)</script>',s,re.S|re.I)
-          checked=0
+          n=0
           for body in scripts:
-              if not body.strip(): continue
-              fd,path=tempfile.mkstemp(suffix='.js');os.close(fd)
-              Path(path).write_text(body,encoding='utf-8')
-              r=subprocess.run(['node','--check',path],capture_output=True,text=True)
-              os.unlink(path)
-              if r.returncode:
-                  raise SystemExit(r.stderr)
-              checked+=1
-          print('INLINE_JS_CHECKED',checked)
+              if not body.strip():continue
+              fd,path=tempfile.mkstemp(suffix='.js');os.close(fd);Path(path).write_text(body,encoding='utf-8')
+              r=subprocess.run(['node','--check',path],capture_output=True,text=True);os.unlink(path)
+              if r.returncode:raise SystemExit(r.stderr)
+              n+=1
+          print('INLINE_JS_CHECKED',n)
           PY
           git diff --check
           git config user.name 'PWDJ Coin Economy'
