@@ -1,0 +1,39 @@
+name: Bust Sotris combo cache
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/sotris-combo-cache.trigger'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Update SP1 iframe cache key
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('play/sp1/sotris-integration.js')
+          s=p.read_text(encoding='utf-8')
+          old="frame.src=SP1_URL+'?v=20260903-hard300-progress19';"
+          new="frame.src=SP1_URL+'?v=20260904-combo2line1';"
+          if s.count(old)!=1: raise SystemExit(f'old cache key count {s.count(old)}')
+          s=s.replace(old,new,1)
+          p.write_text(s,encoding='utf-8')
+          PY
+          node --check play/sp1/sotris-integration.js
+          git diff --check
+          git config user.name 'PWDJ Sotris Cache'
+          git config user.email '34460283+haveanair@users.noreply.github.com'
+          git add play/sp1/sotris-integration.js
+          git commit -m 'Refresh Sotris combo display cache'
+          git push
