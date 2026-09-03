@@ -1,0 +1,54 @@
+name: Inspect KF21 patch patterns
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/kf21-patterns.trigger'
+
+permissions:
+  contents: write
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Count patch patterns
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          s=Path('play/index.html').read_text(encoding='utf-8')
+          sp=Path('play/sp1/sotris/index.html').read_text(encoding='utf-8')
+          pats={
+           'launch':"if(code==='spacefighter'){playSpacefighter();return}",
+           'marker':'/* ===== 오소 우주파이터 : 5-STAGE VERTICAL SHOOTER ===== */\nfunction playSpacefighter(){',
+           'header':"const s=$('#stage'),skin=currentSkin(),group=skin.group||'oso';\n const shotIcon=group==='oso'?'📦':'●';\n const superName=group==='oso'?'만물상 폭격!':'진주 폭풍!';",
+           'playerimg':'const playerImg=new Image();playerImg.src=currentOsoSrc();',
+           'superfx':"superFx={start:now,end:now+1350,kind:group==='oso'?'cargo':'pearl'};",
+           'finishhead':'function finishBoss(){\n  if(stageNo===5&&boss&&boss.form!==2){transformFinalBoss();return}\n  const bx=boss.x,by=boss.y,currentStage=stageNo;',
+           'finishretry':"finish('spacefighter',score,playSpacefighter",
+           'playerdraw':'ctx.drawImage(playerImg,player.x-30,player.y-31,60,62)',
+           'clonedraw':'ctx.drawImage(playerImg,c.x-20,c.y-21,40,42)',
+           'shotsloop':'for(const o of shots){',
+           'supercargo':"if(superFx.kind==='cargo')"
+          }
+          out=[]
+          for k,v in pats.items(): out.append(f'{k}={s.count(v)}')
+          out.append('sp_stage5_marker='+str(sp.count('#game.stage5 .skyFormation .plane')))
+          out.append('sp_any_data_png='+str(len(re.findall(r'data:image/png;base64,',sp))))
+          m=re.search(r'background-image\s*:\s*url\([\"\']?data:image/png;base64,([^\"\')]+)',sp,re.S)
+          out.append('sp_background_png_regex='+str(bool(m)))
+          # nearby actual strings for fragile patterns
+          for key in ['function finishBoss(){','ctx.drawImage(playerImg','superFx={start:now','for(const o of shots){']:
+              i=s.find(key)
+              out.append(f'\n--- {key} @ {i} ---\n'+(s[i:i+1600] if i>=0 else 'NOT FOUND'))
+          Path('.github/kf21-patch-pattern-report.txt').write_text('\n'.join(out),encoding='utf-8')
+          PY
+          git config user.name 'PWDJ KF21 Inspector'
+          git config user.email '34460283+haveanair@users.noreply.github.com'
+          git add .github/kf21-patch-pattern-report.txt
+          git commit -m 'Inspect KF21 patch patterns'
+          git push
