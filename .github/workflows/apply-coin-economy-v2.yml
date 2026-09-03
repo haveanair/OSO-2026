@@ -16,7 +16,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Patch rewards safely by function scope
+      - name: Patch rewards safely
         shell: bash
         run: |
           set -euo pipefail
@@ -27,164 +27,126 @@ jobs:
           s=p.read_text(encoding='utf-8')
           changes=[]
 
-          def scope(start_marker,end_marker):
-              a=s.find(start_marker)
-              if a<0: raise SystemExit('missing start marker '+start_marker)
-              b=s.find(end_marker,a+len(start_marker))
-              if b<0: raise SystemExit('missing end marker '+end_marker)
-              return a,b
-
-          def patch_scope(start_marker,end_marker,fn,label):
+          def one(old,new,label):
               global s
-              a,b=scope(start_marker,end_marker)
-              old=s[a:b]
-              new=fn(old)
-              if new==old: raise SystemExit(label+': no change')
-              s=s[:a]+new+s[b:]
-              changes.append(label)
-
-          def once(txt,old,new,label):
-              c=txt.count(old)
+              c=s.count(old)
               if c!=1: raise SystemExit(f'{label}: expected 1, got {c}')
-              return txt.replace(old,new,1)
+              s=s.replace(old,new,1);changes.append(label)
+          def many(old,new,count,label):
+              global s
+              c=s.count(old)
+              if c!=count: raise SystemExit(f'{label}: expected {count}, got {c}')
+              s=s.replace(old,new);changes.append(label)
 
-          # Central result/reward function.
-          def fix_finish(x):
-              x=once(x,"let reward=Math.max(5,Math.min(90,Math.floor(score/10)||5));if(clear)reward+=30;","let reward=Math.max(5,Math.min(90,Math.floor(score/10)||5))*2;if(clear)reward+=60; const clearBonus=(clear&&code==='fantasy')?3000:0;",'finish reward')
-              x=once(x,"state.coins=beforeCoins+reward+bonusCoins;","state.coins=beforeCoins+reward+bonusCoins+clearBonus;",'finish wallet')
-              key="const bonusLabel="
-              i=x.find(key)
-              if i<0: raise SystemExit('finish bonusLabel missing')
-              semi=x.find(';',i)
-              if semi<0: raise SystemExit('finish bonusLabel semicolon missing')
-              insert=" const rewardTotal=reward+bonusCoins+clearBonus;const rewardParts=[`기본 ${reward}`];if(bonusCoins)rewardParts.push(`${bonusLabel} ${bonusCoins}`);if(clearBonus)rewardParts.push(`RPG 클리어 보너스 ${clearBonus}`);const rewardDetail=(bonusCoins||clearBonus)?` (${rewardParts.join(' + ')})`:'';"
-              x=x[:semi+1]+insert+x[semi+1:]
-              start=x.find('<div>🪙 +${reward+bonusCoins}')
-              if start<0: raise SystemExit('finish reward display start missing')
-              end_token=' · 현재 보유 ${state.coins}</div>'
-              end=x.find(end_token,start)
-              if end<0: raise SystemExit('finish reward display end missing')
-              end+=len(end_token)
-              x=x[:start]+'<div>🪙 +${rewardTotal}${rewardDetail} · 현재 보유 ${state.coins}</div>'+x[end:]
-              return x
-          patch_scope('function finish(code,score,retry,clear=false,bonusCoins=0){','function readyThen(',fix_finish,'generic x2 + RPG +3000 + result UI')
+          # 1) Common completion reward: old maximum 120 -> exactly 240.
+          one("let reward=Math.max(5,Math.min(90,Math.floor(score/10)||5));if(clear)reward+=30;",
+              "let reward=Math.max(5,Math.min(90,Math.floor(score/10)||5))*2;if(clear)reward+=60; const clearBonus=(clear&&code==='fantasy')?3000:0;",
+              'common reward x2 + RPG 3000 declaration')
+          one('state.coins=beforeCoins+reward+bonusCoins;','state.coins=beforeCoins+reward+bonusCoins+clearBonus;','RPG 3000 wallet credit')
 
-          # Basket: one coin pickup = +10 wallet bonus; score behavior stays.
-          def fix_basket(x):
-              x=once(x,"if(gotCoin)bonusCoins++;","if(gotCoin)bonusCoins+=10;",'basket payout')
-              x=once(x,"gotCoin?`🪙 +1 · +${pts}점`","gotCoin?`🪙 +10 · +${pts}점`",'basket text')
-              return x
-          patch_scope('function playBasket(){','function playFish(){',fix_basket,'basket pickup +10')
+          # Make result screen show the true total and an explicit RPG clear-bonus breakdown.
+          a=s.find('function finish(code,score,retry,clear=false,bonusCoins=0){')
+          b=s.find('function readyThen(',a)
+          if a<0 or b<0: raise SystemExit('finish scope missing')
+          f=s[a:b]
+          k=f.find('const bonusLabel=')
+          if k<0: raise SystemExit('bonusLabel missing')
+          semi=f.find(';',k)
+          if semi<0: raise SystemExit('bonusLabel terminator missing')
+          extra=" const rewardTotal=reward+bonusCoins+clearBonus;const rewardParts=[`기본 ${reward}`];if(bonusCoins)rewardParts.push(`${bonusLabel} ${bonusCoins}`);if(clearBonus)rewardParts.push(`RPG 클리어 보너스 ${clearBonus}`);const rewardDetail=(bonusCoins||clearBonus)?` (${rewardParts.join(' + ')})`:'';"
+          f=f[:semi+1]+extra+f[semi+1:]
+          ds=f.find('<div>🪙 +${reward+bonusCoins}')
+          de_token=' · 현재 보유 ${state.coins}</div>'
+          de=f.find(de_token,ds)
+          if ds<0 or de<0: raise SystemExit('reward result line missing')
+          de+=len(de_token)
+          f=f[:ds]+'<div>🪙 +${rewardTotal}${rewardDetail} · 현재 보유 ${state.coins}</div>'+f[de:]
+          s=s[:a]+f+s[b:];changes.append('result reward breakdown')
 
-          # Fish: one coin target = +10.
-          def fix_fish(x):
-              x=once(x,"if(kind==='coin'){ bonusCoins++;","if(kind==='coin'){ bonusCoins+=10;",'fish payout')
-              # Only coin target feedback in this function.
-              pos=x.find("if(kind==='coin'){ bonusCoins+=10;")
-              j=x.find("fxText(x,y,'🪙 +1'",pos)
-              if j<0: raise SystemExit('fish feedback missing')
-              x=x[:j]+x[j:].replace("fxText(x,y,'🪙 +1'","fxText(x,y,'🪙 +10'",1)
-              return x
-          patch_scope('function playFish(){','function playStack(){',fix_fish,'fish pickup +10')
+          # 2) Physical coin pickups. Run is a deliberate +5 exception.
+          one('if(gotCoin)bonusCoins++;','if(gotCoin)bonusCoins+=10;','basket pickup +10')
+          one("gotCoin?`🪙 +1 · +${pts}점`","gotCoin?`🪙 +10 · +${pts}점`",'basket feedback +10')
+          many('bonusCoins++;score+=35','bonusCoins+=10;score+=35',2,'fish + slice pickup +10')
+          many("fxText(x,y,'🪙 +1','#c77b00')","fxText(x,y,'🪙 +10','#c77b00')",2,'fish + slice feedback +10')
+          one('bonusCoins++;score+=40','bonusCoins+=10;score+=40','spacefighter pickup +10')
+          one('toast(`🪙 코인 +1 · 누적 +${bonusCoins}`)','toast(`🪙 코인 +10 · 누적 +${bonusCoins}`)','spacefighter feedback +10')
 
-          # Run: physical coin counter/score remains 1 and +30 points, wallet payout is x5 at finish.
-          def fix_run(x):
-              old="finish('run',Math.floor(score+coins*30),playRun,false,coins)"
-              c=x.count(old)
-              if c<1: raise SystemExit('run finish payout missing')
-              return x.replace(old,"finish('run',Math.floor(score+coins*30),playRun,false,coins*5)")
-          patch_scope('function playRun(){','function playSlice(){',fix_run,'run pickup payout +5')
+          # Run: keep count and score unchanged; only payout is five per physical coin.
+          old_run="finish('run',Math.floor(score+coins*30),playRun,false,coins)"
+          c=s.count(old_run)
+          if c<1: raise SystemExit(f'run finish payout missing: {c}')
+          s=s.replace(old_run,"finish('run',Math.floor(score+coins*30),playRun,false,coins*5)")
+          changes.append(f'run pickup payout +5 ({c} finish path)')
 
-          # Slice: one physical coin = +10.
-          def fix_slice(x):
-              x=once(x,"if(e.dataset.coin==='1'){ bonusCoins++;","if(e.dataset.coin==='1'){ bonusCoins+=10;",'slice payout')
-              pos=x.find("if(e.dataset.coin==='1'){ bonusCoins+=10;")
-              j=x.find("fxText(x,y,'🪙 +1'",pos)
-              if j<0: raise SystemExit('slice feedback missing')
-              x=x[:j]+x[j:].replace("fxText(x,y,'🪙 +1'","fxText(x,y,'🪙 +10'",1)
-              return x
-          patch_scope('function playSlice(){','function playTteok(){',fix_slice,'slice pickup +10')
+          # Racing: physical raceCoinCount remains unchanged; multiply payout only.
+          one("finish('racing',Math.floor(score+(clear?10000:0)),playOsoRacing,clear,raceCoinCount)",
+              "finish('racing',Math.floor(score+(clear?10000:0)),playOsoRacing,clear,raceCoinCount*10)",
+              'racing pickup payout +10')
 
-          # Spacefighter: coin item +10; unrelated 120*stage score bonus is untouched.
-          def fix_sf(x):
-              x=once(x,"if(it.type==='C'){ bonusCoins++;","if(it.type==='C'){ bonusCoins+=10;",'spacefighter payout')
-              x=once(x,"toast(`🪙 코인 +1 · 누적 +${bonusCoins}`)","toast(`🪙 코인 +10 · 누적 +${bonusCoins}`)",'spacefighter text')
-              return x
-          patch_scope('function playSpacefighter(){','function playOsoRacing(){',fix_sf,'spacefighter pickup +10')
+          # RPG dropped physical coins: convert each amount to x10 bonus, retain drop probabilities/count logic.
+          one('fantasyBonusCoins+=amount;','const coinBonus=amount*10;fantasyBonusCoins+=coinBonus;','RPG pickup +10')
+          # These two template references occur only inside fantasyCoinDrop.
+          aa=s.find('function fantasyCoinDrop(e){');bb=s.find('function win(){',aa)
+          if aa<0 or bb<0: raise SystemExit('fantasyCoinDrop scope missing')
+          ff=s[aa:bb]
+          if ff.count('`🪙 +${amount}`')!=1: raise SystemExit('RPG coin FX amount anchor drift')
+          ff=ff.replace('`🪙 +${amount}`','`🪙 +${coinBonus}`',1)
+          tail='🪙 +${amount}`);updateHud();return amount'
+          if ff.count(tail)!=1: raise SystemExit('RPG coin log/return anchor drift')
+          ff=ff.replace(tail,'🪙 +${coinBonus}`);updateHud();return coinBonus',1)
+          s=s[:aa]+ff+s[bb:];changes.append('RPG pickup feedback +10')
 
-          # Racing: keep raceCoinCount as physical count for HUD and every-6 rule; multiply only finish payout.
-          def fix_racing(x):
-              old="finish('racing',Math.floor(score+(clear?10000:0)),playOsoRacing,clear,raceCoinCount)"
-              return once(x,old,old[:-1]+'*10)','racing finish payout')
-          patch_scope('function playOsoRacing(){','function playOsoFantasy(){',fix_racing,'racing pickup payout +10')
-
-          # RPG enemy coin drops: each physical coin value becomes x10 wallet bonus.
-          def fix_fantasy(x):
-              a=x.find('function fantasyCoinDrop(e){')
-              b=x.find('function win(){',a)
-              if a<0 or b<0: raise SystemExit('fantasyCoinDrop scope missing')
-              f=x[a:b]
-              f=once(f,'fantasyBonusCoins+=amount;','const coinBonus=amount*10;fantasyBonusCoins+=coinBonus;','fantasy payout')
-              f=f.replace('`🪙 +${amount}`','`🪙 +${coinBonus}`')
-              f=f.replace('🪙 +${amount}`);updateHud();return amount','🪙 +${coinBonus}`);updateHud();return coinBonus')
-              if 'return coinBonus' not in f: raise SystemExit('fantasy return bonus missing')
-              return x[:a]+f+x[b:]
-          # fantasy is near end; use closing setup marker after function.
-          patch_scope('function playOsoFantasy(){','/* SP1_EXTERNAL_LOADER */',fix_fantasy,'RPG pickup +10') if '/* SP1_EXTERNAL_LOADER */' in s else patch_scope('function playOsoFantasy(){','</script>',fix_fantasy,'RPG pickup +10')
-
-          # Invariants: game mechanics untouched except wallet reward conversion.
-          guards=[
-            ("q.got=true;raceCoinCount++;score+=120;",'racing physical coin counter + score'),
-            ("coins++;score+=30;",'run physical coin counter + score'),
-            ("bonus+=120*stageNo",'spacefighter super score'),
-            ("finish('fantasy',Math.floor(score+18000),playOsoFantasy,true,fantasyBonusCoins)",'RPG final clear call'),
+          # 3) Fail-closed invariants: score/count mechanics must remain untouched.
+          invariants=[
+            ('coins++;score+=30;','RUN_PHYSICAL_COUNTER_AND_SCORE_UNCHANGED'),
+            ('q.got=true;raceCoinCount++;score+=120;','RACING_PHYSICAL_COUNTER_AND_SCORE_UNCHANGED'),
+            ('bonus+=120*stageNo','SPACEFIGHTER_SUPER_SCORE_UNCHANGED'),
+            ("finish('fantasy',Math.floor(score+18000),playOsoFantasy,true,fantasyBonusCoins)",'RPG_FINAL_CLEAR_CALL_UNCHANGED'),
           ]
-          for g,label in guards:
-              if g not in s: raise SystemExit('guard failed: '+label)
+          for token,label in invariants:
+              if token not in s: raise SystemExit('invariant failed: '+label)
 
-          required=[
+          post=[
             "*2;if(clear)reward+=60; const clearBonus=(clear&&code==='fantasy')?3000:0;",
             'state.coins=beforeCoins+reward+bonusCoins+clearBonus;',
             'rewardTotal=reward+bonusCoins+clearBonus',
             'if(gotCoin)bonusCoins+=10;',
-            "if(kind==='coin'){ bonusCoins+=10;",
-            "playRun,false,coins*5)",
-            "if(e.dataset.coin==='1'){ bonusCoins+=10;",
-            "if(it.type==='C'){ bonusCoins+=10;",
+            'bonusCoins+=10;score+=35',
+            'bonusCoins+=10;score+=40',
+            'playRun,false,coins*5)',
             'playOsoRacing,clear,raceCoinCount*10)',
             'const coinBonus=amount*10;fantasyBonusCoins+=coinBonus;',
+            'return coinBonus',
           ]
-          missing=[q for q in required if q not in s]
-          if missing: raise SystemExit('postcondition missing: '+repr(missing))
+          missing=[x for x in post if x not in s]
+          if missing: raise SystemExit('postconditions failed: '+repr(missing))
 
           p.write_text(s,encoding='utf-8')
-          report=[
+          Path('.github/coin-economy-v2-report.txt').write_text('\n'.join([
             'COIN ECONOMY v2 VERIFIED',
-            'GENERIC_CLEAR_MAX=240 (old max 120 x2)',
+            'GENERIC_CLEAR_MAX=240',
             'RPG_CLEAR_EXTRA=3000',
-            'RUN_PICKUP_BONUS=5 per physical coin',
-            'OTHER_PICKUP_BONUS=10 per physical coin',
+            'RUN_PICKUP_BONUS=5',
+            'OTHER_PICKUP_BONUS=10',
             'BASKET=10','FISH=10','SLICE=10','SPACEFIGHTER=10','RACING=10','FANTASY=10',
-            'RACING_PHYSICAL_COUNTER_UNCHANGED=YES',
             'RUN_PHYSICAL_COUNTER_AND_SCORE_UNCHANGED=YES',
-            'SPACEFIGHTER_SUPER_SCORE_120_STAGE_UNCHANGED=YES',
+            'RACING_PHYSICAL_COUNTER_AND_SCORE_UNCHANGED=YES',
+            'SPACEFIGHTER_SUPER_SCORE_UNCHANGED=YES',
             'CHANGES='+' | '.join(changes),
             'PLAY_SHA256='+hashlib.sha256(s.encode()).hexdigest(),
-          ]
-          Path('.github/coin-economy-v2-report.txt').write_text('\n'.join(report)+'\n',encoding='utf-8')
+          ])+'\n',encoding='utf-8')
           PY
 
+          # Full inline JS syntax verification and whitespace diff validation.
           python3 - <<'PY'
           from pathlib import Path
           import re,subprocess,tempfile,os
-          s=Path('play/index.html').read_text(encoding='utf-8')
-          scripts=re.findall(r'<script(?:\s[^>]*)?>(.*?)</script>',s,re.S|re.I)
-          n=0
-          for body in scripts:
-              if not body.strip(): continue
+          s=Path('play/index.html').read_text(encoding='utf-8');n=0
+          for body in re.findall(r'<script(?:\s[^>]*)?>(.*?)</script>',s,re.S|re.I):
+              if not body.strip():continue
               fd,path=tempfile.mkstemp(suffix='.js');os.close(fd);Path(path).write_text(body,encoding='utf-8')
               r=subprocess.run(['node','--check',path],capture_output=True,text=True);os.unlink(path)
-              if r.returncode: raise SystemExit(r.stderr)
+              if r.returncode:raise SystemExit(r.stderr)
               n+=1
           print('INLINE_JS_CHECKED',n)
           PY
