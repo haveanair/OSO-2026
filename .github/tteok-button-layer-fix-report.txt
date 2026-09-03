@@ -1,0 +1,8 @@
+TTEOK BUTTON LAYER FIX VERIFIED
+ROOT_CAUSE=generic gameTip at bottom 10px z-index 8 was hidden behind tteokHitButton bottom 22px z-index 10, leaving its lower border visible
+FIX=remove tteok-only gameTip markup
+TTEOK_HIT_BUTTON_UNCHANGED=YES
+GENERIC_GAMETIP_CSS_UNCHANGED=YES
+OTHER_GAMES_GAMETIP_UNCHANGED=YES
+IMAGE_ASSETS_CHANGED=NO
+PLAY_SHA256=da37889c92452548ea8ea92f5337ea1a36b670d05b7e14744069b362a562b506
