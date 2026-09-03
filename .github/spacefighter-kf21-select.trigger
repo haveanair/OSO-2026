@@ -1,1 +1,1 @@
-run corrected character-kf21 sortie selection patch 2026-09-03 r2
+run KF21 topdown correction 2026-09-04 r3
