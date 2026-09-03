@@ -1,0 +1,38 @@
+name: Inspect Spacefighter start flow
+on:
+  push:
+    paths:
+      - '.github/workflows/inspect-spacefighter-start-flow.yml'
+permissions:
+  contents: write
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Inspect current start flow
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          s=Path('play/index.html').read_text(encoding='utf-8')
+          keys=['function startGame','function readyThen','function launch','function beginSpacefighter','function showSpacefighterCraftSelect','playSpacefighter(','startGame(code)','readyThen(()=>launch(code))']
+          out=[]
+          for key in keys:
+              out.append(f'===== {key} COUNT={s.count(key)} =====')
+              start=0
+              n=0
+              while True:
+                  i=s.find(key,start)
+                  if i<0: break
+                  n+=1
+                  a=max(0,i-900); b=min(len(s),i+3200)
+                  out.append(f'--- #{n} @{i} ---\n{s[a:b]}')
+                  start=i+len(key)
+                  if n>=4: break
+          Path('.github/spacefighter-start-flow-report.txt').write_text('\n\n'.join(out),encoding='utf-8')
+          PY
+          git config user.name 'PWDJ Flow Inspect'
+          git config user.email '34460283+haveanair@users.noreply.github.com'
+          git add .github/spacefighter-start-flow-report.txt
+          git diff --cached --quiet || (git commit -m 'Inspect Spacefighter start flow' && git push)
