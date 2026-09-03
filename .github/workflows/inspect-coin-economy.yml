@@ -16,29 +16,51 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Extract coin reward contexts
+      - name: Extract concise coin reward contexts
         shell: bash
         run: |
           set -euo pipefail
           python3 - <<'PY'
           from pathlib import Path
+          import re
           s=Path('play/index.html').read_text(encoding='utf-8')
-          keys=['120','coins+=','coins +=','coin','COIN','finish(','fantasy','rpg','환상대모험','spacefighter','reward','bonusCoins','collectedCoins','coinCount']
           out=[f'PLAY_LEN={len(s)}']
-          for key in keys:
-              poss=[]; st=0
-              while True:
-                  i=s.find(key,st)
-                  if i<0: break
-                  poss.append(i); st=i+1
-              out.append(f'\n===== KEY {key!r} COUNT {len(poss)} =====')
-              for n,i in enumerate(poss[:80],1):
-                  a=max(0,i-1000); b=min(len(s),i+1800)
-                  out.append(f'\n--- {key} #{n} @ {i} ---\n{s[a:b]}')
-          Path('.github/coin-economy-inspection.txt').write_text('\n'.join(out),encoding='utf-8')
+
+          def fn_at(i):
+              a=max(0,i-12000)
+              chunk=s[a:i]
+              ms=list(re.finditer(r'function\s+([A-Za-z0-9_$]+)\s*\(',chunk))
+              return ms[-1].group(1) if ms else '?'
+
+          def compact(txt):
+              return re.sub(r'\s+',' ',txt).replace('\n',' ')[:900]
+
+          # Numeric 120 occurrences likely related to rewards.
+          for key in ['120','3000','bonusCoins','state.coins','coins+=','coins +=','coinGain','coinCount','collectedCoins','pickup','coin']:
+              poss=[m.start() for m in re.finditer(re.escape(key),s,re.I)]
+              out.append(f'\n===== {key} COUNT={len(poss)} =====')
+              for i in poss[:120]:
+                  ctx=s[max(0,i-380):min(len(s),i+620)]
+                  if key.lower() in ('120','3000') and not re.search(r'coin|reward|bonus|finish|clear|획득|코인',ctx,re.I):
+                      continue
+                  out.append(f'POS={i} FN={fn_at(i)} :: {compact(ctx)}')
+
+          # Every finish(...) call with compact context.
+          poss=[m.start() for m in re.finditer(r'finish\s*\(',s)]
+          out.append(f'\n===== finish calls COUNT={len(poss)} =====')
+          for i in poss:
+              out.append(f'POS={i} FN={fn_at(i)} :: {compact(s[max(0,i-260):min(len(s),i+760)])}')
+
+          # Main game function positions useful for targeted patching.
+          names=['playRun','playSpacefighter','playFantasy','playRPG','playRacing','playFish','playTower','playSlash','playTteok','playTap']
+          for name in names:
+              i=s.find('function '+name+'(')
+              out.append(f'FUNC {name} POS={i}')
+
+          Path('.github/coin-economy-inspection.txt').write_text('\n'.join(out)+'\n',encoding='utf-8')
           PY
           git config user.name 'PWDJ Coin Inspector'
           git config user.email '34460283+haveanair@users.noreply.github.com'
           git add .github/coin-economy-inspection.txt
-          git commit -m 'Inspect current coin reward economy'
+          git commit -m 'Inspect current coin reward economy concise'
           git push
