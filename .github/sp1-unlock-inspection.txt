@@ -1,0 +1,2995 @@
+PLAY_LEN=1494965
+
+===== KEY: ownedSkins COUNT 9 =====
+
+
+--- ownedSkins #1 @ 1226310 ---
+
+
+function zoneTarget(z){
+ if(!z)return null;
+ if(z.type==='circle')return {lat:z.lat,lng:z.lng};
+ if(z.type==='corridor')return {lat:(z.a.lat+z.b.lat)/2,lng:(z.a.lng+z.b.lng)/2};
+ return null
+}
+function bearingDeg(a,b){
+ const y=Math.sin(rad(b.lng-a.lng))*Math.cos(rad(b.lat));
+ const x=Math.cos(rad(a.lat))*Math.sin(rad(b.lat))-Math.sin(rad(a.lat))*Math.cos(rad(b.lat))*Math.cos(rad(b.lng-a.lng));
+ return (Math.atan2(y,x)*180/Math.PI+360)%360
+}
+function arrowForBearing(d){
+ const arrows=['↑','↗','→','↘','↓','↙','←','↖'];return arrows[Math.round(d/45)%8]
+}
+
+function currentSkin(){return OSO_SKINS.find(x=>x.id===state.selectedSkin)||OSO_SKINS[0]}
+function currentOsoSrc(){return currentSkin().src}
+const BASE_GAME_CODES=['basket','fish','stack','run','slice','tteok','powerduck'];
+const BONUS_GAME_CODES=['spacefighter','racing','fantasy'];
+function ensureSpacefighterUnlock(){
+ if(state.unlock&&state.unlock.spacefighter)return false;
+ if(BASE_GAME_CODES.every(c=>state.unlock&&state.unlock[c])){
+  state.unlock.spacefighter=true;save();return true
+ }
+ return false
+}
+function ensureScoreBonusUnlocks(){
+ const newly=[],n=Number(state.todayScore)||0;
+ if(n>=500000&&!state.unlock.racing){state.unlock.racing=true;newly.push('racing')}
+ if(n>=1000000&&!state.unlock.fantasy){state.unlock.fantasy=true;newly.push('fantasy')}
+ if(newly.length){
+  const q=Array.isArray(state.pendingBonusUnlocks)?state.pendingBonusUnlocks:[];
+  state.pendingBonusUnlocks=[...new Set([...q,...newly])];
+  save()
+ }
+ return newly
+}
+
+let mem=null,audioCtx=null;
+function localDateKey(){
+ const d=new Date(),y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,'0'),day=String(d.getDate()).padStart(2,'0');
+ return `${y}-${m}-${day}`
+}
+function load(){try{const x=localStorage.getItem(DEV_ALL_UNLOCKED?'jcm-v168-unlocked':'jcm-v168-locked');return x?JSON.parse(x):null}catch(e){return mem}}
+function save(){mem=state;try{localStorage.setItem(DEV_ALL_UNLOCKED?'jcm-v168-unlocked':'jcm-v168-locked',JSON.stringify(state))}catch(e){}}
+let state=load()||{unlock:{},best:{},coins:0,todayEarned:0,todayScore:0,scoreDate:localDateKey(),pdRecord:0,coinDate:localDateKey(),ranking:[],todaySubmittedBest:0,rankRegisteredBest:11,ownedSkins:['default'],selectedSkin:'default'};
+if(!state.best||typeof state.best!=='object')state.best={};
+if(!Array.isArray(state.ranking))state.ranking=[];
+if(!Array.isArray(state.ownedSkins))state.ownedSkins=['default'];
+if(!state.gpsCalibration)state.gpsCalibration={};
+if(!state.gpsUnlocked)state.gpsUnlocked={};
+if(!state.qrUnlocked)state.qrUnlocked={};
+if(!state.ownedSkins.includes('default'))state.ownedSkins.unshift('default');
+if(!state.selectedSkin||!state.ownedSkins.includes(state.selectedSkin))state.selectedSkin='default';
+if(state.todayEarned==null)state.todayEarned=0;
+if(state.todayScore==null)state.todayScore=0;
+if(!state.scoreDate)state.scoreDate=localDateKey();
+if(state.todaySubmittedBest==null)state.todaySubmittedBest=0;
+if(state.rankRegisteredBest==null){
+ state.rankRegisteredBest=Number.isFinite(state.dailyRankPromptedBestRank)?state.dailyRankPromptedBestRank:11;
+}
+if(state.scoreDate!==localDateKey()){
+ state.scoreDate=localDateKey();
+}
+if(!state.coinDate)state.coinDate=localDateKey();
+if(state.coinDate!==localDateKey())state.coinDate=localDateKey();
+if(DEV_ALL_UNLOCKED)GAMES.forEach(g=>state.unlock[g.code]=true);
+
+function ensureDailyScoreDate(){
+ const today=localDateKey();
+ if(!state.scoreDate)state.scoreDate=today;
+ if(state.scoreDate!==today){
+  state.scoreDate=today;
+  save();
+ }
+}
+
+const DEFAULT_RANKING_SEED=[
+ {initials:'중앙시장',score:1000000,date:'기준',ts:1,seed:true},
+ {initials:'오소',score:500000,date:'기준',ts:2,seed:true},
+ {initials:'또오소',score:300000,date:'기준',ts:3,seed:true},
+ {initials:'다시오소',score:100000,date:'기준',ts:4,seed:true},
+ {initials:'매일오소',score:80000,date:'기준',ts:5,seed:true},
+ {initials:'잘가소',score:50000,date:'기준',ts:6,seed:true},
+ {initials:'반갑소',score:30000,date:'기준',ts:7,seed:true},
+ {initials:'어서오소',score:20000,date:'기준',ts:8,seed:true},
+ {initials:'잘하소',score:15000,date:'기준',ts:9,seed:true},
+ {initials:'힘내소',score:10000,date:'기준',ts:10,seed:true}
+];
+const RANK_SCORE_THRESHOLDS=DEFAULT_RANKING_SEED.map((r,i)=>({rank:i+1,score:Number(r.score)||0}));
+function rankReachedByDailyScore(score){
+ const n=Number(score)||0;
+ for(const t of RANK_SCORE_THRESHOLDS){if(n>t.score)return t.rank}
+ return 11;
+}
+
+function ensureRankRegistrationState(){
+ if(state.rankRegistrationVersion==='threshold-record-v2')return;
+ const userRows=(Array.isArray(state.ranking)?state.ranking:[]).filter(r=>!r.seed);
+ let inferredBestRank=11;
+ for(const row of userRows){
+  const rr=Number.isFinite(row.rankReached)?row.rankReached:rankReachedByDailyScore(row.score);
+  inferredBestRank=Math.min(inferredBestRank,rr);
+ }
+ state.rankRegisteredBest=inferredBestRank;
+ state.rankRegistrationVersion='threshold-record-v2';
+ save();
+}
+function ensureDefaultRanking(){
+ const mode=state.rankingModeVersion;
+ if(mode==='daily-score-v1'||mode==='daily-score-v2'){
+  state.rankingModeVersion='daily-score-v2';
+  return;
+ }
+ state.ranking=DEFAULT_RANKING_SEED.map(r=>({...r}));
+ state.rankingModeVersion='daily-score-v2';
+ state.todaySubmittedBest=0;
+ state.rankRegisteredBest=11;
+ save();
+}
+function currentRankCutoff(){
+ const rows=rankingSorted();
+ return rows.length<10?0:(rows[9]?.score||0);
+}
+ensureDefaultRanking();
+ensureRankRegistrationState();
+
+ens
+
+
+--- ownedSkins #2 @ 1226493 ---
+
+urn null
+}
+function bearingDeg(a,b){
+ const y=Math.sin(rad(b.lng-a.lng))*Math.cos(rad(b.lat));
+ const x=Math.cos(rad(a.lat))*Math.sin(rad(b.lat))-Math.sin(rad(a.lat))*Math.cos(rad(b.lat))*Math.cos(rad(b.lng-a.lng));
+ return (Math.atan2(y,x)*180/Math.PI+360)%360
+}
+function arrowForBearing(d){
+ const arrows=['↑','↗','→','↘','↓','↙','←','↖'];return arrows[Math.round(d/45)%8]
+}
+
+function currentSkin(){return OSO_SKINS.find(x=>x.id===state.selectedSkin)||OSO_SKINS[0]}
+function currentOsoSrc(){return currentSkin().src}
+const BASE_GAME_CODES=['basket','fish','stack','run','slice','tteok','powerduck'];
+const BONUS_GAME_CODES=['spacefighter','racing','fantasy'];
+function ensureSpacefighterUnlock(){
+ if(state.unlock&&state.unlock.spacefighter)return false;
+ if(BASE_GAME_CODES.every(c=>state.unlock&&state.unlock[c])){
+  state.unlock.spacefighter=true;save();return true
+ }
+ return false
+}
+function ensureScoreBonusUnlocks(){
+ const newly=[],n=Number(state.todayScore)||0;
+ if(n>=500000&&!state.unlock.racing){state.unlock.racing=true;newly.push('racing')}
+ if(n>=1000000&&!state.unlock.fantasy){state.unlock.fantasy=true;newly.push('fantasy')}
+ if(newly.length){
+  const q=Array.isArray(state.pendingBonusUnlocks)?state.pendingBonusUnlocks:[];
+  state.pendingBonusUnlocks=[...new Set([...q,...newly])];
+  save()
+ }
+ return newly
+}
+
+let mem=null,audioCtx=null;
+function localDateKey(){
+ const d=new Date(),y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,'0'),day=String(d.getDate()).padStart(2,'0');
+ return `${y}-${m}-${day}`
+}
+function load(){try{const x=localStorage.getItem(DEV_ALL_UNLOCKED?'jcm-v168-unlocked':'jcm-v168-locked');return x?JSON.parse(x):null}catch(e){return mem}}
+function save(){mem=state;try{localStorage.setItem(DEV_ALL_UNLOCKED?'jcm-v168-unlocked':'jcm-v168-locked',JSON.stringify(state))}catch(e){}}
+let state=load()||{unlock:{},best:{},coins:0,todayEarned:0,todayScore:0,scoreDate:localDateKey(),pdRecord:0,coinDate:localDateKey(),ranking:[],todaySubmittedBest:0,rankRegisteredBest:11,ownedSkins:['default'],selectedSkin:'default'};
+if(!state.best||typeof state.best!=='object')state.best={};
+if(!Array.isArray(state.ranking))state.ranking=[];
+if(!Array.isArray(state.ownedSkins))state.ownedSkins=['default'];
+if(!state.gpsCalibration)state.gpsCalibration={};
+if(!state.gpsUnlocked)state.gpsUnlocked={};
+if(!state.qrUnlocked)state.qrUnlocked={};
+if(!state.ownedSkins.includes('default'))state.ownedSkins.unshift('default');
+if(!state.selectedSkin||!state.ownedSkins.includes(state.selectedSkin))state.selectedSkin='default';
+if(state.todayEarned==null)state.todayEarned=0;
+if(state.todayScore==null)state.todayScore=0;
+if(!state.scoreDate)state.scoreDate=localDateKey();
+if(state.todaySubmittedBest==null)state.todaySubmittedBest=0;
+if(state.rankRegisteredBest==null){
+ state.rankRegisteredBest=Number.isFinite(state.dailyRankPromptedBestRank)?state.dailyRankPromptedBestRank:11;
+}
+if(state.scoreDate!==localDateKey()){
+ state.scoreDate=localDateKey();
+}
+if(!state.coinDate)state.coinDate=localDateKey();
+if(state.coinDate!==localDateKey())state.coinDate=localDateKey();
+if(DEV_ALL_UNLOCKED)GAMES.forEach(g=>state.unlock[g.code]=true);
+
+function ensureDailyScoreDate(){
+ const today=localDateKey();
+ if(!state.scoreDate)state.scoreDate=today;
+ if(state.scoreDate!==today){
+  state.scoreDate=today;
+  save();
+ }
+}
+
+const DEFAULT_RANKING_SEED=[
+ {initials:'중앙시장',score:1000000,date:'기준',ts:1,seed:true},
+ {initials:'오소',score:500000,date:'기준',ts:2,seed:true},
+ {initials:'또오소',score:300000,date:'기준',ts:3,seed:true},
+ {initials:'다시오소',score:100000,date:'기준',ts:4,seed:true},
+ {initials:'매일오소',score:80000,date:'기준',ts:5,seed:true},
+ {initials:'잘가소',score:50000,date:'기준',ts:6,seed:true},
+ {initials:'반갑소',score:30000,date:'기준',ts:7,seed:true},
+ {initials:'어서오소',score:20000,date:'기준',ts:8,seed:true},
+ {initials:'잘하소',score:15000,date:'기준',ts:9,seed:true},
+ {initials:'힘내소',score:10000,date:'기준',ts:10,seed:true}
+];
+const RANK_SCORE_THRESHOLDS=DEFAULT_RANKING_SEED.map((r,i)=>({rank:i+1,score:Number(r.score)||0}));
+function rankReachedByDailyScore(score){
+ const n=Number(score)||0;
+ for(const t of RANK_SCORE_THRESHOLDS){if(n>t.score)return t.rank}
+ return 11;
+}
+
+function ensureRankRegistrationState(){
+ if(state.rankRegistrationVersion==='threshold-record-v2')return;
+ const userRows=(Array.isArray(state.ranking)?state.ranking:[]).filter(r=>!r.seed);
+ let inferredBestRank=11;
+ for(const row of userRows){
+  const rr=Number.isFinite(row.rankReached)?row.rankReached:rankReachedByDailyScore(row.score);
+  inferredBestRank=Math.min(inferredBestRank,rr);
+ }
+ state.rankRegisteredBest=inferredBestRank;
+ state.rankRegistrationVersion='threshold-record-v2';
+ save();
+}
+function ensureDefaultRanking(){
+ const mode=state.rankingModeVersion;
+ if(mode==='daily-score-v1'||mode==='daily-score-v2'){
+  state.rankingModeVersion='daily-score-v2';
+  return;
+ }
+ state.ranking=DEFAULT_RANKING_SEED.map(r=>({...r}));
+ state.rankingModeVersion='daily-score-v2';
+ state.todaySubmittedBest=0;
+ state.rankRegisteredBest=11;
+ save();
+}
+function currentRankCutoff(){
+ const rows=rankingSorted();
+ return rows.length<10?0:(rows[9]?.score||0);
+}
+ensureDefaultRanking();
+ensureRankRegistrationState();
+
+ensureDefaultRanking();
+let selected=null,cleanup=null;
+
+function game(c){return GAMES.find(g=>g.code===c)}
+function normalizeBuzz(v){
+ if(Array.isArray(v))return v.map((n,i)=>{n=Math.ma
+
+
+--- ownedSkins #3 @ 1226511 ---
+
+n bearingDeg(a,b){
+ const y=Math.sin(rad(b.lng-a.lng))*Math.cos(rad(b.lat));
+ const x=Math.cos(rad(a.lat))*Math.sin(rad(b.lat))-Math.sin(rad(a.lat))*Math.cos(rad(b.lat))*Math.cos(rad(b.lng-a.lng));
+ return (Math.atan2(y,x)*180/Math.PI+360)%360
+}
+function arrowForBearing(d){
+ const arrows=['↑','↗','→','↘','↓','↙','←','↖'];return arrows[Math.round(d/45)%8]
+}
+
+function currentSkin(){return OSO_SKINS.find(x=>x.id===state.selectedSkin)||OSO_SKINS[0]}
+function currentOsoSrc(){return currentSkin().src}
+const BASE_GAME_CODES=['basket','fish','stack','run','slice','tteok','powerduck'];
+const BONUS_GAME_CODES=['spacefighter','racing','fantasy'];
+function ensureSpacefighterUnlock(){
+ if(state.unlock&&state.unlock.spacefighter)return false;
+ if(BASE_GAME_CODES.every(c=>state.unlock&&state.unlock[c])){
+  state.unlock.spacefighter=true;save();return true
+ }
+ return false
+}
+function ensureScoreBonusUnlocks(){
+ const newly=[],n=Number(state.todayScore)||0;
+ if(n>=500000&&!state.unlock.racing){state.unlock.racing=true;newly.push('racing')}
+ if(n>=1000000&&!state.unlock.fantasy){state.unlock.fantasy=true;newly.push('fantasy')}
+ if(newly.length){
+  const q=Array.isArray(state.pendingBonusUnlocks)?state.pendingBonusUnlocks:[];
+  state.pendingBonusUnlocks=[...new Set([...q,...newly])];
+  save()
+ }
+ return newly
+}
+
+let mem=null,audioCtx=null;
+function localDateKey(){
+ const d=new Date(),y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,'0'),day=String(d.getDate()).padStart(2,'0');
+ return `${y}-${m}-${day}`
+}
+function load(){try{const x=localStorage.getItem(DEV_ALL_UNLOCKED?'jcm-v168-unlocked':'jcm-v168-locked');return x?JSON.parse(x):null}catch(e){return mem}}
+function save(){mem=state;try{localStorage.setItem(DEV_ALL_UNLOCKED?'jcm-v168-unlocked':'jcm-v168-locked',JSON.stringify(state))}catch(e){}}
+let state=load()||{unlock:{},best:{},coins:0,todayEarned:0,todayScore:0,scoreDate:localDateKey(),pdRecord:0,coinDate:localDateKey(),ranking:[],todaySubmittedBest:0,rankRegisteredBest:11,ownedSkins:['default'],selectedSkin:'default'};
+if(!state.best||typeof state.best!=='object')state.best={};
+if(!Array.isArray(state.ranking))state.ranking=[];
+if(!Array.isArray(state.ownedSkins))state.ownedSkins=['default'];
+if(!state.gpsCalibration)state.gpsCalibration={};
+if(!state.gpsUnlocked)state.gpsUnlocked={};
+if(!state.qrUnlocked)state.qrUnlocked={};
+if(!state.ownedSkins.includes('default'))state.ownedSkins.unshift('default');
+if(!state.selectedSkin||!state.ownedSkins.includes(state.selectedSkin))state.selectedSkin='default';
+if(state.todayEarned==null)state.todayEarned=0;
+if(state.todayScore==null)state.todayScore=0;
+if(!state.scoreDate)state.scoreDate=localDateKey();
+if(state.todaySubmittedBest==null)state.todaySubmittedBest=0;
+if(state.rankRegisteredBest==null){
+ state.rankRegisteredBest=Number.isFinite(state.dailyRankPromptedBestRank)?state.dailyRankPromptedBestRank:11;
+}
+if(state.scoreDate!==localDateKey()){
+ state.scoreDate=localDateKey();
+}
+if(!state.coinDate)state.coinDate=localDateKey();
+if(state.coinDate!==localDateKey())state.coinDate=localDateKey();
+if(DEV_ALL_UNLOCKED)GAMES.forEach(g=>state.unlock[g.code]=true);
+
+function ensureDailyScoreDate(){
+ const today=localDateKey();
+ if(!state.scoreDate)state.scoreDate=today;
+ if(state.scoreDate!==today){
+  state.scoreDate=today;
+  save();
+ }
+}
+
+const DEFAULT_RANKING_SEED=[
+ {initials:'중앙시장',score:1000000,date:'기준',ts:1,seed:true},
+ {initials:'오소',score:500000,date:'기준',ts:2,seed:true},
+ {initials:'또오소',score:300000,date:'기준',ts:3,seed:true},
+ {initials:'다시오소',score:100000,date:'기준',ts:4,seed:true},
+ {initials:'매일오소',score:80000,date:'기준',ts:5,seed:true},
+ {initials:'잘가소',score:50000,date:'기준',ts:6,seed:true},
+ {initials:'반갑소',score:30000,date:'기준',ts:7,seed:true},
+ {initials:'어서오소',score:20000,date:'기준',ts:8,seed:true},
+ {initials:'잘하소',score:15000,date:'기준',ts:9,seed:true},
+ {initials:'힘내소',score:10000,date:'기준',ts:10,seed:true}
+];
+const RANK_SCORE_THRESHOLDS=DEFAULT_RANKING_SEED.map((r,i)=>({rank:i+1,score:Number(r.score)||0}));
+function rankReachedByDailyScore(score){
+ const n=Number(score)||0;
+ for(const t of RANK_SCORE_THRESHOLDS){if(n>t.score)return t.rank}
+ return 11;
+}
+
+function ensureRankRegistrationState(){
+ if(state.rankRegistrationVersion==='threshold-record-v2')return;
+ const userRows=(Array.isArray(state.ranking)?state.ranking:[]).filter(r=>!r.seed);
+ let inferredBestRank=11;
+ for(const row of userRows){
+  const rr=Number.isFinite(row.rankReached)?row.rankReached:rankReachedByDailyScore(row.score);
+  inferredBestRank=Math.min(inferredBestRank,rr);
+ }
+ state.rankRegisteredBest=inferredBestRank;
+ state.rankRegistrationVersion='threshold-record-v2';
+ save();
+}
+function ensureDefaultRanking(){
+ const mode=state.rankingModeVersion;
+ if(mode==='daily-score-v1'||mode==='daily-score-v2'){
+  state.rankingModeVersion='daily-score-v2';
+  return;
+ }
+ state.ranking=DEFAULT_RANKING_SEED.map(r=>({...r}));
+ state.rankingModeVersion='daily-score-v2';
+ state.todaySubmittedBest=0;
+ state.rankRegisteredBest=11;
+ save();
+}
+function currentRankCutoff(){
+ const rows=rankingSorted();
+ return rows.length<10?0:(rows[9]?.score||0);
+}
+ensureDefaultRanking();
+ensureRankRegistrationState();
+
+ensureDefaultRanking();
+let selected=null,cleanup=null;
+
+function game(c){return GAMES.find(g=>g.code===c)}
+function normalizeBuzz(v){
+ if(Array.isArray(v))return v.map((n,i)=>{n=Math.max(0,Math.floor(Num
+
+
+--- ownedSkins #4 @ 1226681 ---
+
+Math.cos(rad(b.lng-a.lng));
+ return (Math.atan2(y,x)*180/Math.PI+360)%360
+}
+function arrowForBearing(d){
+ const arrows=['↑','↗','→','↘','↓','↙','←','↖'];return arrows[Math.round(d/45)%8]
+}
+
+function currentSkin(){return OSO_SKINS.find(x=>x.id===state.selectedSkin)||OSO_SKINS[0]}
+function currentOsoSrc(){return currentSkin().src}
+const BASE_GAME_CODES=['basket','fish','stack','run','slice','tteok','powerduck'];
+const BONUS_GAME_CODES=['spacefighter','racing','fantasy'];
+function ensureSpacefighterUnlock(){
+ if(state.unlock&&state.unlock.spacefighter)return false;
+ if(BASE_GAME_CODES.every(c=>state.unlock&&state.unlock[c])){
+  state.unlock.spacefighter=true;save();return true
+ }
+ return false
+}
+function ensureScoreBonusUnlocks(){
+ const newly=[],n=Number(state.todayScore)||0;
+ if(n>=500000&&!state.unlock.racing){state.unlock.racing=true;newly.push('racing')}
+ if(n>=1000000&&!state.unlock.fantasy){state.unlock.fantasy=true;newly.push('fantasy')}
+ if(newly.length){
+  const q=Array.isArray(state.pendingBonusUnlocks)?state.pendingBonusUnlocks:[];
+  state.pendingBonusUnlocks=[...new Set([...q,...newly])];
+  save()
+ }
+ return newly
+}
+
+let mem=null,audioCtx=null;
+function localDateKey(){
+ const d=new Date(),y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,'0'),day=String(d.getDate()).padStart(2,'0');
+ return `${y}-${m}-${day}`
+}
+function load(){try{const x=localStorage.getItem(DEV_ALL_UNLOCKED?'jcm-v168-unlocked':'jcm-v168-locked');return x?JSON.parse(x):null}catch(e){return mem}}
+function save(){mem=state;try{localStorage.setItem(DEV_ALL_UNLOCKED?'jcm-v168-unlocked':'jcm-v168-locked',JSON.stringify(state))}catch(e){}}
+let state=load()||{unlock:{},best:{},coins:0,todayEarned:0,todayScore:0,scoreDate:localDateKey(),pdRecord:0,coinDate:localDateKey(),ranking:[],todaySubmittedBest:0,rankRegisteredBest:11,ownedSkins:['default'],selectedSkin:'default'};
+if(!state.best||typeof state.best!=='object')state.best={};
+if(!Array.isArray(state.ranking))state.ranking=[];
+if(!Array.isArray(state.ownedSkins))state.ownedSkins=['default'];
+if(!state.gpsCalibration)state.gpsCalibration={};
+if(!state.gpsUnlocked)state.gpsUnlocked={};
+if(!state.qrUnlocked)state.qrUnlocked={};
+if(!state.ownedSkins.includes('default'))state.ownedSkins.unshift('default');
+if(!state.selectedSkin||!state.ownedSkins.includes(state.selectedSkin))state.selectedSkin='default';
+if(state.todayEarned==null)state.todayEarned=0;
+if(state.todayScore==null)state.todayScore=0;
+if(!state.scoreDate)state.scoreDate=localDateKey();
+if(state.todaySubmittedBest==null)state.todaySubmittedBest=0;
+if(state.rankRegisteredBest==null){
+ state.rankRegisteredBest=Number.isFinite(state.dailyRankPromptedBestRank)?state.dailyRankPromptedBestRank:11;
+}
+if(state.scoreDate!==localDateKey()){
+ state.scoreDate=localDateKey();
+}
+if(!state.coinDate)state.coinDate=localDateKey();
+if(state.coinDate!==localDateKey())state.coinDate=localDateKey();
+if(DEV_ALL_UNLOCKED)GAMES.forEach(g=>state.unlock[g.code]=true);
+
+function ensureDailyScoreDate(){
+ const today=localDateKey();
+ if(!state.scoreDate)state.scoreDate=today;
+ if(state.scoreDate!==today){
+  state.scoreDate=today;
+  save();
+ }
+}
+
+const DEFAULT_RANKING_SEED=[
+ {initials:'중앙시장',score:1000000,date:'기준',ts:1,seed:true},
+ {initials:'오소',score:500000,date:'기준',ts:2,seed:true},
+ {initials:'또오소',score:300000,date:'기준',ts:3,seed:true},
+ {initials:'다시오소',score:100000,date:'기준',ts:4,seed:true},
+ {initials:'매일오소',score:80000,date:'기준',ts:5,seed:true},
+ {initials:'잘가소',score:50000,date:'기준',ts:6,seed:true},
+ {initials:'반갑소',score:30000,date:'기준',ts:7,seed:true},
+ {initials:'어서오소',score:20000,date:'기준',ts:8,seed:true},
+ {initials:'잘하소',score:15000,date:'기준',ts:9,seed:true},
+ {initials:'힘내소',score:10000,date:'기준',ts:10,seed:true}
+];
+const RANK_SCORE_THRESHOLDS=DEFAULT_RANKING_SEED.map((r,i)=>({rank:i+1,score:Number(r.score)||0}));
+function rankReachedByDailyScore(score){
+ const n=Number(score)||0;
+ for(const t of RANK_SCORE_THRESHOLDS){if(n>t.score)return t.rank}
+ return 11;
+}
+
+function ensureRankRegistrationState(){
+ if(state.rankRegistrationVersion==='threshold-record-v2')return;
+ const userRows=(Array.isArray(state.ranking)?state.ranking:[]).filter(r=>!r.seed);
+ let inferredBestRank=11;
+ for(const row of userRows){
+  const rr=Number.isFinite(row.rankReached)?row.rankReached:rankReachedByDailyScore(row.score);
+  inferredBestRank=Math.min(inferredBestRank,rr);
+ }
+ state.rankRegisteredBest=inferredBestRank;
+ state.rankRegistrationVersion='threshold-record-v2';
+ save();
+}
+function ensureDefaultRanking(){
+ const mode=state.rankingModeVersion;
+ if(mode==='daily-score-v1'||mode==='daily-score-v2'){
+  state.rankingModeVersion='daily-score-v2';
+  return;
+ }
+ state.ranking=DEFAULT_RANKING_SEED.map(r=>({...r}));
+ state.rankingModeVersion='daily-score-v2';
+ state.todaySubmittedBest=0;
+ state.rankRegisteredBest=11;
+ save();
+}
+function currentRankCutoff(){
+ const rows=rankingSorted();
+ return rows.length<10?0:(rows[9]?.score||0);
+}
+ensureDefaultRanking();
+ensureRankRegistrationState();
+
+ensureDefaultRanking();
+let selected=null,cleanup=null;
+
+function game(c){return GAMES.find(g=>g.code===c)}
+function normalizeBuzz(v){
+ if(Array.isArray(v))return v.map((n,i)=>{n=Math.max(0,Math.floor(Number(n)||0));return i%2===0?Math.max(32,n):Math.max(12,n)});
+ return Math.max(32,Math.min(1200,Math.floor(Number(v)||32)));
+}
+function browserBuzz(h){
+ try{if(typeof navig
+
+
+--- ownedSkins #5 @ 1226718 ---
+
+Math.atan2(y,x)*180/Math.PI+360)%360
+}
+function arrowForBearing(d){
+ const arrows=['↑','↗','→','↘','↓','↙','←','↖'];return arrows[Math.round(d/45)%8]
+}
+
+function currentSkin(){return OSO_SKINS.find(x=>x.id===state.selectedSkin)||OSO_SKINS[0]}
+function currentOsoSrc(){return currentSkin().src}
+const BASE_GAME_CODES=['basket','fish','stack','run','slice','tteok','powerduck'];
+const BONUS_GAME_CODES=['spacefighter','racing','fantasy'];
+function ensureSpacefighterUnlock(){
+ if(state.unlock&&state.unlock.spacefighter)return false;
+ if(BASE_GAME_CODES.every(c=>state.unlock&&state.unlock[c])){
+  state.unlock.spacefighter=true;save();return true
+ }
+ return false
+}
+function ensureScoreBonusUnlocks(){
+ const newly=[],n=Number(state.todayScore)||0;
+ if(n>=500000&&!state.unlock.racing){state.unlock.racing=true;newly.push('racing')}
+ if(n>=1000000&&!state.unlock.fantasy){state.unlock.fantasy=true;newly.push('fantasy')}
+ if(newly.length){
+  const q=Array.isArray(state.pendingBonusUnlocks)?state.pendingBonusUnlocks:[];
+  state.pendingBonusUnlocks=[...new Set([...q,...newly])];
+  save()
+ }
+ return newly
+}
+
+let mem=null,audioCtx=null;
+function localDateKey(){
+ const d=new Date(),y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,'0'),day=String(d.getDate()).padStart(2,'0');
+ return `${y}-${m}-${day}`
+}
+function load(){try{const x=localStorage.getItem(DEV_ALL_UNLOCKED?'jcm-v168-unlocked':'jcm-v168-locked');return x?JSON.parse(x):null}catch(e){return mem}}
+function save(){mem=state;try{localStorage.setItem(DEV_ALL_UNLOCKED?'jcm-v168-unlocked':'jcm-v168-locked',JSON.stringify(state))}catch(e){}}
+let state=load()||{unlock:{},best:{},coins:0,todayEarned:0,todayScore:0,scoreDate:localDateKey(),pdRecord:0,coinDate:localDateKey(),ranking:[],todaySubmittedBest:0,rankRegisteredBest:11,ownedSkins:['default'],selectedSkin:'default'};
+if(!state.best||typeof state.best!=='object')state.best={};
+if(!Array.isArray(state.ranking))state.ranking=[];
+if(!Array.isArray(state.ownedSkins))state.ownedSkins=['default'];
+if(!state.gpsCalibration)state.gpsCalibration={};
+if(!state.gpsUnlocked)state.gpsUnlocked={};
+if(!state.qrUnlocked)state.qrUnlocked={};
+if(!state.ownedSkins.includes('default'))state.ownedSkins.unshift('default');
+if(!state.selectedSkin||!state.ownedSkins.includes(state.selectedSkin))state.selectedSkin='default';
+if(state.todayEarned==null)state.todayEarned=0;
+if(state.todayScore==null)state.todayScore=0;
+if(!state.scoreDate)state.scoreDate=localDateKey();
+if(state.todaySubmittedBest==null)state.todaySubmittedBest=0;
+if(state.rankRegisteredBest==null){
+ state.rankRegisteredBest=Number.isFinite(state.dailyRankPromptedBestRank)?state.dailyRankPromptedBestRank:11;
+}
+if(state.scoreDate!==localDateKey()){
+ state.scoreDate=localDateKey();
+}
+if(!state.coinDate)state.coinDate=localDateKey();
+if(state.coinDate!==localDateKey())state.coinDate=localDateKey();
+if(DEV_ALL_UNLOCKED)GAMES.forEach(g=>state.unlock[g.code]=true);
+
+function ensureDailyScoreDate(){
+ const today=localDateKey();
+ if(!state.scoreDate)state.scoreDate=today;
+ if(state.scoreDate!==today){
+  state.scoreDate=today;
+  save();
+ }
+}
+
+const DEFAULT_RANKING_SEED=[
+ {initials:'중앙시장',score:1000000,date:'기준',ts:1,seed:true},
+ {initials:'오소',score:500000,date:'기준',ts:2,seed:true},
+ {initials:'또오소',score:300000,date:'기준',ts:3,seed:true},
+ {initials:'다시오소',score:100000,date:'기준',ts:4,seed:true},
+ {initials:'매일오소',score:80000,date:'기준',ts:5,seed:true},
+ {initials:'잘가소',score:50000,date:'기준',ts:6,seed:true},
+ {initials:'반갑소',score:30000,date:'기준',ts:7,seed:true},
+ {initials:'어서오소',score:20000,date:'기준',ts:8,seed:true},
+ {initials:'잘하소',score:15000,date:'기준',ts:9,seed:true},
+ {initials:'힘내소',score:10000,date:'기준',ts:10,seed:true}
+];
+const RANK_SCORE_THRESHOLDS=DEFAULT_RANKING_SEED.map((r,i)=>({rank:i+1,score:Number(r.score)||0}));
+function rankReachedByDailyScore(score){
+ const n=Number(score)||0;
+ for(const t of RANK_SCORE_THRESHOLDS){if(n>t.score)return t.rank}
+ return 11;
+}
+
+function ensureRankRegistrationState(){
+ if(state.rankRegistrationVersion==='threshold-record-v2')return;
+ const userRows=(Array.isArray(state.ranking)?state.ranking:[]).filter(r=>!r.seed);
+ let inferredBestRank=11;
+ for(const row of userRows){
+  const rr=Number.isFinite(row.rankReached)?row.rankReached:rankReachedByDailyScore(row.score);
+  inferredBestRank=Math.min(inferredBestRank,rr);
+ }
+ state.rankRegisteredBest=inferredBestRank;
+ state.rankRegistrationVersion='threshold-record-v2';
+ save();
+}
+function ensureDefaultRanking(){
+ const mode=state.rankingModeVersion;
+ if(mode==='daily-score-v1'||mode==='daily-score-v2'){
+  state.rankingModeVersion='daily-score-v2';
+  return;
+ }
+ state.ranking=DEFAULT_RANKING_SEED.map(r=>({...r}));
+ state.rankingModeVersion='daily-score-v2';
+ state.todaySubmittedBest=0;
+ state.rankRegisteredBest=11;
+ save();
+}
+function currentRankCutoff(){
+ const rows=rankingSorted();
+ return rows.length<10?0:(rows[9]?.score||0);
+}
+ensureDefaultRanking();
+ensureRankRegistrationState();
+
+ensureDefaultRanking();
+let selected=null,cleanup=null;
+
+function game(c){return GAMES.find(g=>g.code===c)}
+function normalizeBuzz(v){
+ if(Array.isArray(v))return v.map((n,i)=>{n=Math.max(0,Math.floor(Number(n)||0));return i%2===0?Math.max(32,n):Math.max(12,n)});
+ return Math.max(32,Math.min(1200,Math.floor(Number(v)||32)));
+}
+function browserBuzz(h){
+ try{if(typeof navigator.vibrate!=='function')return fals
+
+
+--- ownedSkins #6 @ 1226780 ---
+
+g(d){
+ const arrows=['↑','↗','→','↘','↓','↙','←','↖'];return arrows[Math.round(d/45)%8]
+}
+
+function currentSkin(){return OSO_SKINS.find(x=>x.id===state.selectedSkin)||OSO_SKINS[0]}
+function currentOsoSrc(){return currentSkin().src}
+const BASE_GAME_CODES=['basket','fish','stack','run','slice','tteok','powerduck'];
+const BONUS_GAME_CODES=['spacefighter','racing','fantasy'];
+function ensureSpacefighterUnlock(){
+ if(state.unlock&&state.unlock.spacefighter)return false;
+ if(BASE_GAME_CODES.every(c=>state.unlock&&state.unlock[c])){
+  state.unlock.spacefighter=true;save();return true
+ }
+ return false
+}
+function ensureScoreBonusUnlocks(){
+ const newly=[],n=Number(state.todayScore)||0;
+ if(n>=500000&&!state.unlock.racing){state.unlock.racing=true;newly.push('racing')}
+ if(n>=1000000&&!state.unlock.fantasy){state.unlock.fantasy=true;newly.push('fantasy')}
+ if(newly.length){
+  const q=Array.isArray(state.pendingBonusUnlocks)?state.pendingBonusUnlocks:[];
+  state.pendingBonusUnlocks=[...new Set([...q,...newly])];
+  save()
+ }
+ return newly
+}
+
+let mem=null,audioCtx=null;
+function localDateKey(){
+ const d=new Date(),y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,'0'),day=String(d.getDate()).padStart(2,'0');
+ return `${y}-${m}-${day}`
+}
+function load(){try{const x=localStorage.getItem(DEV_ALL_UNLOCKED?'jcm-v168-unlocked':'jcm-v168-locked');return x?JSON.parse(x):null}catch(e){return mem}}
+function save(){mem=state;try{localStorage.setItem(DEV_ALL_UNLOCKED?'jcm-v168-unlocked':'jcm-v168-locked',JSON.stringify(state))}catch(e){}}
+let state=load()||{unlock:{},best:{},coins:0,todayEarned:0,todayScore:0,scoreDate:localDateKey(),pdRecord:0,coinDate:localDateKey(),ranking:[],todaySubmittedBest:0,rankRegisteredBest:11,ownedSkins:['default'],selectedSkin:'default'};
+if(!state.best||typeof state.best!=='object')state.best={};
+if(!Array.isArray(state.ranking))state.ranking=[];
+if(!Array.isArray(state.ownedSkins))state.ownedSkins=['default'];
+if(!state.gpsCalibration)state.gpsCalibration={};
+if(!state.gpsUnlocked)state.gpsUnlocked={};
+if(!state.qrUnlocked)state.qrUnlocked={};
+if(!state.ownedSkins.includes('default'))state.ownedSkins.unshift('default');
+if(!state.selectedSkin||!state.ownedSkins.includes(state.selectedSkin))state.selectedSkin='default';
+if(state.todayEarned==null)state.todayEarned=0;
+if(state.todayScore==null)state.todayScore=0;
+if(!state.scoreDate)state.scoreDate=localDateKey();
+if(state.todaySubmittedBest==null)state.todaySubmittedBest=0;
+if(state.rankRegisteredBest==null){
+ state.rankRegisteredBest=Number.isFinite(state.dailyRankPromptedBestRank)?state.dailyRankPromptedBestRank:11;
+}
+if(state.scoreDate!==localDateKey()){
+ state.scoreDate=localDateKey();
+}
+if(!state.coinDate)state.coinDate=localDateKey();
+if(state.coinDate!==localDateKey())state.coinDate=localDateKey();
+if(DEV_ALL_UNLOCKED)GAMES.forEach(g=>state.unlock[g.code]=true);
+
+function ensureDailyScoreDate(){
+ const today=localDateKey();
+ if(!state.scoreDate)state.scoreDate=today;
+ if(state.scoreDate!==today){
+  state.scoreDate=today;
+  save();
+ }
+}
+
+const DEFAULT_RANKING_SEED=[
+ {initials:'중앙시장',score:1000000,date:'기준',ts:1,seed:true},
+ {initials:'오소',score:500000,date:'기준',ts:2,seed:true},
+ {initials:'또오소',score:300000,date:'기준',ts:3,seed:true},
+ {initials:'다시오소',score:100000,date:'기준',ts:4,seed:true},
+ {initials:'매일오소',score:80000,date:'기준',ts:5,seed:true},
+ {initials:'잘가소',score:50000,date:'기준',ts:6,seed:true},
+ {initials:'반갑소',score:30000,date:'기준',ts:7,seed:true},
+ {initials:'어서오소',score:20000,date:'기준',ts:8,seed:true},
+ {initials:'잘하소',score:15000,date:'기준',ts:9,seed:true},
+ {initials:'힘내소',score:10000,date:'기준',ts:10,seed:true}
+];
+const RANK_SCORE_THRESHOLDS=DEFAULT_RANKING_SEED.map((r,i)=>({rank:i+1,score:Number(r.score)||0}));
+function rankReachedByDailyScore(score){
+ const n=Number(score)||0;
+ for(const t of RANK_SCORE_THRESHOLDS){if(n>t.score)return t.rank}
+ return 11;
+}
+
+function ensureRankRegistrationState(){
+ if(state.rankRegistrationVersion==='threshold-record-v2')return;
+ const userRows=(Array.isArray(state.ranking)?state.ranking:[]).filter(r=>!r.seed);
+ let inferredBestRank=11;
+ for(const row of userRows){
+  const rr=Number.isFinite(row.rankReached)?row.rankReached:rankReachedByDailyScore(row.score);
+  inferredBestRank=Math.min(inferredBestRank,rr);
+ }
+ state.rankRegisteredBest=inferredBestRank;
+ state.rankRegistrationVersion='threshold-record-v2';
+ save();
+}
+function ensureDefaultRanking(){
+ const mode=state.rankingModeVersion;
+ if(mode==='daily-score-v1'||mode==='daily-score-v2'){
+  state.rankingModeVersion='daily-score-v2';
+  return;
+ }
+ state.ranking=DEFAULT_RANKING_SEED.map(r=>({...r}));
+ state.rankingModeVersion='daily-score-v2';
+ state.todaySubmittedBest=0;
+ state.rankRegisteredBest=11;
+ save();
+}
+function currentRankCutoff(){
+ const rows=rankingSorted();
+ return rows.length<10?0:(rows[9]?.score||0);
+}
+ensureDefaultRanking();
+ensureRankRegistrationState();
+
+ensureDefaultRanking();
+let selected=null,cleanup=null;
+
+function game(c){return GAMES.find(g=>g.code===c)}
+function normalizeBuzz(v){
+ if(Array.isArray(v))return v.map((n,i)=>{n=Math.max(0,Math.floor(Number(n)||0));return i%2===0?Math.max(32,n):Math.max(12,n)});
+ return Math.max(32,Math.min(1200,Math.floor(Number(v)||32)));
+}
+function browserBuzz(h){
+ try{if(typeof navigator.vibrate!=='function')return false;return navigator.vibrate(h)!==false}catch(e){return false}
+}
+
+
+--- ownedSkins #7 @ 1256145 ---
+
+out:20000})
+ }catch(e){stopGpsWatch();st.textContent='GPS 실행에 실패했습니다. HTTPS 접속과 위치 권한을 확인한 뒤 다시 누르소.';st.className='gpsStatus error'}
+}
+function currentCalibrationSelection(){return $('#calZoneSelect')?$('#calZoneSelect').value:null}
+function saveCalPoint(kind){
+ if(!lastGps){$('#calOutput').textContent='먼저 GPS 위치 확인을 시작하소.';return}
+ const code=currentCalibrationSelection();if(!code)return;
+ const old=(state.gpsCalibration||{})[code]||{};
+ if(kind==='center'){
+  state.gpsCalibration[code]={type:'circle',lat:lastGps.lat,lng:lastGps.lng,radius:45,near:160,source:'field-calibration'}
+ }else{
+  let a=old.a||null,b=old.b||null;if(kind==='a')a={lat:lastGps.lat,lng:lastGps.lng};else b={lat:lastGps.lat,lng:lastGps.lng};
+  state.gpsCalibration[code]={type:'corridor',a,b,radius:24,near:150,source:'field-calibration'};
+  if(!a||!b){state.gpsCalibration[code].pending=true}
+  else delete state.gpsCalibration[code].pending
+ }
+ save();
+ $('#calOutput').textContent=JSON.stringify(state.gpsCalibration,null,2);
+ renderGpsLocations(lastGps)
+}
+function initGpsUi(){
+ if(!DEV_ALL_UNLOCKED){const p=$('.gpsCalPanel');if(p)p.style.display='none'}
+ const sel=$('#calZoneSelect');if(sel){
+  sel.innerHTML=GAME_ACQUIRE.map(x=>`<option value="${x.code}">${game(x.code).name} — ${x.place}</option>`).join('');
+  $('#calOutput').textContent=JSON.stringify(state.gpsCalibration||{},null,2)
+ }
+ $('#gpsStartBtn').onclick=startGpsWatch;
+ $('#calStart').onclick=()=>saveCalPoint('a');$('#calEnd').onclick=()=>saveCalPoint('b');$('#calCenter').onclick=()=>saveCalPoint('center');
+ renderGpsLocations()
+}
+
+function renderOsoShop(){
+ const shop=$('#osoShop');if(!shop)return;
+ const skin=currentSkin(),preview=$('#selectedOsoPreview'),name=$('#selectedOsoName'),coin=$('#shopCoin');
+ if(preview)preview.src=skin.src;if(name)name.textContent=skin.name;if(coin)coin.textContent=state.coins||0;
+ const groups=[
+  {id:'oso',title:'🐂 오소',sub:'중앙시장의 주인공 · 기본~750 코인'},
+  {id:'ayo',title:'🐱 아요 컬렉션',sub:'표정과 동작이 다양한 친구 · 1,000~1,900 코인'},
+  {id:'hamo',title:'🦦 하모 컬렉션',sub:'특별한 친구 · 2,000~2,900 코인'}
+ ];
+ shop.innerHTML=groups.map(gr=>{
+  const cards=OSO_SKINS.filter(s=>(s.group||'oso')===gr.id).map(s=>{
+   const owned=state.ownedSkins.includes(s.id),selected=state.selectedSkin===s.id;
+   return `<div class="skinCard ${selected?'selected':''} group-${gr.id}" data-skin="${s.id}"><span class="charBadge ${gr.id}">${s.badge||gr.title}</span><img src="${s.src}" alt="${s.name}"><b>${s.name}</b><small>${s.note}</small><button class="${selected?'selectedBtn':owned?'owned':''}" data-buy="${s.id}">${selected?'사용 중':owned?'사용하기':`🪙 ${s.price.toLocaleString()} 구입`}</button></div>`
+  }).join('');
+  return `<div class="shopGroupHead ${gr.id}"><b>${gr.title}</b><small>${gr.sub}</small></div>${cards}`
+ }).join('');
+ $$('[data-buy]').forEach(btn=>btn.onclick=()=>{
+   const s=OSO_SKINS.find(x=>x.id===btn.dataset.buy);if(!s)return;
+   if(state.ownedSkins.includes(s.id)){state.selectedSkin=s.id;save();refresh();tone('good');return}
+   if((state.coins||0)<s.price){tone('bad');buzz(70);btn.textContent='코인이 부족하소!';setTimeout(renderOsoShop,700);return}
+   state.coins-=s.price;state.ownedSkins.push(s.id);state.selectedSkin=s.id;save();tone('clear');buzz([20,15,35]);refresh()
+ })
+}
+
+function refresh(){
+ ensureDailyScoreDate();
+ if(state.coinDate!==localDateKey()){
+  state.coinDate=localDateKey();save()
+ }
+ if(DEV_ALL_UNLOCKED)GAMES.forEach(g=>state.unlock[g.code]=true);
+ const bonusNew=!DEV_ALL_UNLOCKED&&ensureSpacefighterUnlock();
+ if(!DEV_ALL_UNLOCKED)ensureScoreBonusUnlocks();
+ const pendingBonus=!DEV_ALL_UNLOCKED&&Array.isArray(state.pendingBonusUnlocks)?[...state.pendingBonusUnlocks]:[];
+ if(pendingBonus.length){state.pendingBonusUnlocks=[];save()}
+ $('#count').textContent=`🎮 ${GAMES.filter(g=>state.unlock[g.code]).length}/${GAMES.length}`;
+ $('#coin').textContent=state.coins||0;
+ $('#library').innerHTML=GAMES.map((g,i)=>{
+ const art={basket:'🍎 🥬 🧺',fish:'🐟 💦 🐠',stack:'🧵 🧶 ✨',run:'🛍️ 🏃 🪙',slice:'🍜 ✨ 🍗',tteok:'🔨 🍚 ✨',powerduck:'🎮 ⚡ 🌍',spacefighter:'🚀 🌍 👾',racing:'🏎️ 🐂 🏁',fantasy:'⚔️ 🛒 🌿'}[g.code]||g.icon;
+ const st=starsFor(g.code,state.best[g.code]||0),stars='⭐'.repeat(st)+'☆'.repeat(3-st);
+ return `<button class="gameCard theme-${g.code} ${state.unlock[g.code]?'':'lock'}" data-game="${g.code}"><div class="gameNo">${i+1}</div><div class="gameCardArt"><div class="artEmoji">${art}</div></div><b>${state.unlock[g.code]?g.name:'???'}</b><small>${g.desc}</small><div class="best">${state.unlock[g.code]?`🏆 최고 ${state.best[g.code]||0}<span class="miniStars">${stars}</span>`:(g.code==='spacefighter'?'<span class="spaceBonusLock">🔒 7개 게임 획득 시 해금</span>':g.code==='racing'?'<span class="scoreBonusLock">🔒 누적 500,000점 달성 시 해금</span>':g.code==='fantasy'?'<span class="scoreBonusLock">🔒 누적 1,000,000점 달성 시 해금</span>':'🔒 GPS/QR로 획득')}</div></button>`
+ }).join('');
+ $$('[data-game]').forEach(b=>b.onclick=()=>openInfo(b.dataset.game));
+ renderGpsLocations(lastGps);renderOsoShop();renderRanking();
+ const ho=$('#headerOso');if(ho)ho.src=currentOsoSrc();save();
+ if(bonusNew)setTimeout(()=>flashyUnlock('spacefighter'),2100);
+ pendingBonus.forEach((c,i)=>setTimeout(()=>flashyUnlock(c),2100+i*2300))
+}
+function openInfo(code){selected=game(code);const unlocked=!!state.unlock[code];$('#mEm').textContent=selected.icon;$('#mName').textContent=unlocked?selected.name:'잠긴 게임';$('#mDesc').textContent=selected.desc;$('#
+
+
+--- ownedSkins #8 @ 1256859 ---
+
+s.lng};
+  state.gpsCalibration[code]={type:'corridor',a,b,radius:24,near:150,source:'field-calibration'};
+  if(!a||!b){state.gpsCalibration[code].pending=true}
+  else delete state.gpsCalibration[code].pending
+ }
+ save();
+ $('#calOutput').textContent=JSON.stringify(state.gpsCalibration,null,2);
+ renderGpsLocations(lastGps)
+}
+function initGpsUi(){
+ if(!DEV_ALL_UNLOCKED){const p=$('.gpsCalPanel');if(p)p.style.display='none'}
+ const sel=$('#calZoneSelect');if(sel){
+  sel.innerHTML=GAME_ACQUIRE.map(x=>`<option value="${x.code}">${game(x.code).name} — ${x.place}</option>`).join('');
+  $('#calOutput').textContent=JSON.stringify(state.gpsCalibration||{},null,2)
+ }
+ $('#gpsStartBtn').onclick=startGpsWatch;
+ $('#calStart').onclick=()=>saveCalPoint('a');$('#calEnd').onclick=()=>saveCalPoint('b');$('#calCenter').onclick=()=>saveCalPoint('center');
+ renderGpsLocations()
+}
+
+function renderOsoShop(){
+ const shop=$('#osoShop');if(!shop)return;
+ const skin=currentSkin(),preview=$('#selectedOsoPreview'),name=$('#selectedOsoName'),coin=$('#shopCoin');
+ if(preview)preview.src=skin.src;if(name)name.textContent=skin.name;if(coin)coin.textContent=state.coins||0;
+ const groups=[
+  {id:'oso',title:'🐂 오소',sub:'중앙시장의 주인공 · 기본~750 코인'},
+  {id:'ayo',title:'🐱 아요 컬렉션',sub:'표정과 동작이 다양한 친구 · 1,000~1,900 코인'},
+  {id:'hamo',title:'🦦 하모 컬렉션',sub:'특별한 친구 · 2,000~2,900 코인'}
+ ];
+ shop.innerHTML=groups.map(gr=>{
+  const cards=OSO_SKINS.filter(s=>(s.group||'oso')===gr.id).map(s=>{
+   const owned=state.ownedSkins.includes(s.id),selected=state.selectedSkin===s.id;
+   return `<div class="skinCard ${selected?'selected':''} group-${gr.id}" data-skin="${s.id}"><span class="charBadge ${gr.id}">${s.badge||gr.title}</span><img src="${s.src}" alt="${s.name}"><b>${s.name}</b><small>${s.note}</small><button class="${selected?'selectedBtn':owned?'owned':''}" data-buy="${s.id}">${selected?'사용 중':owned?'사용하기':`🪙 ${s.price.toLocaleString()} 구입`}</button></div>`
+  }).join('');
+  return `<div class="shopGroupHead ${gr.id}"><b>${gr.title}</b><small>${gr.sub}</small></div>${cards}`
+ }).join('');
+ $$('[data-buy]').forEach(btn=>btn.onclick=()=>{
+   const s=OSO_SKINS.find(x=>x.id===btn.dataset.buy);if(!s)return;
+   if(state.ownedSkins.includes(s.id)){state.selectedSkin=s.id;save();refresh();tone('good');return}
+   if((state.coins||0)<s.price){tone('bad');buzz(70);btn.textContent='코인이 부족하소!';setTimeout(renderOsoShop,700);return}
+   state.coins-=s.price;state.ownedSkins.push(s.id);state.selectedSkin=s.id;save();tone('clear');buzz([20,15,35]);refresh()
+ })
+}
+
+function refresh(){
+ ensureDailyScoreDate();
+ if(state.coinDate!==localDateKey()){
+  state.coinDate=localDateKey();save()
+ }
+ if(DEV_ALL_UNLOCKED)GAMES.forEach(g=>state.unlock[g.code]=true);
+ const bonusNew=!DEV_ALL_UNLOCKED&&ensureSpacefighterUnlock();
+ if(!DEV_ALL_UNLOCKED)ensureScoreBonusUnlocks();
+ const pendingBonus=!DEV_ALL_UNLOCKED&&Array.isArray(state.pendingBonusUnlocks)?[...state.pendingBonusUnlocks]:[];
+ if(pendingBonus.length){state.pendingBonusUnlocks=[];save()}
+ $('#count').textContent=`🎮 ${GAMES.filter(g=>state.unlock[g.code]).length}/${GAMES.length}`;
+ $('#coin').textContent=state.coins||0;
+ $('#library').innerHTML=GAMES.map((g,i)=>{
+ const art={basket:'🍎 🥬 🧺',fish:'🐟 💦 🐠',stack:'🧵 🧶 ✨',run:'🛍️ 🏃 🪙',slice:'🍜 ✨ 🍗',tteok:'🔨 🍚 ✨',powerduck:'🎮 ⚡ 🌍',spacefighter:'🚀 🌍 👾',racing:'🏎️ 🐂 🏁',fantasy:'⚔️ 🛒 🌿'}[g.code]||g.icon;
+ const st=starsFor(g.code,state.best[g.code]||0),stars='⭐'.repeat(st)+'☆'.repeat(3-st);
+ return `<button class="gameCard theme-${g.code} ${state.unlock[g.code]?'':'lock'}" data-game="${g.code}"><div class="gameNo">${i+1}</div><div class="gameCardArt"><div class="artEmoji">${art}</div></div><b>${state.unlock[g.code]?g.name:'???'}</b><small>${g.desc}</small><div class="best">${state.unlock[g.code]?`🏆 최고 ${state.best[g.code]||0}<span class="miniStars">${stars}</span>`:(g.code==='spacefighter'?'<span class="spaceBonusLock">🔒 7개 게임 획득 시 해금</span>':g.code==='racing'?'<span class="scoreBonusLock">🔒 누적 500,000점 달성 시 해금</span>':g.code==='fantasy'?'<span class="scoreBonusLock">🔒 누적 1,000,000점 달성 시 해금</span>':'🔒 GPS/QR로 획득')}</div></button>`
+ }).join('');
+ $$('[data-game]').forEach(b=>b.onclick=()=>openInfo(b.dataset.game));
+ renderGpsLocations(lastGps);renderOsoShop();renderRanking();
+ const ho=$('#headerOso');if(ho)ho.src=currentOsoSrc();save();
+ if(bonusNew)setTimeout(()=>flashyUnlock('spacefighter'),2100);
+ pendingBonus.forEach((c,i)=>setTimeout(()=>flashyUnlock(c),2100+i*2300))
+}
+function openInfo(code){selected=game(code);const unlocked=!!state.unlock[code];$('#mEm').textContent=selected.icon;$('#mName').textContent=unlocked?selected.name:'잠긴 게임';$('#mDesc').textContent=selected.desc;$('#mArea').textContent='장소 힌트 · '+selected.area.replace(/^해금 위치:\s*/,'');$('#mPlay').disabled=!unlocked;$('#mPlay').textContent=unlocked?'플레이':(BONUS_GAME_CODES.includes(selected.code)?'조건달성 필요':'GPS 획득 필요');$('#modal').classList.add('show')}
+$('#mClose').onclick=()=>$('#modal').classList.remove('show');$('#mPlay').onclick=()=>{if(selected&&state.unlock[selected.code]){$('#modal').classList.remove('show');startGame(selected.code)}};
+$$('nav button').forEach(b=>b.onclick=()=>{showPage(b.dataset.page);if(b.dataset.page==='mapPage')startGpsWatch()});
+window.unlockFromNative=code=>{
+ const c=parseUnlockQr(code)||normalizeUnlockCode(code);
+ if(c)qrUnlock(c)
+};
+
+const PERF_LITE_KEY='jcm-v249-auto-lite-v1';
+window.
+
+
+--- ownedSkins #9 @ 1257097 ---
+
+textContent=JSON.stringify(state.gpsCalibration,null,2);
+ renderGpsLocations(lastGps)
+}
+function initGpsUi(){
+ if(!DEV_ALL_UNLOCKED){const p=$('.gpsCalPanel');if(p)p.style.display='none'}
+ const sel=$('#calZoneSelect');if(sel){
+  sel.innerHTML=GAME_ACQUIRE.map(x=>`<option value="${x.code}">${game(x.code).name} — ${x.place}</option>`).join('');
+  $('#calOutput').textContent=JSON.stringify(state.gpsCalibration||{},null,2)
+ }
+ $('#gpsStartBtn').onclick=startGpsWatch;
+ $('#calStart').onclick=()=>saveCalPoint('a');$('#calEnd').onclick=()=>saveCalPoint('b');$('#calCenter').onclick=()=>saveCalPoint('center');
+ renderGpsLocations()
+}
+
+function renderOsoShop(){
+ const shop=$('#osoShop');if(!shop)return;
+ const skin=currentSkin(),preview=$('#selectedOsoPreview'),name=$('#selectedOsoName'),coin=$('#shopCoin');
+ if(preview)preview.src=skin.src;if(name)name.textContent=skin.name;if(coin)coin.textContent=state.coins||0;
+ const groups=[
+  {id:'oso',title:'🐂 오소',sub:'중앙시장의 주인공 · 기본~750 코인'},
+  {id:'ayo',title:'🐱 아요 컬렉션',sub:'표정과 동작이 다양한 친구 · 1,000~1,900 코인'},
+  {id:'hamo',title:'🦦 하모 컬렉션',sub:'특별한 친구 · 2,000~2,900 코인'}
+ ];
+ shop.innerHTML=groups.map(gr=>{
+  const cards=OSO_SKINS.filter(s=>(s.group||'oso')===gr.id).map(s=>{
+   const owned=state.ownedSkins.includes(s.id),selected=state.selectedSkin===s.id;
+   return `<div class="skinCard ${selected?'selected':''} group-${gr.id}" data-skin="${s.id}"><span class="charBadge ${gr.id}">${s.badge||gr.title}</span><img src="${s.src}" alt="${s.name}"><b>${s.name}</b><small>${s.note}</small><button class="${selected?'selectedBtn':owned?'owned':''}" data-buy="${s.id}">${selected?'사용 중':owned?'사용하기':`🪙 ${s.price.toLocaleString()} 구입`}</button></div>`
+  }).join('');
+  return `<div class="shopGroupHead ${gr.id}"><b>${gr.title}</b><small>${gr.sub}</small></div>${cards}`
+ }).join('');
+ $$('[data-buy]').forEach(btn=>btn.onclick=()=>{
+   const s=OSO_SKINS.find(x=>x.id===btn.dataset.buy);if(!s)return;
+   if(state.ownedSkins.includes(s.id)){state.selectedSkin=s.id;save();refresh();tone('good');return}
+   if((state.coins||0)<s.price){tone('bad');buzz(70);btn.textContent='코인이 부족하소!';setTimeout(renderOsoShop,700);return}
+   state.coins-=s.price;state.ownedSkins.push(s.id);state.selectedSkin=s.id;save();tone('clear');buzz([20,15,35]);refresh()
+ })
+}
+
+function refresh(){
+ ensureDailyScoreDate();
+ if(state.coinDate!==localDateKey()){
+  state.coinDate=localDateKey();save()
+ }
+ if(DEV_ALL_UNLOCKED)GAMES.forEach(g=>state.unlock[g.code]=true);
+ const bonusNew=!DEV_ALL_UNLOCKED&&ensureSpacefighterUnlock();
+ if(!DEV_ALL_UNLOCKED)ensureScoreBonusUnlocks();
+ const pendingBonus=!DEV_ALL_UNLOCKED&&Array.isArray(state.pendingBonusUnlocks)?[...state.pendingBonusUnlocks]:[];
+ if(pendingBonus.length){state.pendingBonusUnlocks=[];save()}
+ $('#count').textContent=`🎮 ${GAMES.filter(g=>state.unlock[g.code]).length}/${GAMES.length}`;
+ $('#coin').textContent=state.coins||0;
+ $('#library').innerHTML=GAMES.map((g,i)=>{
+ const art={basket:'🍎 🥬 🧺',fish:'🐟 💦 🐠',stack:'🧵 🧶 ✨',run:'🛍️ 🏃 🪙',slice:'🍜 ✨ 🍗',tteok:'🔨 🍚 ✨',powerduck:'🎮 ⚡ 🌍',spacefighter:'🚀 🌍 👾',racing:'🏎️ 🐂 🏁',fantasy:'⚔️ 🛒 🌿'}[g.code]||g.icon;
+ const st=starsFor(g.code,state.best[g.code]||0),stars='⭐'.repeat(st)+'☆'.repeat(3-st);
+ return `<button class="gameCard theme-${g.code} ${state.unlock[g.code]?'':'lock'}" data-game="${g.code}"><div class="gameNo">${i+1}</div><div class="gameCardArt"><div class="artEmoji">${art}</div></div><b>${state.unlock[g.code]?g.name:'???'}</b><small>${g.desc}</small><div class="best">${state.unlock[g.code]?`🏆 최고 ${state.best[g.code]||0}<span class="miniStars">${stars}</span>`:(g.code==='spacefighter'?'<span class="spaceBonusLock">🔒 7개 게임 획득 시 해금</span>':g.code==='racing'?'<span class="scoreBonusLock">🔒 누적 500,000점 달성 시 해금</span>':g.code==='fantasy'?'<span class="scoreBonusLock">🔒 누적 1,000,000점 달성 시 해금</span>':'🔒 GPS/QR로 획득')}</div></button>`
+ }).join('');
+ $$('[data-game]').forEach(b=>b.onclick=()=>openInfo(b.dataset.game));
+ renderGpsLocations(lastGps);renderOsoShop();renderRanking();
+ const ho=$('#headerOso');if(ho)ho.src=currentOsoSrc();save();
+ if(bonusNew)setTimeout(()=>flashyUnlock('spacefighter'),2100);
+ pendingBonus.forEach((c,i)=>setTimeout(()=>flashyUnlock(c),2100+i*2300))
+}
+function openInfo(code){selected=game(code);const unlocked=!!state.unlock[code];$('#mEm').textContent=selected.icon;$('#mName').textContent=unlocked?selected.name:'잠긴 게임';$('#mDesc').textContent=selected.desc;$('#mArea').textContent='장소 힌트 · '+selected.area.replace(/^해금 위치:\s*/,'');$('#mPlay').disabled=!unlocked;$('#mPlay').textContent=unlocked?'플레이':(BONUS_GAME_CODES.includes(selected.code)?'조건달성 필요':'GPS 획득 필요');$('#modal').classList.add('show')}
+$('#mClose').onclick=()=>$('#modal').classList.remove('show');$('#mPlay').onclick=()=>{if(selected&&state.unlock[selected.code]){$('#modal').classList.remove('show');startGame(selected.code)}};
+$$('nav button').forEach(b=>b.onclick=()=>{showPage(b.dataset.page);if(b.dataset.page==='mapPage')startGpsWatch()});
+window.unlockFromNative=code=>{
+ const c=parseUnlockQr(code)||normalizeUnlockCode(code);
+ if(c)qrUnlock(c)
+};
+
+const PERF_LITE_KEY='jcm-v249-auto-lite-v1';
+window.__OSO_LOW_PERF=false;
+function applyAutoLiteMode(on,remember=false){
+ window.__OSO_LOW_PERF=!!on;
+ document.documentElement.classList.toggle('lowPerf',!!on);
+ if(remember&&on){try{localStorage.setItem(PERF_LITE_KEY,JSON.stringify({on:1,t:
+
+===== KEY: OSO_SKINS COUNT 5 =====
+
+
+--- OSO_SKINS #1 @ 586074 ---
+
+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';
+const DEV_ALL_UNLOCKED=location.pathname.includes('/unlock/');
+
+const OSO_SKINS=[{"id":"default","name":"기본 오소","price":0,"src":"data:image/webp;base64,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
+
+
+--- OSO_SKINS #2 @ 1224701 ---
+
+source:'growmaps:project75:1F:north-checkpoint'},
+ powerduck:{type:'circle',lat:35.194613594496,lng:128.08480142824,radius:14,near:95,source:'public-address'}
+};
+let gpsWatchId=null,lastGps=null,lastDirNotice={},gpsGuideTimer=null;
+
+function gpsZones(){
+ const z={...GPS_DEFAULTS};
+ const cal=state.gpsCalibration||{};
+ Object.keys(cal).forEach(k=>{if(cal[k])z[k]=cal[k]});
+ return z
+}
+function rad(d){return d*Math.PI/180}
+function metersBetween(a,b){
+ const R=6371000,dLat=rad(b.lat-a.lat),dLon=rad(b.lng-a.lng),la1=rad(a.lat),la2=rad(b.lat);
+ const h=Math.sin(dLat/2)**2+Math.cos(la1)*Math.cos(la2)*Math.sin(dLon/2)**2;
+ return 2*R*Math.asin(Math.min(1,Math.sqrt(h)))
+}
+function pointSegmentDistanceM(p,a,b){
+ const lat0=rad((a.lat+b.lat+p.lat)/3),mx=111320*Math.cos(lat0),my=110540;
+ const ax=a.lng*mx,ay=a.lat*my,bx=b.lng*mx,by=b.lat*my,px=p.lng*mx,py=p.lat*my;
+ const dx=bx-ax,dy=by-ay,l2=dx*dx+dy*dy;
+ if(!l2)return Math.hypot(px-ax,py-ay);
+ let t=((px-ax)*dx+(py-ay)*dy)/l2;t=Math.max(0,Math.min(1,t));
+ return Math.hypot(px-(ax+t*dx),py-(ay+t*dy))
+}
+function zoneDistanceM(pos,z){
+ if(!z)return Infinity;
+ if(z.type==='circle')return Math.max(0,metersBetween(pos,{lat:z.lat,lng:z.lng})-(z.radius||0));
+ if(z.type==='corridor')return Math.max(0,pointSegmentDistanceM(pos,z.a,z.b)-(z.radius||22));
+ return Infinity
+}
+function gpsAccuracyMargin(pos){const a=Number(pos&&pos.accuracy)||0;return Math.max(0,Math.min(38,a*.62))}
+function effectiveZoneDistanceM(pos,z){return Math.max(0,zoneDistanceM(pos,z)-gpsAccuracyMargin(pos))}
+function zoneInside(pos,z){return !!z && effectiveZoneDistanceM(pos,z)<=0}
+function zoneTarget(z){
+ if(!z)return null;
+ if(z.type==='circle')return {lat:z.lat,lng:z.lng};
+ if(z.type==='corridor')return {lat:(z.a.lat+z.b.lat)/2,lng:(z.a.lng+z.b.lng)/2};
+ return null
+}
+function bearingDeg(a,b){
+ const y=Math.sin(rad(b.lng-a.lng))*Math.cos(rad(b.lat));
+ const x=Math.cos(rad(a.lat))*Math.sin(rad(b.lat))-Math.sin(rad(a.lat))*Math.cos(rad(b.lat))*Math.cos(rad(b.lng-a.lng));
+ return (Math.atan2(y,x)*180/Math.PI+360)%360
+}
+function arrowForBearing(d){
+ const arrows=['↑','↗','→','↘','↓','↙','←','↖'];return arrows[Math.round(d/45)%8]
+}
+
+function currentSkin(){return OSO_SKINS.find(x=>x.id===state.selectedSkin)||OSO_SKINS[0]}
+function currentOsoSrc(){return currentSkin().src}
+const BASE_GAME_CODES=['basket','fish','stack','run','slice','tteok','powerduck'];
+const BONUS_GAME_CODES=['spacefighter','racing','fantasy'];
+function ensureSpacefighterUnlock(){
+ if(state.unlock&&state.unlock.spacefighter)return false;
+ if(BASE_GAME_CODES.every(c=>state.unlock&&state.unlock[c])){
+  state.unlock.spacefighter=true;save();return true
+ }
+ return false
+}
+function ensureScoreBonusUnlocks(){
+ const newly=[],n=Number(state.todayScore)||0;
+ if(n>=500000&&!state.unlock.racing){state.unlock.racing=true;newly.push('racing')}
+ if(n>=1000000&&!state.unlock.fantasy){state.unlock.fantasy=true;newly.push('fantasy')}
+ if(newly.length){
+  const q=Array.isArray(state.pendingBonusUnlocks)?state.pendingBonusUnlocks:[];
+  state.pendingBonusUnlocks=[...new Set([...q,...newly])];
+  save()
+ }
+ return newly
+}
+
+let mem=null,audioCtx=null;
+function localDateKey(){
+ const d=new Date(),y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,'0'),day=String(d.getDate()).padStart(2,'0');
+ return `${y}-${m}-${day}`
+}
+function load(){try{const x=localStorage.getItem(DEV_ALL_UNLOCKED?'jcm-v168-unlocked':'jcm-v168-locked');return x?JSON.parse(x):null}catch(e){return mem}}
+function save(){mem=state;try{localStorage.setItem(DEV_ALL_UNLOCKED?'jcm-v168-unlocked':'jcm-v168-locked',JSON.stringify(state))}catch(e){}}
+let state=load()||{unlock:{},best:{},coins:0,todayEarned:0,todayScore:0,scoreDate:localDateKey(),pdRecord:0,coinDate:localDateKey(),ranking:[],todaySubmittedBest:0,rankRegisteredBest:11,ownedSkins:['default'],selectedSkin:'default'};
+if(!state.best||typeof state.best!=='object')state.best={};
+if(!Array.isArray(state.ranking))state.ranking=[];
+if(!Array.isArray(state.ownedSkins))state.ownedSkins=['default'];
+if(!state.gpsCalibration)state.gpsCalibration={};
+if(!state.gpsUnlocked)state.gpsUnlocked={};
+if(!state.qrUnlocked)state.qrUnlocked={};
+if(!state.ownedSkins.includes('default'))state.ownedSkins.unshift('default');
+if(!state.selectedSkin||!state.ownedSkins.includes(state.selectedSkin))state.selectedSkin='default';
+if(state.todayEarned==null)state.todayEarned=0;
+if(state.todayScore==null)state.todayScore=0;
+if(!state.scoreDate)state.scoreDate=localDateKey();
+if(state.todaySubmittedBest==null)state.todaySubmittedBest=0;
+if(state.rankRegisteredBest==null){
+ state.rankRegisteredBest=Number.isFinite(state.dailyRankPromptedBestRank)?state.dailyRankPromptedBestRank:11;
+}
+if(state.scoreDate!==localDateKey()){
+ state.scoreDate=localDateKey();
+}
+if(!state.coinDate)state.coinDate=localDateKey();
+if(state.coinDate!==localDateKey())state.coinDate=localDateKey();
+if(DEV_ALL_UNLOCKED)GAMES.forEach(g=>state.unlock[g.code]=true);
+
+function ensureDailyScoreDate(){
+ const today=localDateKey();
+ if(!state.scoreDate)state.scoreDate=today;
+ if(state.scoreDate!==today){
+  state.scoreDate=today;
+  save();
+ }
+}
+
+const DEFAULT_RANKING_SEED=[
+ {initials:'중앙시장',score:1000000,date:'기준',ts:1,seed:true},
+ {initials:'오소',score:500000,date:'기준',ts:2,seed:true},
+ {initials:'또오소',score:300000,date:'기준',ts:3,seed:true},
+ {initials:'다시오소',score:100000,date:'기준',ts:4,seed:true},
+ {i
+
+
+--- OSO_SKINS #3 @ 1224747 ---
+
+'},
+ powerduck:{type:'circle',lat:35.194613594496,lng:128.08480142824,radius:14,near:95,source:'public-address'}
+};
+let gpsWatchId=null,lastGps=null,lastDirNotice={},gpsGuideTimer=null;
+
+function gpsZones(){
+ const z={...GPS_DEFAULTS};
+ const cal=state.gpsCalibration||{};
+ Object.keys(cal).forEach(k=>{if(cal[k])z[k]=cal[k]});
+ return z
+}
+function rad(d){return d*Math.PI/180}
+function metersBetween(a,b){
+ const R=6371000,dLat=rad(b.lat-a.lat),dLon=rad(b.lng-a.lng),la1=rad(a.lat),la2=rad(b.lat);
+ const h=Math.sin(dLat/2)**2+Math.cos(la1)*Math.cos(la2)*Math.sin(dLon/2)**2;
+ return 2*R*Math.asin(Math.min(1,Math.sqrt(h)))
+}
+function pointSegmentDistanceM(p,a,b){
+ const lat0=rad((a.lat+b.lat+p.lat)/3),mx=111320*Math.cos(lat0),my=110540;
+ const ax=a.lng*mx,ay=a.lat*my,bx=b.lng*mx,by=b.lat*my,px=p.lng*mx,py=p.lat*my;
+ const dx=bx-ax,dy=by-ay,l2=dx*dx+dy*dy;
+ if(!l2)return Math.hypot(px-ax,py-ay);
+ let t=((px-ax)*dx+(py-ay)*dy)/l2;t=Math.max(0,Math.min(1,t));
+ return Math.hypot(px-(ax+t*dx),py-(ay+t*dy))
+}
+function zoneDistanceM(pos,z){
+ if(!z)return Infinity;
+ if(z.type==='circle')return Math.max(0,metersBetween(pos,{lat:z.lat,lng:z.lng})-(z.radius||0));
+ if(z.type==='corridor')return Math.max(0,pointSegmentDistanceM(pos,z.a,z.b)-(z.radius||22));
+ return Infinity
+}
+function gpsAccuracyMargin(pos){const a=Number(pos&&pos.accuracy)||0;return Math.max(0,Math.min(38,a*.62))}
+function effectiveZoneDistanceM(pos,z){return Math.max(0,zoneDistanceM(pos,z)-gpsAccuracyMargin(pos))}
+function zoneInside(pos,z){return !!z && effectiveZoneDistanceM(pos,z)<=0}
+function zoneTarget(z){
+ if(!z)return null;
+ if(z.type==='circle')return {lat:z.lat,lng:z.lng};
+ if(z.type==='corridor')return {lat:(z.a.lat+z.b.lat)/2,lng:(z.a.lng+z.b.lng)/2};
+ return null
+}
+function bearingDeg(a,b){
+ const y=Math.sin(rad(b.lng-a.lng))*Math.cos(rad(b.lat));
+ const x=Math.cos(rad(a.lat))*Math.sin(rad(b.lat))-Math.sin(rad(a.lat))*Math.cos(rad(b.lat))*Math.cos(rad(b.lng-a.lng));
+ return (Math.atan2(y,x)*180/Math.PI+360)%360
+}
+function arrowForBearing(d){
+ const arrows=['↑','↗','→','↘','↓','↙','←','↖'];return arrows[Math.round(d/45)%8]
+}
+
+function currentSkin(){return OSO_SKINS.find(x=>x.id===state.selectedSkin)||OSO_SKINS[0]}
+function currentOsoSrc(){return currentSkin().src}
+const BASE_GAME_CODES=['basket','fish','stack','run','slice','tteok','powerduck'];
+const BONUS_GAME_CODES=['spacefighter','racing','fantasy'];
+function ensureSpacefighterUnlock(){
+ if(state.unlock&&state.unlock.spacefighter)return false;
+ if(BASE_GAME_CODES.every(c=>state.unlock&&state.unlock[c])){
+  state.unlock.spacefighter=true;save();return true
+ }
+ return false
+}
+function ensureScoreBonusUnlocks(){
+ const newly=[],n=Number(state.todayScore)||0;
+ if(n>=500000&&!state.unlock.racing){state.unlock.racing=true;newly.push('racing')}
+ if(n>=1000000&&!state.unlock.fantasy){state.unlock.fantasy=true;newly.push('fantasy')}
+ if(newly.length){
+  const q=Array.isArray(state.pendingBonusUnlocks)?state.pendingBonusUnlocks:[];
+  state.pendingBonusUnlocks=[...new Set([...q,...newly])];
+  save()
+ }
+ return newly
+}
+
+let mem=null,audioCtx=null;
+function localDateKey(){
+ const d=new Date(),y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,'0'),day=String(d.getDate()).padStart(2,'0');
+ return `${y}-${m}-${day}`
+}
+function load(){try{const x=localStorage.getItem(DEV_ALL_UNLOCKED?'jcm-v168-unlocked':'jcm-v168-locked');return x?JSON.parse(x):null}catch(e){return mem}}
+function save(){mem=state;try{localStorage.setItem(DEV_ALL_UNLOCKED?'jcm-v168-unlocked':'jcm-v168-locked',JSON.stringify(state))}catch(e){}}
+let state=load()||{unlock:{},best:{},coins:0,todayEarned:0,todayScore:0,scoreDate:localDateKey(),pdRecord:0,coinDate:localDateKey(),ranking:[],todaySubmittedBest:0,rankRegisteredBest:11,ownedSkins:['default'],selectedSkin:'default'};
+if(!state.best||typeof state.best!=='object')state.best={};
+if(!Array.isArray(state.ranking))state.ranking=[];
+if(!Array.isArray(state.ownedSkins))state.ownedSkins=['default'];
+if(!state.gpsCalibration)state.gpsCalibration={};
+if(!state.gpsUnlocked)state.gpsUnlocked={};
+if(!state.qrUnlocked)state.qrUnlocked={};
+if(!state.ownedSkins.includes('default'))state.ownedSkins.unshift('default');
+if(!state.selectedSkin||!state.ownedSkins.includes(state.selectedSkin))state.selectedSkin='default';
+if(state.todayEarned==null)state.todayEarned=0;
+if(state.todayScore==null)state.todayScore=0;
+if(!state.scoreDate)state.scoreDate=localDateKey();
+if(state.todaySubmittedBest==null)state.todaySubmittedBest=0;
+if(state.rankRegisteredBest==null){
+ state.rankRegisteredBest=Number.isFinite(state.dailyRankPromptedBestRank)?state.dailyRankPromptedBestRank:11;
+}
+if(state.scoreDate!==localDateKey()){
+ state.scoreDate=localDateKey();
+}
+if(!state.coinDate)state.coinDate=localDateKey();
+if(state.coinDate!==localDateKey())state.coinDate=localDateKey();
+if(DEV_ALL_UNLOCKED)GAMES.forEach(g=>state.unlock[g.code]=true);
+
+function ensureDailyScoreDate(){
+ const today=localDateKey();
+ if(!state.scoreDate)state.scoreDate=today;
+ if(state.scoreDate!==today){
+  state.scoreDate=today;
+  save();
+ }
+}
+
+const DEFAULT_RANKING_SEED=[
+ {initials:'중앙시장',score:1000000,date:'기준',ts:1,seed:true},
+ {initials:'오소',score:500000,date:'기준',ts:2,seed:true},
+ {initials:'또오소',score:300000,date:'기준',ts:3,seed:true},
+ {initials:'다시오소',score:100000,date:'기준',ts:4,seed:true},
+ {initials:'매일오소',score:80000,date:'기준',ts:5,seed
+
+
+--- OSO_SKINS #4 @ 1256069 ---
+
+ndleGpsPosition,handleGpsError,{enableHighAccuracy:true,maximumAge:1500,timeout:20000})
+ }catch(e){stopGpsWatch();st.textContent='GPS 실행에 실패했습니다. HTTPS 접속과 위치 권한을 확인한 뒤 다시 누르소.';st.className='gpsStatus error'}
+}
+function currentCalibrationSelection(){return $('#calZoneSelect')?$('#calZoneSelect').value:null}
+function saveCalPoint(kind){
+ if(!lastGps){$('#calOutput').textContent='먼저 GPS 위치 확인을 시작하소.';return}
+ const code=currentCalibrationSelection();if(!code)return;
+ const old=(state.gpsCalibration||{})[code]||{};
+ if(kind==='center'){
+  state.gpsCalibration[code]={type:'circle',lat:lastGps.lat,lng:lastGps.lng,radius:45,near:160,source:'field-calibration'}
+ }else{
+  let a=old.a||null,b=old.b||null;if(kind==='a')a={lat:lastGps.lat,lng:lastGps.lng};else b={lat:lastGps.lat,lng:lastGps.lng};
+  state.gpsCalibration[code]={type:'corridor',a,b,radius:24,near:150,source:'field-calibration'};
+  if(!a||!b){state.gpsCalibration[code].pending=true}
+  else delete state.gpsCalibration[code].pending
+ }
+ save();
+ $('#calOutput').textContent=JSON.stringify(state.gpsCalibration,null,2);
+ renderGpsLocations(lastGps)
+}
+function initGpsUi(){
+ if(!DEV_ALL_UNLOCKED){const p=$('.gpsCalPanel');if(p)p.style.display='none'}
+ const sel=$('#calZoneSelect');if(sel){
+  sel.innerHTML=GAME_ACQUIRE.map(x=>`<option value="${x.code}">${game(x.code).name} — ${x.place}</option>`).join('');
+  $('#calOutput').textContent=JSON.stringify(state.gpsCalibration||{},null,2)
+ }
+ $('#gpsStartBtn').onclick=startGpsWatch;
+ $('#calStart').onclick=()=>saveCalPoint('a');$('#calEnd').onclick=()=>saveCalPoint('b');$('#calCenter').onclick=()=>saveCalPoint('center');
+ renderGpsLocations()
+}
+
+function renderOsoShop(){
+ const shop=$('#osoShop');if(!shop)return;
+ const skin=currentSkin(),preview=$('#selectedOsoPreview'),name=$('#selectedOsoName'),coin=$('#shopCoin');
+ if(preview)preview.src=skin.src;if(name)name.textContent=skin.name;if(coin)coin.textContent=state.coins||0;
+ const groups=[
+  {id:'oso',title:'🐂 오소',sub:'중앙시장의 주인공 · 기본~750 코인'},
+  {id:'ayo',title:'🐱 아요 컬렉션',sub:'표정과 동작이 다양한 친구 · 1,000~1,900 코인'},
+  {id:'hamo',title:'🦦 하모 컬렉션',sub:'특별한 친구 · 2,000~2,900 코인'}
+ ];
+ shop.innerHTML=groups.map(gr=>{
+  const cards=OSO_SKINS.filter(s=>(s.group||'oso')===gr.id).map(s=>{
+   const owned=state.ownedSkins.includes(s.id),selected=state.selectedSkin===s.id;
+   return `<div class="skinCard ${selected?'selected':''} group-${gr.id}" data-skin="${s.id}"><span class="charBadge ${gr.id}">${s.badge||gr.title}</span><img src="${s.src}" alt="${s.name}"><b>${s.name}</b><small>${s.note}</small><button class="${selected?'selectedBtn':owned?'owned':''}" data-buy="${s.id}">${selected?'사용 중':owned?'사용하기':`🪙 ${s.price.toLocaleString()} 구입`}</button></div>`
+  }).join('');
+  return `<div class="shopGroupHead ${gr.id}"><b>${gr.title}</b><small>${gr.sub}</small></div>${cards}`
+ }).join('');
+ $$('[data-buy]').forEach(btn=>btn.onclick=()=>{
+   const s=OSO_SKINS.find(x=>x.id===btn.dataset.buy);if(!s)return;
+   if(state.ownedSkins.includes(s.id)){state.selectedSkin=s.id;save();refresh();tone('good');return}
+   if((state.coins||0)<s.price){tone('bad');buzz(70);btn.textContent='코인이 부족하소!';setTimeout(renderOsoShop,700);return}
+   state.coins-=s.price;state.ownedSkins.push(s.id);state.selectedSkin=s.id;save();tone('clear');buzz([20,15,35]);refresh()
+ })
+}
+
+function refresh(){
+ ensureDailyScoreDate();
+ if(state.coinDate!==localDateKey()){
+  state.coinDate=localDateKey();save()
+ }
+ if(DEV_ALL_UNLOCKED)GAMES.forEach(g=>state.unlock[g.code]=true);
+ const bonusNew=!DEV_ALL_UNLOCKED&&ensureSpacefighterUnlock();
+ if(!DEV_ALL_UNLOCKED)ensureScoreBonusUnlocks();
+ const pendingBonus=!DEV_ALL_UNLOCKED&&Array.isArray(state.pendingBonusUnlocks)?[...state.pendingBonusUnlocks]:[];
+ if(pendingBonus.length){state.pendingBonusUnlocks=[];save()}
+ $('#count').textContent=`🎮 ${GAMES.filter(g=>state.unlock[g.code]).length}/${GAMES.length}`;
+ $('#coin').textContent=state.coins||0;
+ $('#library').innerHTML=GAMES.map((g,i)=>{
+ const art={basket:'🍎 🥬 🧺',fish:'🐟 💦 🐠',stack:'🧵 🧶 ✨',run:'🛍️ 🏃 🪙',slice:'🍜 ✨ 🍗',tteok:'🔨 🍚 ✨',powerduck:'🎮 ⚡ 🌍',spacefighter:'🚀 🌍 👾',racing:'🏎️ 🐂 🏁',fantasy:'⚔️ 🛒 🌿'}[g.code]||g.icon;
+ const st=starsFor(g.code,state.best[g.code]||0),stars='⭐'.repeat(st)+'☆'.repeat(3-st);
+ return `<button class="gameCard theme-${g.code} ${state.unlock[g.code]?'':'lock'}" data-game="${g.code}"><div class="gameNo">${i+1}</div><div class="gameCardArt"><div class="artEmoji">${art}</div></div><b>${state.unlock[g.code]?g.name:'???'}</b><small>${g.desc}</small><div class="best">${state.unlock[g.code]?`🏆 최고 ${state.best[g.code]||0}<span class="miniStars">${stars}</span>`:(g.code==='spacefighter'?'<span class="spaceBonusLock">🔒 7개 게임 획득 시 해금</span>':g.code==='racing'?'<span class="scoreBonusLock">🔒 누적 500,000점 달성 시 해금</span>':g.code==='fantasy'?'<span class="scoreBonusLock">🔒 누적 1,000,000점 달성 시 해금</span>':'🔒 GPS/QR로 획득')}</div></button>`
+ }).join('');
+ $$('[data-game]').forEach(b=>b.onclick=()=>openInfo(b.dataset.game));
+ renderGpsLocations(lastGps);renderOsoShop();renderRanking();
+ const ho=$('#headerOso');if(ho)ho.src=currentOsoSrc();save();
+ if(bonusNew)setTimeout(()=>flashyUnlock('spacefighter'),2100);
+ pendingBonus.forEach((c,i)=>setTimeout(()=>flashyUnlock(c),2100+i*2300))
+}
+function openInfo(code){selected=game(code);const unlocked=!!state.unlock[code];$('#mEm').textContent=selected.icon;$('#mName').textConte
+
+
+--- OSO_SKINS #5 @ 1256791 ---
+
+{lat:lastGps.lat,lng:lastGps.lng};else b={lat:lastGps.lat,lng:lastGps.lng};
+  state.gpsCalibration[code]={type:'corridor',a,b,radius:24,near:150,source:'field-calibration'};
+  if(!a||!b){state.gpsCalibration[code].pending=true}
+  else delete state.gpsCalibration[code].pending
+ }
+ save();
+ $('#calOutput').textContent=JSON.stringify(state.gpsCalibration,null,2);
+ renderGpsLocations(lastGps)
+}
+function initGpsUi(){
+ if(!DEV_ALL_UNLOCKED){const p=$('.gpsCalPanel');if(p)p.style.display='none'}
+ const sel=$('#calZoneSelect');if(sel){
+  sel.innerHTML=GAME_ACQUIRE.map(x=>`<option value="${x.code}">${game(x.code).name} — ${x.place}</option>`).join('');
+  $('#calOutput').textContent=JSON.stringify(state.gpsCalibration||{},null,2)
+ }
+ $('#gpsStartBtn').onclick=startGpsWatch;
+ $('#calStart').onclick=()=>saveCalPoint('a');$('#calEnd').onclick=()=>saveCalPoint('b');$('#calCenter').onclick=()=>saveCalPoint('center');
+ renderGpsLocations()
+}
+
+function renderOsoShop(){
+ const shop=$('#osoShop');if(!shop)return;
+ const skin=currentSkin(),preview=$('#selectedOsoPreview'),name=$('#selectedOsoName'),coin=$('#shopCoin');
+ if(preview)preview.src=skin.src;if(name)name.textContent=skin.name;if(coin)coin.textContent=state.coins||0;
+ const groups=[
+  {id:'oso',title:'🐂 오소',sub:'중앙시장의 주인공 · 기본~750 코인'},
+  {id:'ayo',title:'🐱 아요 컬렉션',sub:'표정과 동작이 다양한 친구 · 1,000~1,900 코인'},
+  {id:'hamo',title:'🦦 하모 컬렉션',sub:'특별한 친구 · 2,000~2,900 코인'}
+ ];
+ shop.innerHTML=groups.map(gr=>{
+  const cards=OSO_SKINS.filter(s=>(s.group||'oso')===gr.id).map(s=>{
+   const owned=state.ownedSkins.includes(s.id),selected=state.selectedSkin===s.id;
+   return `<div class="skinCard ${selected?'selected':''} group-${gr.id}" data-skin="${s.id}"><span class="charBadge ${gr.id}">${s.badge||gr.title}</span><img src="${s.src}" alt="${s.name}"><b>${s.name}</b><small>${s.note}</small><button class="${selected?'selectedBtn':owned?'owned':''}" data-buy="${s.id}">${selected?'사용 중':owned?'사용하기':`🪙 ${s.price.toLocaleString()} 구입`}</button></div>`
+  }).join('');
+  return `<div class="shopGroupHead ${gr.id}"><b>${gr.title}</b><small>${gr.sub}</small></div>${cards}`
+ }).join('');
+ $$('[data-buy]').forEach(btn=>btn.onclick=()=>{
+   const s=OSO_SKINS.find(x=>x.id===btn.dataset.buy);if(!s)return;
+   if(state.ownedSkins.includes(s.id)){state.selectedSkin=s.id;save();refresh();tone('good');return}
+   if((state.coins||0)<s.price){tone('bad');buzz(70);btn.textContent='코인이 부족하소!';setTimeout(renderOsoShop,700);return}
+   state.coins-=s.price;state.ownedSkins.push(s.id);state.selectedSkin=s.id;save();tone('clear');buzz([20,15,35]);refresh()
+ })
+}
+
+function refresh(){
+ ensureDailyScoreDate();
+ if(state.coinDate!==localDateKey()){
+  state.coinDate=localDateKey();save()
+ }
+ if(DEV_ALL_UNLOCKED)GAMES.forEach(g=>state.unlock[g.code]=true);
+ const bonusNew=!DEV_ALL_UNLOCKED&&ensureSpacefighterUnlock();
+ if(!DEV_ALL_UNLOCKED)ensureScoreBonusUnlocks();
+ const pendingBonus=!DEV_ALL_UNLOCKED&&Array.isArray(state.pendingBonusUnlocks)?[...state.pendingBonusUnlocks]:[];
+ if(pendingBonus.length){state.pendingBonusUnlocks=[];save()}
+ $('#count').textContent=`🎮 ${GAMES.filter(g=>state.unlock[g.code]).length}/${GAMES.length}`;
+ $('#coin').textContent=state.coins||0;
+ $('#library').innerHTML=GAMES.map((g,i)=>{
+ const art={basket:'🍎 🥬 🧺',fish:'🐟 💦 🐠',stack:'🧵 🧶 ✨',run:'🛍️ 🏃 🪙',slice:'🍜 ✨ 🍗',tteok:'🔨 🍚 ✨',powerduck:'🎮 ⚡ 🌍',spacefighter:'🚀 🌍 👾',racing:'🏎️ 🐂 🏁',fantasy:'⚔️ 🛒 🌿'}[g.code]||g.icon;
+ const st=starsFor(g.code,state.best[g.code]||0),stars='⭐'.repeat(st)+'☆'.repeat(3-st);
+ return `<button class="gameCard theme-${g.code} ${state.unlock[g.code]?'':'lock'}" data-game="${g.code}"><div class="gameNo">${i+1}</div><div class="gameCardArt"><div class="artEmoji">${art}</div></div><b>${state.unlock[g.code]?g.name:'???'}</b><small>${g.desc}</small><div class="best">${state.unlock[g.code]?`🏆 최고 ${state.best[g.code]||0}<span class="miniStars">${stars}</span>`:(g.code==='spacefighter'?'<span class="spaceBonusLock">🔒 7개 게임 획득 시 해금</span>':g.code==='racing'?'<span class="scoreBonusLock">🔒 누적 500,000점 달성 시 해금</span>':g.code==='fantasy'?'<span class="scoreBonusLock">🔒 누적 1,000,000점 달성 시 해금</span>':'🔒 GPS/QR로 획득')}</div></button>`
+ }).join('');
+ $$('[data-game]').forEach(b=>b.onclick=()=>openInfo(b.dataset.game));
+ renderGpsLocations(lastGps);renderOsoShop();renderRanking();
+ const ho=$('#headerOso');if(ho)ho.src=currentOsoSrc();save();
+ if(bonusNew)setTimeout(()=>flashyUnlock('spacefighter'),2100);
+ pendingBonus.forEach((c,i)=>setTimeout(()=>flashyUnlock(c),2100+i*2300))
+}
+function openInfo(code){selected=game(code);const unlocked=!!state.unlock[code];$('#mEm').textContent=selected.icon;$('#mName').textContent=unlocked?selected.name:'잠긴 게임';$('#mDesc').textContent=selected.desc;$('#mArea').textContent='장소 힌트 · '+selected.area.replace(/^해금 위치:\s*/,'');$('#mPlay').disabled=!unlocked;$('#mPlay').textContent=unlocked?'플레이':(BONUS_GAME_CODES.includes(selected.code)?'조건달성 필요':'GPS 획득 필요');$('#modal').classList.add('show')}
+$('#mClose').onclick=()=>$('#modal').classList.remove('show');$('#mPlay').onclick=()=>{if(selected&&state.unlock[selected.code]){$('#modal').classList.remove('show');startGame(selected.code)}};
+$$('nav button').forEach(b=>b.onclick=()=>{showPage(b.dataset.page);if(b.dataset.page==='mapPage')startGpsWatch()});
+window.unlockFromNative=code=>{
+ const c=parseUnlockQr(code)||normalizeUnlockCode(code);
+ if(c)
+
+===== KEY: window.state COUNT 0 =====
+
+===== KEY: typeof state COUNT 1 =====
+
+
+--- typeof state #1 @ 1226374 ---
+
+e')return {lat:z.lat,lng:z.lng};
+ if(z.type==='corridor')return {lat:(z.a.lat+z.b.lat)/2,lng:(z.a.lng+z.b.lng)/2};
+ return null
+}
+function bearingDeg(a,b){
+ const y=Math.sin(rad(b.lng-a.lng))*Math.cos(rad(b.lat));
+ const x=Math.cos(rad(a.lat))*Math.sin(rad(b.lat))-Math.sin(rad(a.lat))*Math.cos(rad(b.lat))*Math.cos(rad(b.lng-a.lng));
+ return (Math.atan2(y,x)*180/Math.PI+360)%360
+}
+function arrowForBearing(d){
+ const arrows=['↑','↗','→','↘','↓','↙','←','↖'];return arrows[Math.round(d/45)%8]
+}
+
+function currentSkin(){return OSO_SKINS.find(x=>x.id===state.selectedSkin)||OSO_SKINS[0]}
+function currentOsoSrc(){return currentSkin().src}
+const BASE_GAME_CODES=['basket','fish','stack','run','slice','tteok','powerduck'];
+const BONUS_GAME_CODES=['spacefighter','racing','fantasy'];
+function ensureSpacefighterUnlock(){
+ if(state.unlock&&state.unlock.spacefighter)return false;
+ if(BASE_GAME_CODES.every(c=>state.unlock&&state.unlock[c])){
+  state.unlock.spacefighter=true;save();return true
+ }
+ return false
+}
+function ensureScoreBonusUnlocks(){
+ const newly=[],n=Number(state.todayScore)||0;
+ if(n>=500000&&!state.unlock.racing){state.unlock.racing=true;newly.push('racing')}
+ if(n>=1000000&&!state.unlock.fantasy){state.unlock.fantasy=true;newly.push('fantasy')}
+ if(newly.length){
+  const q=Array.isArray(state.pendingBonusUnlocks)?state.pendingBonusUnlocks:[];
+  state.pendingBonusUnlocks=[...new Set([...q,...newly])];
+  save()
+ }
+ return newly
+}
+
+let mem=null,audioCtx=null;
+function localDateKey(){
+ const d=new Date(),y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,'0'),day=String(d.getDate()).padStart(2,'0');
+ return `${y}-${m}-${day}`
+}
+function load(){try{const x=localStorage.getItem(DEV_ALL_UNLOCKED?'jcm-v168-unlocked':'jcm-v168-locked');return x?JSON.parse(x):null}catch(e){return mem}}
+function save(){mem=state;try{localStorage.setItem(DEV_ALL_UNLOCKED?'jcm-v168-unlocked':'jcm-v168-locked',JSON.stringify(state))}catch(e){}}
+let state=load()||{unlock:{},best:{},coins:0,todayEarned:0,todayScore:0,scoreDate:localDateKey(),pdRecord:0,coinDate:localDateKey(),ranking:[],todaySubmittedBest:0,rankRegisteredBest:11,ownedSkins:['default'],selectedSkin:'default'};
+if(!state.best||typeof state.best!=='object')state.best={};
+if(!Array.isArray(state.ranking))state.ranking=[];
+if(!Array.isArray(state.ownedSkins))state.ownedSkins=['default'];
+if(!state.gpsCalibration)state.gpsCalibration={};
+if(!state.gpsUnlocked)state.gpsUnlocked={};
+if(!state.qrUnlocked)state.qrUnlocked={};
+if(!state.ownedSkins.includes('default'))state.ownedSkins.unshift('default');
+if(!state.selectedSkin||!state.ownedSkins.includes(state.selectedSkin))state.selectedSkin='default';
+if(state.todayEarned==null)state.todayEarned=0;
+if(state.todayScore==null)state.todayScore=0;
+if(!state.scoreDate)state.scoreDate=localDateKey();
+if(state.todaySubmittedBest==null)state.todaySubmittedBest=0;
+if(state.rankRegisteredBest==null){
+ state.rankRegisteredBest=Number.isFinite(state.dailyRankPromptedBestRank)?state.dailyRankPromptedBestRank:11;
+}
+if(state.scoreDate!==localDateKey()){
+ state.scoreDate=localDateKey();
+}
+if(!state.coinDate)state.coinDate=localDateKey();
+if(state.coinDate!==localDateKey())state.coinDate=localDateKey();
+if(DEV_ALL_UNLOCKED)GAMES.forEach(g=>state.unlock[g.code]=true);
+
+function ensureDailyScoreDate(){
+ const today=localDateKey();
+ if(!state.scoreDate)state.scoreDate=today;
+ if(state.scoreDate!==today){
+  state.scoreDate=today;
+  save();
+ }
+}
+
+const DEFAULT_RANKING_SEED=[
+ {initials:'중앙시장',score:1000000,date:'기준',ts:1,seed:true},
+ {initials:'오소',score:500000,date:'기준',ts:2,seed:true},
+ {initials:'또오소',score:300000,date:'기준',ts:3,seed:true},
+ {initials:'다시오소',score:100000,date:'기준',ts:4,seed:true},
+ {initials:'매일오소',score:80000,date:'기준',ts:5,seed:true},
+ {initials:'잘가소',score:50000,date:'기준',ts:6,seed:true},
+ {initials:'반갑소',score:30000,date:'기준',ts:7,seed:true},
+ {initials:'어서오소',score:20000,date:'기준',ts:8,seed:true},
+ {initials:'잘하소',score:15000,date:'기준',ts:9,seed:true},
+ {initials:'힘내소',score:10000,date:'기준',ts:10,seed:true}
+];
+const RANK_SCORE_THRESHOLDS=DEFAULT_RANKING_SEED.map((r,i)=>({rank:i+1,score:Number(r.score)||0}));
+function rankReachedByDailyScore(score){
+ const n=Number(score)||0;
+ for(const t of RANK_SCORE_THRESHOLDS){if(n>t.score)return t.rank}
+ return 11;
+}
+
+function ensureRankRegistrationState(){
+ if(state.rankRegistrationVersion==='threshold-record-v2')return;
+ const userRows=(Array.isArray(state.ranking)?state.ranking:[]).filter(r=>!r.seed);
+ let inferredBestRank=11;
+ for(const row of userRows){
+  const rr=Number.isFinite(row.rankReached)?row.rankReached:rankReachedByDailyScore(row.score);
+  inferredBestRank=Math.min(inferredBestRank,rr);
+ }
+ state.rankRegisteredBest=inferredBestRank;
+ state.rankRegistrationVersion='threshold-record-v2';
+ save();
+}
+function ensureDefaultRanking(){
+ const mode=state.rankingModeVersion;
+ if(mode==='daily-score-v1'||mode==='daily-score-v2'){
+  state.rankingModeVersion='daily-score-v2';
+  return;
+ }
+ state.ranking=DEFAULT_RANKING_SEED.map(r=>({...r}));
+ state.rankingModeVersion='daily-score-v2';
+ state.todaySubmittedBest=0;
+ state.rankRegisteredBest=11;
+ save();
+}
+function currentRankCutoff(){
+ const rows=rankingSorted();
+ return rows.length<10?0:(rows[9]?.score||0);
+}
+ensureDefaultRanking();
+ensureRankRegistrationState();
+
+ensureDefaultRanking();
+let selected=null,cleanup=null;
+
+function g
+
+===== KEY: 소트리스 COUNT 0 =====
+
+===== KEY: sotris COUNT 1 =====
+
+
+--- sotris #1 @ 1494906 ---
+
+b=$('#splashPower'),c=$('#titleSplash'),r=$('#rankSplash');
+ const show=x=>{[a,b,c,r].forEach(v=>v.classList.remove('show'));x.classList.add('show')};
+ let attractTimer=null,rankTimer=null,attractOn=true;
+ function scheduleTitle(){
+  if(!attractOn)return;clearTimeout(attractTimer);clearTimeout(rankTimer);
+  show(c);renderRanking();
+  attractTimer=setTimeout(()=>{if(!attractOn)return;show(r);renderRanking();rankTimer=setTimeout(scheduleTitle,5000)},8000)
+ }
+ function stopAttract(){attractOn=false;clearTimeout(attractTimer);clearTimeout(rankTimer)}
+ b1=setTimeout(()=>show(b),1150);
+ b2=setTimeout(()=>{scheduleTitle()},2300);
+ const wakeTitle=()=>{try{audio();startBGM('title',1)}catch(e){}};
+ const enterApp=page=>{stopAttract();try{audio();startBGM('hub',1)}catch(e){};endBoot(page)};
+ const skip=()=>{clearTimeout(b1);clearTimeout(b2);wakeTitle();scheduleTitle()};
+ $('#skip1').onclick=skip;$('#skip2').onclick=skip;
+ $('#startBtn').onclick=()=>enterApp('gamesPage');
+ $('#titleRecords').onclick=()=>{stopAttract();wakeTitle();show(r);renderRanking();setTimeout(()=>{show(c);attractOn=true;scheduleTitle()},5000)};
+ $('#titleCollection').onclick=()=>enterApp('bookPage');
+ $('#titleExplore').onclick=()=>enterApp('mapPage');
+ r.onclick=()=>{if(attractOn)scheduleTitle()}
+}
+refresh();renderRanking();initGpsUi();initQrUi();boot();
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/* OSO_PRIVATE_VISIT_COUNTER_V1 */
+(function(){
+  try{
+    if(!location.pathname.includes('/OSO-2026/play/')) return;
+    const KEY='oso-private-visitor-id-v1';
+    let visitorId=localStorage.getItem(KEY);
+    if(!visitorId){
+      visitorId=(crypto.randomUUID ? crypto.randomUUID() : (Date.now().toString(36)+'_'+Math.random().toString(36).slice(2)+Math.random().toString(36).slice(2)));
+      localStorage.setItem(KEY,visitorId);
+    }
+    fetch('https://kfxagkjaczfwxebfvfav.supabase.co/functions/v1/record-oso-visit',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({visitorId}),
+      keepalive:true,
+      cache:'no-store',
+      credentials:'omit'
+    }).catch(()=>{});
+  }catch(_e){}
+})();
+</script>
+
+<!-- SP1 SOTRIS LIVE INTEGRATION -->
+<script src="sp1/sotris-integration.js?v=20260903"></script>
+</body></html>
+
+
+===== KEY: SP1 COUNT 6 =====
+
+
+--- SP1 #1 @ 197381 ---
+
+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
+
+
+--- SP1 #2 @ 220293 ---
+
+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
+
+
+--- SP1 #3 @ 310497 ---
+
+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
+
+
+--- SP1 #4 @ 822734 ---
+
+7iYuv/L+emQrO49pLaKCi6XKTMhDirJO28gowLHMEbv7wPHcHaKz1bnkN3ydxwrkm2eoewiQnov2lWNPVG4cMTYr3MsnQGR+235q6dOGyT0sigRwVpjgkBzPKA4z1q2927cRvnI/Kv42j7hiSGSs4LqnPj2otof/SJY86oYoOeQBBh54JqS/26nhSJgAxxIybIGud81IgA45qz5JSozqqRSbIpqv6230a1erHT5SM7DtmFwLJSDZZFC3xRvWDE/4n/2SevvvtiPMXXfWy3m9PdMdJQ+y2rUxDIuZkuZaqyLOw/sifSPjMVy+LMknSL3bI7k9Ot5vbzXl8jImXzemnriTWuGEiuT/lm+6Br4LtCEIUYtkT86Vn8xis1f2iM6VuXHKSonfKwTj3pdDb1lZT9ZZ9Sd568bwel75pJQEyYAk0iftbHTXEB2JRJnL1dFwX+Rcfx0siUsmLAeVocdJUgpYZLBgQRXWgdjSxqo4YZ6eWA2PZeYP/ZdkxmF+kZ7IteOggH9SPDFr50+d4NHn1zflTTfU3OMfyi8jw4UExR9/+vRURegLzpKOGhYd9c6toPRkkX7yzWDrzT2lZjh6mtwWDRfWoHqtgV4jWHKieXVo8BPvs0+/i2y/KsT6cQ65IyMkHjhPhOYXCS3s5l+7co76p7GZNYWomcAxQtoMimrMhJKsRAZYA4ht5Oygx+ZHdMKvK47idTnDxY1UjTiE8r2Lps0JVqyrBgnAe2T+VV5E68g4RXDiDZVoKOXNrXL9bkPf7hylQGPhLHvt5lvGulf110lMroQdtmjjwz6h/A+ctdiq0OzKPh9vyXqn9qspdRQ+APFOIiFwX12+GobkmrbTj0KvbEsf3wlQFYCaGRRgEir/TTIyveR9ElTZmG70d9NtKL1juC/zUgXiw0uRwzQE+dOizI7IiE/Jnj0B7zYMHBsbGEH3GpRp1qXbiPp8ANPlypkc9P/V1MmffSG2bsbDJ4r951Rm+zHbw8azZIz2RPyOEWkHRWv7Bxx73sLlI1RVLU5H7gMyfCXU3A3JhkOh5KbsLZAIis5s+c/YTREQnz2ZAMUmcPwp2/hA6qX0hgtr222QeE6td44EgTmbosk+hPuPe8s19O/SXv9vy+kb9wfTUnSFQQAA7QAAAAREoAAA=","note":"공식 응용동작","group":"oso","badge":"오소"},{"id":"ayo_hello","name":"인사 아요","price":1000,"src":"data:image/webp;base64,UklGRhpQAABXRUJQVlA4WAoAAAAQAAAAeAEAgAEAQUxQSGYDAAABDzD/ERGCjmttlSTpR6hFd8+DJbAUlgZLYynM28XEQPxGEMD/BRk9aiui/xNAP6lWZoPVmC1UZuYAVZiZofpFA0W+moOVgYPzQH0QgHh8rnijYPKNhqmPMTDtxsL0G3eqxLf+VPkunKrA1TtWIA2OJ/WZ4ozZl9hMJIjCdo/dVpnZw4W7AhD5aoHSwO9wu/Ig3NQZv6sO2IwaQBvZUQfgcYBjtRY2pTs7YCB3iVN8iHLHG9RpNBElKE9EGaBOOJA2EYioPEvv6ROsloyYhjNwlqgeiGc9UZOLjwpwrM6XeN4C5AUnt/zj5eEcnH99jKeO9wuchXPH83DhdbA+noGzcA7Ovw4+nzqeXiMps6F/OAvn4PzrCBvaYfgA9XhFSsHp95OlzFo6jYYzcPZ1uOfl45XXUeEKXJXyxwtr7XX099UVWGYL57CuDs7DMZ6C01MMaZ4UMfzrCHB8PgWnX4c5nn0QgbiZ/v+Q/+Fyn6S9jnq88g7sJ8kYZia9A/1J6Ez0pHS8CtcgwlSH8I/iI7mpDmGe5dCaQSvUAdQUUTsQLVa5sFLk/EqGS3JuJcrZFcJrYnqpiqmlLEbLRSrA+bUm5da6lF1jab0U4ZIYLWd2TSTA+R0miZgdOqIRiXzZEIiqBK0nL+M3EFFhQbeHJS2c3tJF1I7IaFXE084m4nZEFlU7MlwRCbSzi7gtLOp3ZLgCV2XCji7DB4gsrNaSlH5eOV6TMs/rUhbOrTFa/Hh+KYuFj9F4VGA6a6zCHLAqXGdmhcHqEpmZNVK6GBB9qRd3KHtpFw/iLv0SQMKFhyCsiBKWJsojBRKI6kiDMFEDc5nBJi8ZysBZIopQ7iMQXodrT/kLp4wymgdKcDRQSP1CSIWZPRQxs0ILRAlpeL4IYR9FEAZOvw411xDodAHOL1S4AuDgzEIG0HCEFlainBWwdY9ZoT6hqW9RAkR5hyeROPXfyK2Vu0BEbcb0AQkwEdWpeglSeSpdtFScosKsaWOd0EQ0l9jSzrZQJjTt7gt5QgEYIooH4km7QLvjkxwRUb/xMA2u3jiYcmNhMly6MTB0o85VB57273IQdlAGVqBPmEEaaIE2oQc0IME6oUaVmb1EmaBxZmYLEW4iMxuJeGdvqHAg0Q3ESiaPPMEmOIoXR8iNmQ3Uz5hWUDggjkwAAFAWAZ0BKnkBgQE+KRKHQiGhCpTezAwBQlN34VDH1kD+ADRDGLfXnz+T/xf7c+zbWf6t/dP75/i/7V+23zJ7bOvfKG8n/Xf+T/dP8l+2Hy7/1//b/zvu4/RH/U/xP77/QP+pP++/uH+O/avuofvH6lv3Q/dL3Tv+57AP22/Jn5U/5v/wf//2W3pR+at/4P3P+Iv9uf3R9ob//6wV6i/t34Z/qx84fBz7T/gP75/ev2G/vntj+NfMP1/+0f5H/Mf3z/3/6P5JM3fYH/yeiH8a+3P5X+4f5L/of4n96Pl3/r+IPxn/uP8d+TPyF/i/8v/wP93/cD/C/uRyrlxP+36invf90/5H+S/cr/VepP/yeo/2v9Jn9q/3H93/ez4c/8nkUfgf/L7BX9H/w3/d/0/5XfTL/k/+b/U/lr8Fvqn/r/5P94voN/kv9I/0394/xv/q/zn//+n32U/st7BX6of949q92eFRW1XNIpJGDqK9SNkXvqBZ+FG+oBW231AKml+wvqC/asugPKerjWF+bIZxQMngAuPbaXMW9SfhRvqAVsceHRAN7yS75AEo/a1TMXWkTBUygrQPtlxuTqGTYkBT8LhaXBn6TwDWHnqDpcIFn4Ub6duGBYtBpWc9Wj9TSsbck39wChrdffM/rMv8HYUX5qZjo6WFLupvQZnt+kGYtCLkM8iOU32pLDmoggj9quYEe/2hfdmp/lWiEDGteIZMcUGDp/RTYGFRbsQjrxH/ZaSCZr2FTp+cJ8lGY0xe7UziKaRHCQj+6HfVHEpo87no+LlYKtAvdnhUPPDiJs7FGVQo1wAllqIymoLO7Si5k0+y0RFwTqwBR3EgVz2abYvW301AlAxGuKwl7TItHo2E7ZRFi2l9KKzbcX3Zqf4Sh+tbhD632UyBeVcZRdGS6slqrQ0suwa8EBKQHEKL88yv0TKBic+IydoKqJkau41DcJ++A4wMTMMIUwxnC7uzwqHwbkMnXSI02swqfFpoVNKTRV2v7maUplMwFcMpQh2n8aiZbTCdG5vYksg+WOOYH8pFUrEvSvuM0AX3YejQeF4/Dm9GW+PLy/C+t3WPsKix+6zHqbQ0iSw+1jbx4O0d9N+wMp8b7GipfgIl44Oz2231ABYKRidmlZq5XznalnZbKzkTBzakqLSNDayJ0xddSEtLMwXnCKZH6oW7lq3vgiZLZ6FZQm31W4pSWv+VxlietI4DopoYvjrivuNBg2M8rMIGfeJshUvU3u8bZn46J+/01QDujF84NvFxDuW0cKWqlTroDn+OBgWRUAoucINl+0FDYZROLijGt+aaGzF1To9fUqwKzAXzCggKrNkHaXia+Nh2ACZ25uSVO8s9Wrk6AzAvsHK0hPsD1jUGyRj4+902HxAGGif1RvhzylZ+9aleJfjTouWNcCvj7kbj7se2GjtELLQtvF5Ud1foFGgWmP+/jxxXUovwjKg2VJkEN4c/nz48VJFhMnrrXHZi/UYOduZoijcB9t3rX/n13qVGf1G7NY7lqWeZdUNBX+/fA0O1Gs2XaJJegtMe/a1NfgUXVOO8JjExQAYIvRDj1+L5pzVc9j5rkyFfhVa2I/46V13jOod7k/7vPrlJrwM2JJNWgvwgHQrNNb8R0Bk1A7cTcPOFInMUoVSfkbnzjfNw3W9eTYn+jxlqdRqyhDBKWzRYJR3kMj9WQyZUIM6T7+scOaYEwv90AxH5VixvnmD53KSlfz9g2zs2Q2qs+v9c1aKSsbdPFv/FdsMsiQf3ZJ2IRMAiieFrpByxjPAkZvdw53t8DFH6D0v2UEKO+QBIosKt98rad1iUIOezgyBo/8wuyJ6BWM/P2GNcxRCvAsRNIcgnGS9fycLziRqGciEV7FWUUPRHlvfqep/Hi+J8Lnmk1qQQDQsjccAMkX86IHIVdY/jarPvq5N6P5ghg+zBNF+89eQ6wXY3GH7KCaAMFc0pajSsl/9dS9aJAhv0ySCvBs5YfXuWxExUhXafhIoT95c7fhUV7GWP2vOWU2LgEM/3+S0vwo8umpu/tBP7hQxbfzIR3P462yY2KUO/oU/2Q7D8/fxUWlOlRVWhB22m105jZC8loop2Ie8hD/u8j57rSxcMdeAgtH0v+mqAL4JICBeB4z+eUCMZPCR6C5EJiUUe37/W3MOTeowhfjbvhcS1Y8y2WOk5vy3JIkApt7Lq0KS7ecDiHDBzEvd6Lr9EDUEs0Sf8caVxdkaXIodvCxO6LaZXZAE2bTo7/BBlt83kzfT+R8KwnyY1BjqwQIkwU0g1qM7CMV7qi1tQvOT3v9PTqegKbx3dfD9fUpIb1c9M538NUpG9ERSXv+7Hcj4iBRp+D/g/AdBhBNDazSy+mq+QFfwbwuDmTMLiLEFpYShn//0K3IwkgI1nSTTSmpMw2+O6rZGEFr56Nt3nbFChUH3pTo8sVsJ85o/JkX21f9Ayqbbq8Ea2rp+Bx7w69a35+2KlLoCSejQipsP5W5b0x4FnwdzLdGtPs96UiIBQSDSrA3cF2P+gatgbEnI3FfjL43Tc/KvLQSt3KrTfo8HT4yAJQACbkahBXpIcAcf2r8Xoa0hBeI8OJsavY9uwvE1sCcDmc5OnH4MrkYggWHb9xZjk/WCuo/QlfsRkra+NiI8OYUFt/ORe2iuEyA1iaKPfcXc2dfA2rkLE/x25Q89fFsW8GyrxQE0o+MiPUqgC95faBXWAKWblLOR5kDo7ho5sEw44+DZuo1x8UdTe9d5HoL3vzezZyUCfXp3O/6+zSlQk8fI4uvsbGLm1vd2i4PUs+gXpEuqVS3djtH3NhHwn40DfgvsagiW9vwBtyLmapaSAL7jb9zbFjChIyMqbprMipbNZmG6OffZwRvNjLW4EYqU/597LOOw9tI4rFR5grIH3yzg7qyHI
+
+
+--- SP1 #5 @ 1105678 ---
+
+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
+
+
+--- SP1 #6 @ 1494857 ---
+
+,b2;function boot(){
+ const a=$('#splashMarket'),b=$('#splashPower'),c=$('#titleSplash'),r=$('#rankSplash');
+ const show=x=>{[a,b,c,r].forEach(v=>v.classList.remove('show'));x.classList.add('show')};
+ let attractTimer=null,rankTimer=null,attractOn=true;
+ function scheduleTitle(){
+  if(!attractOn)return;clearTimeout(attractTimer);clearTimeout(rankTimer);
+  show(c);renderRanking();
+  attractTimer=setTimeout(()=>{if(!attractOn)return;show(r);renderRanking();rankTimer=setTimeout(scheduleTitle,5000)},8000)
+ }
+ function stopAttract(){attractOn=false;clearTimeout(attractTimer);clearTimeout(rankTimer)}
+ b1=setTimeout(()=>show(b),1150);
+ b2=setTimeout(()=>{scheduleTitle()},2300);
+ const wakeTitle=()=>{try{audio();startBGM('title',1)}catch(e){}};
+ const enterApp=page=>{stopAttract();try{audio();startBGM('hub',1)}catch(e){};endBoot(page)};
+ const skip=()=>{clearTimeout(b1);clearTimeout(b2);wakeTitle();scheduleTitle()};
+ $('#skip1').onclick=skip;$('#skip2').onclick=skip;
+ $('#startBtn').onclick=()=>enterApp('gamesPage');
+ $('#titleRecords').onclick=()=>{stopAttract();wakeTitle();show(r);renderRanking();setTimeout(()=>{show(c);attractOn=true;scheduleTitle()},5000)};
+ $('#titleCollection').onclick=()=>enterApp('bookPage');
+ $('#titleExplore').onclick=()=>enterApp('mapPage');
+ r.onclick=()=>{if(attractOn)scheduleTitle()}
+}
+refresh();renderRanking();initGpsUi();initQrUi();boot();
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/* OSO_PRIVATE_VISIT_COUNTER_V1 */
+(function(){
+  try{
+    if(!location.pathname.includes('/OSO-2026/play/')) return;
+    const KEY='oso-private-visitor-id-v1';
+    let visitorId=localStorage.getItem(KEY);
+    if(!visitorId){
+      visitorId=(crypto.randomUUID ? crypto.randomUUID() : (Date.now().toString(36)+'_'+Math.random().toString(36).slice(2)+Math.random().toString(36).slice(2)));
+      localStorage.setItem(KEY,visitorId);
+    }
+    fetch('https://kfxagkjaczfwxebfvfav.supabase.co/functions/v1/record-oso-visit',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({visitorId}),
+      keepalive:true,
+      cache:'no-store',
+      credentials:'omit'
+    }).catch(()=>{});
+  }catch(_e){}
+})();
+</script>
+
+<!-- SP1 SOTRIS LIVE INTEGRATION -->
+<script src="sp1/sotris-integration.js?v=20260903"></script>
+</body></html>
+
+
+===== KEY: sp1 COUNT 1 =====
+
+
+--- sp1 #1 @ 1494902 ---
+
+t'),b=$('#splashPower'),c=$('#titleSplash'),r=$('#rankSplash');
+ const show=x=>{[a,b,c,r].forEach(v=>v.classList.remove('show'));x.classList.add('show')};
+ let attractTimer=null,rankTimer=null,attractOn=true;
+ function scheduleTitle(){
+  if(!attractOn)return;clearTimeout(attractTimer);clearTimeout(rankTimer);
+  show(c);renderRanking();
+  attractTimer=setTimeout(()=>{if(!attractOn)return;show(r);renderRanking();rankTimer=setTimeout(scheduleTitle,5000)},8000)
+ }
+ function stopAttract(){attractOn=false;clearTimeout(attractTimer);clearTimeout(rankTimer)}
+ b1=setTimeout(()=>show(b),1150);
+ b2=setTimeout(()=>{scheduleTitle()},2300);
+ const wakeTitle=()=>{try{audio();startBGM('title',1)}catch(e){}};
+ const enterApp=page=>{stopAttract();try{audio();startBGM('hub',1)}catch(e){};endBoot(page)};
+ const skip=()=>{clearTimeout(b1);clearTimeout(b2);wakeTitle();scheduleTitle()};
+ $('#skip1').onclick=skip;$('#skip2').onclick=skip;
+ $('#startBtn').onclick=()=>enterApp('gamesPage');
+ $('#titleRecords').onclick=()=>{stopAttract();wakeTitle();show(r);renderRanking();setTimeout(()=>{show(c);attractOn=true;scheduleTitle()},5000)};
+ $('#titleCollection').onclick=()=>enterApp('bookPage');
+ $('#titleExplore').onclick=()=>enterApp('mapPage');
+ r.onclick=()=>{if(attractOn)scheduleTitle()}
+}
+refresh();renderRanking();initGpsUi();initQrUi();boot();
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/* OSO_PRIVATE_VISIT_COUNTER_V1 */
+(function(){
+  try{
+    if(!location.pathname.includes('/OSO-2026/play/')) return;
+    const KEY='oso-private-visitor-id-v1';
+    let visitorId=localStorage.getItem(KEY);
+    if(!visitorId){
+      visitorId=(crypto.randomUUID ? crypto.randomUUID() : (Date.now().toString(36)+'_'+Math.random().toString(36).slice(2)+Math.random().toString(36).slice(2)));
+      localStorage.setItem(KEY,visitorId);
+    }
+    fetch('https://kfxagkjaczfwxebfvfav.supabase.co/functions/v1/record-oso-visit',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({visitorId}),
+      keepalive:true,
+      cache:'no-store',
+      credentials:'omit'
+    }).catch(()=>{});
+  }catch(_e){}
+})();
+</script>
+
+<!-- SP1 SOTRIS LIVE INTEGRATION -->
+<script src="sp1/sotris-integration.js?v=20260903"></script>
+</body></html>
+
+
+===== KEY: renderOsoShop COUNT 3 =====
+
+
+--- renderOsoShop #1 @ 1255541 ---
+
+ if(navigator.permissions&&navigator.permissions.query){
+   try{const p=await navigator.permissions.query({name:'geolocation'});if(p&&p.state==='denied'){st.textContent='이 사이트의 위치 권한이 차단되어 있습니다. 브라우저 주소창의 사이트 설정에서 위치를 허용한 뒤 다시 누르소.';st.className='gpsStatus error';return}}catch(e){}
+  }
+  st.textContent='GPS 위치를 찾는 중…';st.className='gpsStatus';
+  navigator.geolocation.getCurrentPosition(handleGpsPosition,handleGpsError,{enableHighAccuracy:true,maximumAge:0,timeout:15000});
+  gpsWatchId=navigator.geolocation.watchPosition(handleGpsPosition,handleGpsError,{enableHighAccuracy:true,maximumAge:1500,timeout:20000})
+ }catch(e){stopGpsWatch();st.textContent='GPS 실행에 실패했습니다. HTTPS 접속과 위치 권한을 확인한 뒤 다시 누르소.';st.className='gpsStatus error'}
+}
+function currentCalibrationSelection(){return $('#calZoneSelect')?$('#calZoneSelect').value:null}
+function saveCalPoint(kind){
+ if(!lastGps){$('#calOutput').textContent='먼저 GPS 위치 확인을 시작하소.';return}
+ const code=currentCalibrationSelection();if(!code)return;
+ const old=(state.gpsCalibration||{})[code]||{};
+ if(kind==='center'){
+  state.gpsCalibration[code]={type:'circle',lat:lastGps.lat,lng:lastGps.lng,radius:45,near:160,source:'field-calibration'}
+ }else{
+  let a=old.a||null,b=old.b||null;if(kind==='a')a={lat:lastGps.lat,lng:lastGps.lng};else b={lat:lastGps.lat,lng:lastGps.lng};
+  state.gpsCalibration[code]={type:'corridor',a,b,radius:24,near:150,source:'field-calibration'};
+  if(!a||!b){state.gpsCalibration[code].pending=true}
+  else delete state.gpsCalibration[code].pending
+ }
+ save();
+ $('#calOutput').textContent=JSON.stringify(state.gpsCalibration,null,2);
+ renderGpsLocations(lastGps)
+}
+function initGpsUi(){
+ if(!DEV_ALL_UNLOCKED){const p=$('.gpsCalPanel');if(p)p.style.display='none'}
+ const sel=$('#calZoneSelect');if(sel){
+  sel.innerHTML=GAME_ACQUIRE.map(x=>`<option value="${x.code}">${game(x.code).name} — ${x.place}</option>`).join('');
+  $('#calOutput').textContent=JSON.stringify(state.gpsCalibration||{},null,2)
+ }
+ $('#gpsStartBtn').onclick=startGpsWatch;
+ $('#calStart').onclick=()=>saveCalPoint('a');$('#calEnd').onclick=()=>saveCalPoint('b');$('#calCenter').onclick=()=>saveCalPoint('center');
+ renderGpsLocations()
+}
+
+function renderOsoShop(){
+ const shop=$('#osoShop');if(!shop)return;
+ const skin=currentSkin(),preview=$('#selectedOsoPreview'),name=$('#selectedOsoName'),coin=$('#shopCoin');
+ if(preview)preview.src=skin.src;if(name)name.textContent=skin.name;if(coin)coin.textContent=state.coins||0;
+ const groups=[
+  {id:'oso',title:'🐂 오소',sub:'중앙시장의 주인공 · 기본~750 코인'},
+  {id:'ayo',title:'🐱 아요 컬렉션',sub:'표정과 동작이 다양한 친구 · 1,000~1,900 코인'},
+  {id:'hamo',title:'🦦 하모 컬렉션',sub:'특별한 친구 · 2,000~2,900 코인'}
+ ];
+ shop.innerHTML=groups.map(gr=>{
+  const cards=OSO_SKINS.filter(s=>(s.group||'oso')===gr.id).map(s=>{
+   const owned=state.ownedSkins.includes(s.id),selected=state.selectedSkin===s.id;
+   return `<div class="skinCard ${selected?'selected':''} group-${gr.id}" data-skin="${s.id}"><span class="charBadge ${gr.id}">${s.badge||gr.title}</span><img src="${s.src}" alt="${s.name}"><b>${s.name}</b><small>${s.note}</small><button class="${selected?'selectedBtn':owned?'owned':''}" data-buy="${s.id}">${selected?'사용 중':owned?'사용하기':`🪙 ${s.price.toLocaleString()} 구입`}</button></div>`
+  }).join('');
+  return `<div class="shopGroupHead ${gr.id}"><b>${gr.title}</b><small>${gr.sub}</small></div>${cards}`
+ }).join('');
+ $$('[data-buy]').forEach(btn=>btn.onclick=()=>{
+   const s=OSO_SKINS.find(x=>x.id===btn.dataset.buy);if(!s)return;
+   if(state.ownedSkins.includes(s.id)){state.selectedSkin=s.id;save();refresh();tone('good');return}
+   if((state.coins||0)<s.price){tone('bad');buzz(70);btn.textContent='코인이 부족하소!';setTimeout(renderOsoShop,700);return}
+   state.coins-=s.price;state.ownedSkins.push(s.id);state.selectedSkin=s.id;save();tone('clear');buzz([20,15,35]);refresh()
+ })
+}
+
+function refresh(){
+ ensureDailyScoreDate();
+ if(state.coinDate!==localDateKey()){
+  state.coinDate=localDateKey();save()
+ }
+ if(DEV_ALL_UNLOCKED)GAMES.forEach(g=>state.unlock[g.code]=true);
+ const bonusNew=!DEV_ALL_UNLOCKED&&ensureSpacefighterUnlock();
+ if(!DEV_ALL_UNLOCKED)ensureScoreBonusUnlocks();
+ const pendingBonus=!DEV_ALL_UNLOCKED&&Array.isArray(state.pendingBonusUnlocks)?[...state.pendingBonusUnlocks]:[];
+ if(pendingBonus.length){state.pendingBonusUnlocks=[];save()}
+ $('#count').textContent=`🎮 ${GAMES.filter(g=>state.unlock[g.code]).length}/${GAMES.length}`;
+ $('#coin').textContent=state.coins||0;
+ $('#library').innerHTML=GAMES.map((g,i)=>{
+ const art={basket:'🍎 🥬 🧺',fish:'🐟 💦 🐠',stack:'🧵 🧶 ✨',run:'🛍️ 🏃 🪙',slice:'🍜 ✨ 🍗',tteok:'🔨 🍚 ✨',powerduck:'🎮 ⚡ 🌍',spacefighter:'🚀 🌍 👾',racing:'🏎️ 🐂 🏁',fantasy:'⚔️ 🛒 🌿'}[g.code]||g.icon;
+ const st=starsFor(g.code,state.best[g.code]||0),stars='⭐'.repeat(st)+'☆'.repeat(3-st);
+ return `<button class="gameCard theme-${g.code} ${state.unlock[g.code]?'':'lock'}" data-game="${g.code}"><div class="gameNo">${i+1}</div><div class="gameCardArt"><div class="artEmoji">${art}</div></div><b>${state.unlock[g.code]?g.name:'???'}</b><small>${g.desc}</small><div class="best">${state.unlock[g.code]?`🏆 최고 ${state.best[g.code]||0}<span class="miniStars">${stars}</span>`:(g.code==='spacefighter'?'<span class="spaceBonusLock">🔒 7개 게임 획득 시 해금</span>':g.code==='racing'?'<span class="scoreBonusLock">🔒 누적 500,000점 달성 시 해금</span>':g.code==='fantasy'?'<span class="scoreBonusLock">🔒 누적 1,000,000점 달성 시 해금<
+
+
+--- renderOsoShop #2 @ 1257040 ---
+
+psCalibration[code].pending
+ }
+ save();
+ $('#calOutput').textContent=JSON.stringify(state.gpsCalibration,null,2);
+ renderGpsLocations(lastGps)
+}
+function initGpsUi(){
+ if(!DEV_ALL_UNLOCKED){const p=$('.gpsCalPanel');if(p)p.style.display='none'}
+ const sel=$('#calZoneSelect');if(sel){
+  sel.innerHTML=GAME_ACQUIRE.map(x=>`<option value="${x.code}">${game(x.code).name} — ${x.place}</option>`).join('');
+  $('#calOutput').textContent=JSON.stringify(state.gpsCalibration||{},null,2)
+ }
+ $('#gpsStartBtn').onclick=startGpsWatch;
+ $('#calStart').onclick=()=>saveCalPoint('a');$('#calEnd').onclick=()=>saveCalPoint('b');$('#calCenter').onclick=()=>saveCalPoint('center');
+ renderGpsLocations()
+}
+
+function renderOsoShop(){
+ const shop=$('#osoShop');if(!shop)return;
+ const skin=currentSkin(),preview=$('#selectedOsoPreview'),name=$('#selectedOsoName'),coin=$('#shopCoin');
+ if(preview)preview.src=skin.src;if(name)name.textContent=skin.name;if(coin)coin.textContent=state.coins||0;
+ const groups=[
+  {id:'oso',title:'🐂 오소',sub:'중앙시장의 주인공 · 기본~750 코인'},
+  {id:'ayo',title:'🐱 아요 컬렉션',sub:'표정과 동작이 다양한 친구 · 1,000~1,900 코인'},
+  {id:'hamo',title:'🦦 하모 컬렉션',sub:'특별한 친구 · 2,000~2,900 코인'}
+ ];
+ shop.innerHTML=groups.map(gr=>{
+  const cards=OSO_SKINS.filter(s=>(s.group||'oso')===gr.id).map(s=>{
+   const owned=state.ownedSkins.includes(s.id),selected=state.selectedSkin===s.id;
+   return `<div class="skinCard ${selected?'selected':''} group-${gr.id}" data-skin="${s.id}"><span class="charBadge ${gr.id}">${s.badge||gr.title}</span><img src="${s.src}" alt="${s.name}"><b>${s.name}</b><small>${s.note}</small><button class="${selected?'selectedBtn':owned?'owned':''}" data-buy="${s.id}">${selected?'사용 중':owned?'사용하기':`🪙 ${s.price.toLocaleString()} 구입`}</button></div>`
+  }).join('');
+  return `<div class="shopGroupHead ${gr.id}"><b>${gr.title}</b><small>${gr.sub}</small></div>${cards}`
+ }).join('');
+ $$('[data-buy]').forEach(btn=>btn.onclick=()=>{
+   const s=OSO_SKINS.find(x=>x.id===btn.dataset.buy);if(!s)return;
+   if(state.ownedSkins.includes(s.id)){state.selectedSkin=s.id;save();refresh();tone('good');return}
+   if((state.coins||0)<s.price){tone('bad');buzz(70);btn.textContent='코인이 부족하소!';setTimeout(renderOsoShop,700);return}
+   state.coins-=s.price;state.ownedSkins.push(s.id);state.selectedSkin=s.id;save();tone('clear');buzz([20,15,35]);refresh()
+ })
+}
+
+function refresh(){
+ ensureDailyScoreDate();
+ if(state.coinDate!==localDateKey()){
+  state.coinDate=localDateKey();save()
+ }
+ if(DEV_ALL_UNLOCKED)GAMES.forEach(g=>state.unlock[g.code]=true);
+ const bonusNew=!DEV_ALL_UNLOCKED&&ensureSpacefighterUnlock();
+ if(!DEV_ALL_UNLOCKED)ensureScoreBonusUnlocks();
+ const pendingBonus=!DEV_ALL_UNLOCKED&&Array.isArray(state.pendingBonusUnlocks)?[...state.pendingBonusUnlocks]:[];
+ if(pendingBonus.length){state.pendingBonusUnlocks=[];save()}
+ $('#count').textContent=`🎮 ${GAMES.filter(g=>state.unlock[g.code]).length}/${GAMES.length}`;
+ $('#coin').textContent=state.coins||0;
+ $('#library').innerHTML=GAMES.map((g,i)=>{
+ const art={basket:'🍎 🥬 🧺',fish:'🐟 💦 🐠',stack:'🧵 🧶 ✨',run:'🛍️ 🏃 🪙',slice:'🍜 ✨ 🍗',tteok:'🔨 🍚 ✨',powerduck:'🎮 ⚡ 🌍',spacefighter:'🚀 🌍 👾',racing:'🏎️ 🐂 🏁',fantasy:'⚔️ 🛒 🌿'}[g.code]||g.icon;
+ const st=starsFor(g.code,state.best[g.code]||0),stars='⭐'.repeat(st)+'☆'.repeat(3-st);
+ return `<button class="gameCard theme-${g.code} ${state.unlock[g.code]?'':'lock'}" data-game="${g.code}"><div class="gameNo">${i+1}</div><div class="gameCardArt"><div class="artEmoji">${art}</div></div><b>${state.unlock[g.code]?g.name:'???'}</b><small>${g.desc}</small><div class="best">${state.unlock[g.code]?`🏆 최고 ${state.best[g.code]||0}<span class="miniStars">${stars}</span>`:(g.code==='spacefighter'?'<span class="spaceBonusLock">🔒 7개 게임 획득 시 해금</span>':g.code==='racing'?'<span class="scoreBonusLock">🔒 누적 500,000점 달성 시 해금</span>':g.code==='fantasy'?'<span class="scoreBonusLock">🔒 누적 1,000,000점 달성 시 해금</span>':'🔒 GPS/QR로 획득')}</div></button>`
+ }).join('');
+ $$('[data-game]').forEach(b=>b.onclick=()=>openInfo(b.dataset.game));
+ renderGpsLocations(lastGps);renderOsoShop();renderRanking();
+ const ho=$('#headerOso');if(ho)ho.src=currentOsoSrc();save();
+ if(bonusNew)setTimeout(()=>flashyUnlock('spacefighter'),2100);
+ pendingBonus.forEach((c,i)=>setTimeout(()=>flashyUnlock(c),2100+i*2300))
+}
+function openInfo(code){selected=game(code);const unlocked=!!state.unlock[code];$('#mEm').textContent=selected.icon;$('#mName').textContent=unlocked?selected.name:'잠긴 게임';$('#mDesc').textContent=selected.desc;$('#mArea').textContent='장소 힌트 · '+selected.area.replace(/^해금 위치:\s*/,'');$('#mPlay').disabled=!unlocked;$('#mPlay').textContent=unlocked?'플레이':(BONUS_GAME_CODES.includes(selected.code)?'조건달성 필요':'GPS 획득 필요');$('#modal').classList.add('show')}
+$('#mClose').onclick=()=>$('#modal').classList.remove('show');$('#mPlay').onclick=()=>{if(selected&&state.unlock[selected.code]){$('#modal').classList.remove('show');startGame(selected.code)}};
+$$('nav button').forEach(b=>b.onclick=()=>{showPage(b.dataset.page);if(b.dataset.page==='mapPage')startGpsWatch()});
+window.unlockFromNative=code=>{
+ const c=parseUnlockQr(code)||normalizeUnlockCode(code);
+ if(c)qrUnlock(c)
+};
+
+const PERF_LITE_KEY='jcm-v249-auto-lite-v1';
+window.__OSO_LOW_PERF=false;
+function applyAutoLiteMode(on,remember=false){
+ window.__OSO_LOW_PERF=!!on;
+ document.documentElement.classList.toggle('lowPerf',!!on);
+ if(remember&&on){try{l
+
+
+--- renderOsoShop #3 @ 1258896 ---
+
+mall></div>${cards}`
+ }).join('');
+ $$('[data-buy]').forEach(btn=>btn.onclick=()=>{
+   const s=OSO_SKINS.find(x=>x.id===btn.dataset.buy);if(!s)return;
+   if(state.ownedSkins.includes(s.id)){state.selectedSkin=s.id;save();refresh();tone('good');return}
+   if((state.coins||0)<s.price){tone('bad');buzz(70);btn.textContent='코인이 부족하소!';setTimeout(renderOsoShop,700);return}
+   state.coins-=s.price;state.ownedSkins.push(s.id);state.selectedSkin=s.id;save();tone('clear');buzz([20,15,35]);refresh()
+ })
+}
+
+function refresh(){
+ ensureDailyScoreDate();
+ if(state.coinDate!==localDateKey()){
+  state.coinDate=localDateKey();save()
+ }
+ if(DEV_ALL_UNLOCKED)GAMES.forEach(g=>state.unlock[g.code]=true);
+ const bonusNew=!DEV_ALL_UNLOCKED&&ensureSpacefighterUnlock();
+ if(!DEV_ALL_UNLOCKED)ensureScoreBonusUnlocks();
+ const pendingBonus=!DEV_ALL_UNLOCKED&&Array.isArray(state.pendingBonusUnlocks)?[...state.pendingBonusUnlocks]:[];
+ if(pendingBonus.length){state.pendingBonusUnlocks=[];save()}
+ $('#count').textContent=`🎮 ${GAMES.filter(g=>state.unlock[g.code]).length}/${GAMES.length}`;
+ $('#coin').textContent=state.coins||0;
+ $('#library').innerHTML=GAMES.map((g,i)=>{
+ const art={basket:'🍎 🥬 🧺',fish:'🐟 💦 🐠',stack:'🧵 🧶 ✨',run:'🛍️ 🏃 🪙',slice:'🍜 ✨ 🍗',tteok:'🔨 🍚 ✨',powerduck:'🎮 ⚡ 🌍',spacefighter:'🚀 🌍 👾',racing:'🏎️ 🐂 🏁',fantasy:'⚔️ 🛒 🌿'}[g.code]||g.icon;
+ const st=starsFor(g.code,state.best[g.code]||0),stars='⭐'.repeat(st)+'☆'.repeat(3-st);
+ return `<button class="gameCard theme-${g.code} ${state.unlock[g.code]?'':'lock'}" data-game="${g.code}"><div class="gameNo">${i+1}</div><div class="gameCardArt"><div class="artEmoji">${art}</div></div><b>${state.unlock[g.code]?g.name:'???'}</b><small>${g.desc}</small><div class="best">${state.unlock[g.code]?`🏆 최고 ${state.best[g.code]||0}<span class="miniStars">${stars}</span>`:(g.code==='spacefighter'?'<span class="spaceBonusLock">🔒 7개 게임 획득 시 해금</span>':g.code==='racing'?'<span class="scoreBonusLock">🔒 누적 500,000점 달성 시 해금</span>':g.code==='fantasy'?'<span class="scoreBonusLock">🔒 누적 1,000,000점 달성 시 해금</span>':'🔒 GPS/QR로 획득')}</div></button>`
+ }).join('');
+ $$('[data-game]').forEach(b=>b.onclick=()=>openInfo(b.dataset.game));
+ renderGpsLocations(lastGps);renderOsoShop();renderRanking();
+ const ho=$('#headerOso');if(ho)ho.src=currentOsoSrc();save();
+ if(bonusNew)setTimeout(()=>flashyUnlock('spacefighter'),2100);
+ pendingBonus.forEach((c,i)=>setTimeout(()=>flashyUnlock(c),2100+i*2300))
+}
+function openInfo(code){selected=game(code);const unlocked=!!state.unlock[code];$('#mEm').textContent=selected.icon;$('#mName').textContent=unlocked?selected.name:'잠긴 게임';$('#mDesc').textContent=selected.desc;$('#mArea').textContent='장소 힌트 · '+selected.area.replace(/^해금 위치:\s*/,'');$('#mPlay').disabled=!unlocked;$('#mPlay').textContent=unlocked?'플레이':(BONUS_GAME_CODES.includes(selected.code)?'조건달성 필요':'GPS 획득 필요');$('#modal').classList.add('show')}
+$('#mClose').onclick=()=>$('#modal').classList.remove('show');$('#mPlay').onclick=()=>{if(selected&&state.unlock[selected.code]){$('#modal').classList.remove('show');startGame(selected.code)}};
+$$('nav button').forEach(b=>b.onclick=()=>{showPage(b.dataset.page);if(b.dataset.page==='mapPage')startGpsWatch()});
+window.unlockFromNative=code=>{
+ const c=parseUnlockQr(code)||normalizeUnlockCode(code);
+ if(c)qrUnlock(c)
+};
+
+const PERF_LITE_KEY='jcm-v249-auto-lite-v1';
+window.__OSO_LOW_PERF=false;
+function applyAutoLiteMode(on,remember=false){
+ window.__OSO_LOW_PERF=!!on;
+ document.documentElement.classList.toggle('lowPerf',!!on);
+ if(remember&&on){try{localStorage.setItem(PERF_LITE_KEY,JSON.stringify({on:1,t:Date.now()}))}catch(e){}}
+}
+function initAutoLiteMode(){
+ let saved=false;
+ try{
+  const v=JSON.parse(localStorage.getItem(PERF_LITE_KEY)||'null');
+  saved=!!(v&&v.on&&Date.now()-Number(v.t||0)<7*24*60*60*1000);
+ }catch(e){}
+ if(saved){applyAutoLiteMode(true,false);return}
+ const cores=Number(navigator.hardwareConcurrency)||0;
+ const mem=Number(navigator.deviceMemory)||0;
+ // 명백한 저사양만 사전 판정. 애매한 기기는 실제 프레임 측정으로 결정한다.
+ if((cores>0&&cores<=4)||(mem>0&&mem<=2)){applyAutoLiteMode(true,true);return}
+ let last=performance.now(),winStart=last,frames=0,longFrames=0,badWindows=0;
+ function probe(now){
+  if(window.__OSO_LOW_PERF)return;
+  if(document.hidden){last=now;winStart=now;frames=0;longFrames=0;requestAnimationFrame(probe);return}
+  const dt=now-last;last=now;frames++;
+  if(dt>34)longFrames++;
+  const span=now-winStart;
+  if(span>=2200){
+   const fps=frames*1000/span;
+   const longRatio=frames?longFrames/frames:0;
+   const bad=(fps<42)||(fps<48&&longRatio>.18);
+   badWindows=bad?badWindows+1:Math.max(0,badWindows-1);
+   if(badWindows>=2){applyAutoLiteMode(true,true);return}
+   winStart=now;frames=0;longFrames=0;
+  }
+  requestAnimationFrame(probe)
+ }
+ setTimeout(()=>requestAnimationFrame(t=>{last=t;winStart=t;frames=0;longFrames=0;requestAnimationFrame(probe)}),1800)
+}
+initAutoLiteMode();
+function fxText(x,y,text,color='#f39a11'){const s=$('#stage'),r=s.getBoundingClientRect(),e=document.createElement('div');e.className='fxText';e.textContent=text;e.style.left=(x-r.left)+'px';e.style.top=(y-r.top)+'px';e.style.color=color;s.appendChild(e);setTimeout(()=>e.remove(),700)}
+function particles(x,y,emoji='✨',count=6){const s=$('#stage'),r=s.getBoundingClientRect();if(window.__OSO_LOW_PERF)count=Math.max(2,Math.ceil(count*.45));for(let i=0;i<count;i++){let e=document.createElemen
+
+===== KEY: currentOsoSrc COUNT 9 =====
+
+
+--- currentOsoSrc #1 @ 1224770 ---
+
+ircle',lat:35.194613594496,lng:128.08480142824,radius:14,near:95,source:'public-address'}
+};
+let gpsWatchId=null,lastGps=null,lastDirNotice={},gpsGuideTimer=null;
+
+function gpsZones(){
+ const z={...GPS_DEFAULTS};
+ const cal=state.gpsCalibration||{};
+ Object.keys(cal).forEach(k=>{if(cal[k])z[k]=cal[k]});
+ return z
+}
+function rad(d){return d*Math.PI/180}
+function metersBetween(a,b){
+ const R=6371000,dLat=rad(b.lat-a.lat),dLon=rad(b.lng-a.lng),la1=rad(a.lat),la2=rad(b.lat);
+ const h=Math.sin(dLat/2)**2+Math.cos(la1)*Math.cos(la2)*Math.sin(dLon/2)**2;
+ return 2*R*Math.asin(Math.min(1,Math.sqrt(h)))
+}
+function pointSegmentDistanceM(p,a,b){
+ const lat0=rad((a.lat+b.lat+p.lat)/3),mx=111320*Math.cos(lat0),my=110540;
+ const ax=a.lng*mx,ay=a.lat*my,bx=b.lng*mx,by=b.lat*my,px=p.lng*mx,py=p.lat*my;
+ const dx=bx-ax,dy=by-ay,l2=dx*dx+dy*dy;
+ if(!l2)return Math.hypot(px-ax,py-ay);
+ let t=((px-ax)*dx+(py-ay)*dy)/l2;t=Math.max(0,Math.min(1,t));
+ return Math.hypot(px-(ax+t*dx),py-(ay+t*dy))
+}
+function zoneDistanceM(pos,z){
+ if(!z)return Infinity;
+ if(z.type==='circle')return Math.max(0,metersBetween(pos,{lat:z.lat,lng:z.lng})-(z.radius||0));
+ if(z.type==='corridor')return Math.max(0,pointSegmentDistanceM(pos,z.a,z.b)-(z.radius||22));
+ return Infinity
+}
+function gpsAccuracyMargin(pos){const a=Number(pos&&pos.accuracy)||0;return Math.max(0,Math.min(38,a*.62))}
+function effectiveZoneDistanceM(pos,z){return Math.max(0,zoneDistanceM(pos,z)-gpsAccuracyMargin(pos))}
+function zoneInside(pos,z){return !!z && effectiveZoneDistanceM(pos,z)<=0}
+function zoneTarget(z){
+ if(!z)return null;
+ if(z.type==='circle')return {lat:z.lat,lng:z.lng};
+ if(z.type==='corridor')return {lat:(z.a.lat+z.b.lat)/2,lng:(z.a.lng+z.b.lng)/2};
+ return null
+}
+function bearingDeg(a,b){
+ const y=Math.sin(rad(b.lng-a.lng))*Math.cos(rad(b.lat));
+ const x=Math.cos(rad(a.lat))*Math.sin(rad(b.lat))-Math.sin(rad(a.lat))*Math.cos(rad(b.lat))*Math.cos(rad(b.lng-a.lng));
+ return (Math.atan2(y,x)*180/Math.PI+360)%360
+}
+function arrowForBearing(d){
+ const arrows=['↑','↗','→','↘','↓','↙','←','↖'];return arrows[Math.round(d/45)%8]
+}
+
+function currentSkin(){return OSO_SKINS.find(x=>x.id===state.selectedSkin)||OSO_SKINS[0]}
+function currentOsoSrc(){return currentSkin().src}
+const BASE_GAME_CODES=['basket','fish','stack','run','slice','tteok','powerduck'];
+const BONUS_GAME_CODES=['spacefighter','racing','fantasy'];
+function ensureSpacefighterUnlock(){
+ if(state.unlock&&state.unlock.spacefighter)return false;
+ if(BASE_GAME_CODES.every(c=>state.unlock&&state.unlock[c])){
+  state.unlock.spacefighter=true;save();return true
+ }
+ return false
+}
+function ensureScoreBonusUnlocks(){
+ const newly=[],n=Number(state.todayScore)||0;
+ if(n>=500000&&!state.unlock.racing){state.unlock.racing=true;newly.push('racing')}
+ if(n>=1000000&&!state.unlock.fantasy){state.unlock.fantasy=true;newly.push('fantasy')}
+ if(newly.length){
+  const q=Array.isArray(state.pendingBonusUnlocks)?state.pendingBonusUnlocks:[];
+  state.pendingBonusUnlocks=[...new Set([...q,...newly])];
+  save()
+ }
+ return newly
+}
+
+let mem=null,audioCtx=null;
+function localDateKey(){
+ const d=new Date(),y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,'0'),day=String(d.getDate()).padStart(2,'0');
+ return `${y}-${m}-${day}`
+}
+function load(){try{const x=localStorage.getItem(DEV_ALL_UNLOCKED?'jcm-v168-unlocked':'jcm-v168-locked');return x?JSON.parse(x):null}catch(e){return mem}}
+function save(){mem=state;try{localStorage.setItem(DEV_ALL_UNLOCKED?'jcm-v168-unlocked':'jcm-v168-locked',JSON.stringify(state))}catch(e){}}
+let state=load()||{unlock:{},best:{},coins:0,todayEarned:0,todayScore:0,scoreDate:localDateKey(),pdRecord:0,coinDate:localDateKey(),ranking:[],todaySubmittedBest:0,rankRegisteredBest:11,ownedSkins:['default'],selectedSkin:'default'};
+if(!state.best||typeof state.best!=='object')state.best={};
+if(!Array.isArray(state.ranking))state.ranking=[];
+if(!Array.isArray(state.ownedSkins))state.ownedSkins=['default'];
+if(!state.gpsCalibration)state.gpsCalibration={};
+if(!state.gpsUnlocked)state.gpsUnlocked={};
+if(!state.qrUnlocked)state.qrUnlocked={};
+if(!state.ownedSkins.includes('default'))state.ownedSkins.unshift('default');
+if(!state.selectedSkin||!state.ownedSkins.includes(state.selectedSkin))state.selectedSkin='default';
+if(state.todayEarned==null)state.todayEarned=0;
+if(state.todayScore==null)state.todayScore=0;
+if(!state.scoreDate)state.scoreDate=localDateKey();
+if(state.todaySubmittedBest==null)state.todaySubmittedBest=0;
+if(state.rankRegisteredBest==null){
+ state.rankRegisteredBest=Number.isFinite(state.dailyRankPromptedBestRank)?state.dailyRankPromptedBestRank:11;
+}
+if(state.scoreDate!==localDateKey()){
+ state.scoreDate=localDateKey();
+}
+if(!state.coinDate)state.coinDate=localDateKey();
+if(state.coinDate!==localDateKey())state.coinDate=localDateKey();
+if(DEV_ALL_UNLOCKED)GAMES.forEach(g=>state.unlock[g.code]=true);
+
+function ensureDailyScoreDate(){
+ const today=localDateKey();
+ if(!state.scoreDate)state.scoreDate=today;
+ if(state.scoreDate!==today){
+  state.scoreDate=today;
+  save();
+ }
+}
+
+const DEFAULT_RANKING_SEED=[
+ {initials:'중앙시장',score:1000000,date:'기준',ts:1,seed:true},
+ {initials:'오소',score:500000,date:'기준',ts:2,seed:true},
+ {initials:'또오소',score:300000,date:'기준',ts:3,seed:true},
+ {initials:'다시오소',score:100000,date:'기준',ts:4,seed:true},
+ {initials:'매일오소',score:80000,date:'기준',ts:5,seed:true},
+ {initials:'잘가소
+
+
+--- currentOsoSrc #2 @ 1258968 ---
+
+click=()=>{
+   const s=OSO_SKINS.find(x=>x.id===btn.dataset.buy);if(!s)return;
+   if(state.ownedSkins.includes(s.id)){state.selectedSkin=s.id;save();refresh();tone('good');return}
+   if((state.coins||0)<s.price){tone('bad');buzz(70);btn.textContent='코인이 부족하소!';setTimeout(renderOsoShop,700);return}
+   state.coins-=s.price;state.ownedSkins.push(s.id);state.selectedSkin=s.id;save();tone('clear');buzz([20,15,35]);refresh()
+ })
+}
+
+function refresh(){
+ ensureDailyScoreDate();
+ if(state.coinDate!==localDateKey()){
+  state.coinDate=localDateKey();save()
+ }
+ if(DEV_ALL_UNLOCKED)GAMES.forEach(g=>state.unlock[g.code]=true);
+ const bonusNew=!DEV_ALL_UNLOCKED&&ensureSpacefighterUnlock();
+ if(!DEV_ALL_UNLOCKED)ensureScoreBonusUnlocks();
+ const pendingBonus=!DEV_ALL_UNLOCKED&&Array.isArray(state.pendingBonusUnlocks)?[...state.pendingBonusUnlocks]:[];
+ if(pendingBonus.length){state.pendingBonusUnlocks=[];save()}
+ $('#count').textContent=`🎮 ${GAMES.filter(g=>state.unlock[g.code]).length}/${GAMES.length}`;
+ $('#coin').textContent=state.coins||0;
+ $('#library').innerHTML=GAMES.map((g,i)=>{
+ const art={basket:'🍎 🥬 🧺',fish:'🐟 💦 🐠',stack:'🧵 🧶 ✨',run:'🛍️ 🏃 🪙',slice:'🍜 ✨ 🍗',tteok:'🔨 🍚 ✨',powerduck:'🎮 ⚡ 🌍',spacefighter:'🚀 🌍 👾',racing:'🏎️ 🐂 🏁',fantasy:'⚔️ 🛒 🌿'}[g.code]||g.icon;
+ const st=starsFor(g.code,state.best[g.code]||0),stars='⭐'.repeat(st)+'☆'.repeat(3-st);
+ return `<button class="gameCard theme-${g.code} ${state.unlock[g.code]?'':'lock'}" data-game="${g.code}"><div class="gameNo">${i+1}</div><div class="gameCardArt"><div class="artEmoji">${art}</div></div><b>${state.unlock[g.code]?g.name:'???'}</b><small>${g.desc}</small><div class="best">${state.unlock[g.code]?`🏆 최고 ${state.best[g.code]||0}<span class="miniStars">${stars}</span>`:(g.code==='spacefighter'?'<span class="spaceBonusLock">🔒 7개 게임 획득 시 해금</span>':g.code==='racing'?'<span class="scoreBonusLock">🔒 누적 500,000점 달성 시 해금</span>':g.code==='fantasy'?'<span class="scoreBonusLock">🔒 누적 1,000,000점 달성 시 해금</span>':'🔒 GPS/QR로 획득')}</div></button>`
+ }).join('');
+ $$('[data-game]').forEach(b=>b.onclick=()=>openInfo(b.dataset.game));
+ renderGpsLocations(lastGps);renderOsoShop();renderRanking();
+ const ho=$('#headerOso');if(ho)ho.src=currentOsoSrc();save();
+ if(bonusNew)setTimeout(()=>flashyUnlock('spacefighter'),2100);
+ pendingBonus.forEach((c,i)=>setTimeout(()=>flashyUnlock(c),2100+i*2300))
+}
+function openInfo(code){selected=game(code);const unlocked=!!state.unlock[code];$('#mEm').textContent=selected.icon;$('#mName').textContent=unlocked?selected.name:'잠긴 게임';$('#mDesc').textContent=selected.desc;$('#mArea').textContent='장소 힌트 · '+selected.area.replace(/^해금 위치:\s*/,'');$('#mPlay').disabled=!unlocked;$('#mPlay').textContent=unlocked?'플레이':(BONUS_GAME_CODES.includes(selected.code)?'조건달성 필요':'GPS 획득 필요');$('#modal').classList.add('show')}
+$('#mClose').onclick=()=>$('#modal').classList.remove('show');$('#mPlay').onclick=()=>{if(selected&&state.unlock[selected.code]){$('#modal').classList.remove('show');startGame(selected.code)}};
+$$('nav button').forEach(b=>b.onclick=()=>{showPage(b.dataset.page);if(b.dataset.page==='mapPage')startGpsWatch()});
+window.unlockFromNative=code=>{
+ const c=parseUnlockQr(code)||normalizeUnlockCode(code);
+ if(c)qrUnlock(c)
+};
+
+const PERF_LITE_KEY='jcm-v249-auto-lite-v1';
+window.__OSO_LOW_PERF=false;
+function applyAutoLiteMode(on,remember=false){
+ window.__OSO_LOW_PERF=!!on;
+ document.documentElement.classList.toggle('lowPerf',!!on);
+ if(remember&&on){try{localStorage.setItem(PERF_LITE_KEY,JSON.stringify({on:1,t:Date.now()}))}catch(e){}}
+}
+function initAutoLiteMode(){
+ let saved=false;
+ try{
+  const v=JSON.parse(localStorage.getItem(PERF_LITE_KEY)||'null');
+  saved=!!(v&&v.on&&Date.now()-Number(v.t||0)<7*24*60*60*1000);
+ }catch(e){}
+ if(saved){applyAutoLiteMode(true,false);return}
+ const cores=Number(navigator.hardwareConcurrency)||0;
+ const mem=Number(navigator.deviceMemory)||0;
+ // 명백한 저사양만 사전 판정. 애매한 기기는 실제 프레임 측정으로 결정한다.
+ if((cores>0&&cores<=4)||(mem>0&&mem<=2)){applyAutoLiteMode(true,true);return}
+ let last=performance.now(),winStart=last,frames=0,longFrames=0,badWindows=0;
+ function probe(now){
+  if(window.__OSO_LOW_PERF)return;
+  if(document.hidden){last=now;winStart=now;frames=0;longFrames=0;requestAnimationFrame(probe);return}
+  const dt=now-last;last=now;frames++;
+  if(dt>34)longFrames++;
+  const span=now-winStart;
+  if(span>=2200){
+   const fps=frames*1000/span;
+   const longRatio=frames?longFrames/frames:0;
+   const bad=(fps<42)||(fps<48&&longRatio>.18);
+   badWindows=bad?badWindows+1:Math.max(0,badWindows-1);
+   if(badWindows>=2){applyAutoLiteMode(true,true);return}
+   winStart=now;frames=0;longFrames=0;
+  }
+  requestAnimationFrame(probe)
+ }
+ setTimeout(()=>requestAnimationFrame(t=>{last=t;winStart=t;frames=0;longFrames=0;requestAnimationFrame(probe)}),1800)
+}
+initAutoLiteMode();
+function fxText(x,y,text,color='#f39a11'){const s=$('#stage'),r=s.getBoundingClientRect(),e=document.createElement('div');e.className='fxText';e.textContent=text;e.style.left=(x-r.left)+'px';e.style.top=(y-r.top)+'px';e.style.color=color;s.appendChild(e);setTimeout(()=>e.remove(),700)}
+function particles(x,y,emoji='✨',count=6){const s=$('#stage'),r=s.getBoundingClientRect();if(window.__OSO_LOW_PERF)count=Math.max(2,Math.ceil(count*.45));for(let i=0;i<count;i++){let e=document.createElement('div');e.className='particle';e.textContent=emoji;e.style.left=(x-r.le
+
+
+--- currentOsoSrc #3 @ 1270286 ---
+
+Coins){
+ return COIN_CELEBRATION_MILESTONES.filter(v=>beforeCoins<v&&afterCoins>=v)
+}
+function playCoinMilestones(list){
+ list.forEach((m,i)=>setTimeout(()=>coinCelebration(m),180+i*5600))
+}
+
+function starsFor(code,score){const t={basket:[140,320,560],fish:[140,320,560],stack:[450,820,1200],run:[600,1400,2600],slice:[150,350,620],tteok:[260,560,900],powerduck:[30,50,70],spacefighter:[3500,7500,12000],racing:[7000,13000,22000],fantasy:[8000,16000,26000]}[code]||[100,250,500];return score>=t[2]?3:score>=t[1]?2:score>=t[0]?1:0}
+function gameClearFanfare(code){
+ const roots={
+  basket:523,fish:587,stack:523,run:587,slice:659,
+  tteok:523,powerduck:659,spacefighter:587,racing:659,fantasy:523
+ };
+ const r=roots[code]||587;
+ const seq=[
+  [r,0,.085,'square'],
+  [r*1.25,95,.085,'square'],
+  [r*1.50,190,.095,'triangle'],
+  [r*2.00,305,.13,'square'],
+  [r*1.50,455,.075,'triangle'],
+  [r*2.00,540,.085,'square'],
+  [r*2.50,650,.11,'square'],
+  [r*3.00,790,.26,'triangle']
+ ];
+ seq.forEach(n=>setTimeout(()=>beep(n[0],n[2],.040,n[3],n[0]*1.025),n[1]));
+ setTimeout(()=>buzz([18,8,28,10,45]),90);
+ setTimeout(()=>buzz([28,10,55]),650)
+}
+function finish(code,score,retry,clear=false,bonusCoins=0){
+ ensureDailyScoreDate();
+ let best=state.best[code]||0,rec=score>best;if(rec)state.best[code]=score;if(activeGameCode===code)updateBestHud(score);
+ state.todayScore=(state.todayScore||0)+Math.max(0,Math.floor(Number(score)||0));
+ const scoreBonusUnlocks=DEV_ALL_UNLOCKED?[]:ensureScoreBonusUnlocks();
+ let reward=Math.max(5,Math.min(90,Math.floor(score/10)||5));if(clear)reward+=30;
+ let beforeCoins=state.coins||0;
+ bonusCoins=Math.max(0,Math.floor(Number(bonusCoins)||0));
+ state.coins=beforeCoins+reward+bonusCoins;
+ let crossedMilestones=crossedCoinMilestones(beforeCoins,state.coins);
+ save();if(clear)gameClearFanfare(code);else{tone('good');buzz(25)};
+ $$('#stage .result').forEach(x=>x.remove());
+ const stars=starsFor(code,score),r=document.createElement('div');r.className='result';
+ const bonusNames={basket:'장바구니 획득',fish:'수산시장 획득',run:'달리기 획득',slice:'시장 싹쓸이 획득',spacefighter:'슈팅 획득',racing:'레이스 획득',fantasy:'모험 획득'};
+ const bonusLabel=bonusNames[code]||'게임 중 획득';
+ r.innerHTML=`<img src="${currentOsoSrc()}" alt="오소"><div class="resultBadge">${clear?'🎉 클리어!':rec?'🏆 신기록!':'도전 완료'}</div><div class="score">${score}</div><div class="resultStars">${'⭐'.repeat(stars)}${'☆'.repeat(3-stars)}</div><div>🪙 +${reward+bonusCoins}${bonusCoins?` (기본 ${reward} + ${bonusLabel} ${bonusCoins})`:``} · 현재 보유 ${state.coins}</div><div>🏆 누적점수 ${Number(state.todayScore||0).toLocaleString('ko-KR')}점</div>${scoreBonusUnlocks.length?`<div class="resultBadge">🔓 ${scoreBonusUnlocks.map(c=>game(c).name).join(' · ')} 해금!</div>`:''}<div class="actions"><button id="rx">나가기</button><button class="primary" id="rr">한판 더!</button></div>`;
+ $('#stage').appendChild(r);
+ if(crossedMilestones.length)playCoinMilestones(crossedMilestones);
+
+ // 누적점수가 새 순위 기준을 돌파하면 결과화면과 동시에 자동으로 등록 안내.
+ setTimeout(()=>promptInitialsIfNeeded(null),60);
+
+ let resultActionLocked=false;
+ $('#rx').onclick=()=>{
+  if(resultActionLocked)return;
+  resultActionLocked=true;
+  if(r.isConnected)r.remove();
+  $('#quit').click();
+ };
+ $('#rr').onclick=()=>{
+  if(resultActionLocked)return;
+  resultActionLocked=true;
+  if(r.isConnected)r.remove();
+  retry()
+ }
+}
+function readyThen(fn){
+ const s=$('#stage'),e=document.createElement('div');e.className='readyCount';s.appendChild(e);
+ const seq=['3','2','1','GO!'];let i=0,ti=null;
+ function draw(){const v=seq[i];e.innerHTML=`<div class="readyDisc ${v==='GO!'?'go':''}">${v}</div>`;if(v==='GO!')tone('perfect');else beep(580,.04,.025)}
+ draw();
+ ti=setInterval(()=>{i++;if(i<seq.length){draw()}else{clearInterval(ti);e.remove();fn()}},480);
+ cleanup=()=>{clearInterval(ti);if(e.isConnected)e.remove()}
+}
+let activeGameCode=null;
+function updateBestHud(current=null){
+ const el=$('#gBest');if(!el)return;
+ const saved=activeGameCode&&state.best?Math.max(0,Math.floor(Number(state.best[activeGameCode])||0)):0;
+ let cur=current;
+ if(cur==null){const raw=String($('#gScore')?.textContent||'0').replace(/[^0-9.-]/g,'');cur=Number(raw)||0}
+ el.textContent=`🏆 최고 ${Math.max(saved,Math.floor(Number(cur)||0))}`
+}
+const gScoreObserver=new MutationObserver(()=>updateBestHud());
+if($('#gScore'))gScoreObserver.observe($('#gScore'),{childList:true,subtree:true,characterData:true});
+
+function startGame(code){
+ if(!state.unlock[code])return;
+ if(cleanup){cleanup();cleanup=null}
+ const g=game(code);activeGameCode=code;$('#gameOverlay').classList.add('show');$('#gTitle').textContent=g.name;$('#gScore').textContent='0';updateBestHud(0);$('#stage').innerHTML='';
+ readyThen(()=>launch(code))
+}
+function launch(code){
+ if(code==='spacefighter'){playSpacefighter();return}
+ if(code==='racing'){playOsoRacing();return}
+ if(code==='fantasy'){playOsoFantasy();return}
+ startBGM(code,1);
+ ({basket:playBasket,fish:playFish,stack:playStack,run:playRun,slice:playSlice,tteok:playTteok,powerduck:playPowerduck}[code])()
+}
+$('#quit').onclick=()=>{if(cleanup){cleanup();cleanup=null}stopBGM();startBGM('hub',1);$('#gameOverlay').classList.remove('show');activeGameCode=null;refresh()};
+
+/* basket */
+function playBasket(){
+ const s=$('#stage');s.innerHTML=`<div class="scene basketScene"><div class="skyGrad"></div><div class="marketAwning"></div><div class="marketSign">싱싱 청과</div><div class="stallBack"></div><div 
+
+
+--- currentOsoSrc #4 @ 1273934 ---
+
+;
+ ti=setInterval(()=>{i++;if(i<seq.length){draw()}else{clearInterval(ti);e.remove();fn()}},480);
+ cleanup=()=>{clearInterval(ti);if(e.isConnected)e.remove()}
+}
+let activeGameCode=null;
+function updateBestHud(current=null){
+ const el=$('#gBest');if(!el)return;
+ const saved=activeGameCode&&state.best?Math.max(0,Math.floor(Number(state.best[activeGameCode])||0)):0;
+ let cur=current;
+ if(cur==null){const raw=String($('#gScore')?.textContent||'0').replace(/[^0-9.-]/g,'');cur=Number(raw)||0}
+ el.textContent=`🏆 최고 ${Math.max(saved,Math.floor(Number(cur)||0))}`
+}
+const gScoreObserver=new MutationObserver(()=>updateBestHud());
+if($('#gScore'))gScoreObserver.observe($('#gScore'),{childList:true,subtree:true,characterData:true});
+
+function startGame(code){
+ if(!state.unlock[code])return;
+ if(cleanup){cleanup();cleanup=null}
+ const g=game(code);activeGameCode=code;$('#gameOverlay').classList.add('show');$('#gTitle').textContent=g.name;$('#gScore').textContent='0';updateBestHud(0);$('#stage').innerHTML='';
+ readyThen(()=>launch(code))
+}
+function launch(code){
+ if(code==='spacefighter'){playSpacefighter();return}
+ if(code==='racing'){playOsoRacing();return}
+ if(code==='fantasy'){playOsoFantasy();return}
+ startBGM(code,1);
+ ({basket:playBasket,fish:playFish,stack:playStack,run:playRun,slice:playSlice,tteok:playTteok,powerduck:playPowerduck}[code])()
+}
+$('#quit').onclick=()=>{if(cleanup){cleanup();cleanup=null}stopBGM();startBGM('hub',1);$('#gameOverlay').classList.remove('show');activeGameCode=null;refresh()};
+
+/* basket */
+function playBasket(){
+ const s=$('#stage');s.innerHTML=`<div class="scene basketScene"><div class="skyGrad"></div><div class="marketAwning"></div><div class="marketSign">싱싱 청과</div><div class="stallBack"></div><div class="stallShelf"></div><div class="produceTray trayL">🍎🥬🍊</div><div class="produceTray trayR">🥕🍓🍐</div></div><div class="counter" id="tm">35</div><div class="comboHud" id="combo">COMBO ×0</div><div class="lifeHud" id="life">❤️❤️❤️</div><div class="levelHud" id="levelHud">LEVEL 1</div><div class="playCoinHud" id="playCoinHud">🪙 +0</div><div class="gameTip">LEVEL 3부터 좌우 흔들림 · LEVEL 4부터 2개 동시낙하 · 동전은 실제 코인 보너스!</div><img class="catchOso" src="${currentOsoSrc()}" alt="오소"><div class="basket"></div>`;
+ let score=0,t=35,alive=true,items=[],x=.5,last=0,raf,combo=0,lives=3,level=1,bonusCoins=0,prev=performance.now();const basket=$('.basket'),oso=$('.catchOso');
+ function setX(px){const r=s.getBoundingClientRect();x=Math.max(.14,Math.min(.86,(px-r.left)/r.width));let q=x*r.width;basket.style.left=(q-62)+'px';oso.style.left=(q-52)+'px'}
+ let r0=s.getBoundingClientRect();setX(r0.left+r0.width/2);s.onpointermove=e=>setX(e.clientX);s.onpointerdown=e=>setX(e.clientX);
+ function hud(){$('#combo').textContent=`COMBO ×${combo}`;$('#life').textContent='❤️'.repeat(lives)+'🖤'.repeat(3-lives);const c=$('#playCoinHud');if(c)c.textContent=`🪙 +${bonusCoins}`} 
+ function spawn(){let count=level>=4&&Math.random()<.4?2:1;for(let j=0;j<count;j++){let roll=Math.random(),bomb=.07+level*.015,kind=roll<bomb?'bomb':roll<bomb+.08?'coin':'good',el=document.createElement('div');el.className='falling popIn';el.textContent=kind==='bomb'?'💣':kind==='coin'?'🪙':['🍎','🥬','🍊','🥕','🍓','🍐'][Math.floor(Math.random()*6)];el.dataset.kind=kind;el.dataset.x=.07+Math.random()*.86;el.dataset.y=-.08-j*.07;el.dataset.v=.27+level*.045+Math.random()*.08;el.dataset.phase=Math.random()*6.28;s.appendChild(el);items.push(el)}}
+ let ti=setInterval(()=>{t--;$('#tm').textContent=t;if(t<=0){alive=false;clearInterval(ti);cancelAnimationFrame(raf);finish('basket',score,playBasket,true,bonusCoins)}},1000);
+ function loop(ts){if(!alive)return;let dt=Math.min(.033,(ts-prev)/1000);prev=ts,r=s.getBoundingClientRect();if(ts-last>Math.max(210,610-level*75)){spawn();last=ts}items.forEach(el=>{let y=+el.dataset.y+(+el.dataset.v)*dt,xp=+el.dataset.x;if(level>=3)xp+=Math.sin(y*12+(+el.dataset.phase))*.0011;el.dataset.x=xp;el.dataset.y=y;el.style.left=(xp*r.width-20)+'px';el.style.top=(y*r.height)+'px';el.style.transform=`rotate(${y*220}deg)`;if(y>.76&&y<.92&&Math.abs(xp-x)<.16){let br=basket.getBoundingClientRect(),cx=br.left+br.width/2,cy=br.top;if(el.dataset.kind==='bomb'){lives--;combo=0;score=Math.max(0,score-35);tone('bad');bombBuzz();softShake();fxText(cx,cy,'-35','#d94343')}else{combo++;const gotCoin=el.dataset.kind==='coin';let pts=gotCoin?70:10+level*2+Math.min(30,Math.floor(combo/5)*5);score+=pts;if(gotCoin)bonusCoins++;tone(gotCoin?'coin':'good');buzz(gotCoin?[12,6,20]:12);fxText(cx,cy,gotCoin?`🪙 +1 · +${pts}점`:'+'+pts,gotCoin?'#c77b00':'#f39a11');particles(cx,cy,gotCoin?'🪙':'✨',gotCoin?7:5);if(combo>=2)showComboBurst(`COMBO ×${combo}`,combo,'combo');if(combo>0&&combo%5===0){tone('perfect')}}$('#gScore').textContent=score;level=updateLevel('basket',score,level);hud();el.remove();if(lives<=0){alive=false;clearInterval(ti);cancelAnimationFrame(raf);finish('basket',score,playBasket,false,bonusCoins)}}else if(y>1.03){if(el.dataset.kind!=='bomb')combo=0;el.remove();hud()}});items=items.filter(e=>e.isConnected);raf=requestAnimationFrame(loop)}
+ hud();raf=requestAnimationFrame(loop);cleanup=()=>{alive=false;clearInterval(ti);cancelAnimationFrame(raf);s.onpointermove=s.onpointerdown=null}
+}
+
+/* fish with water flow/audio/drops */
+function playFish(){
+ const s=$('#stage');
+ s.innerHTML=`<div class="scene fishScene"><div class="marketAwning"></div><div c
+
+
+--- currentOsoSrc #5 @ 1289668 ---
+
+cc>=75){
+   current.classList.add('ok');tone('good');buzz(32);showComboBurst(`GOOD! +${pts}`,2,'combo')
+  }else{
+   current.classList.add('ok');tone('good');buzz(32);showComboBurst(`아슬아슬! +${pts}`,2,'combo')
+  }
+
+  floor++;
+  level=updateLevel('stack',score,level);
+  hud();
+  if(floor>=15){ finishTower(); return; }
+
+  current=piece();
+  dir*=-1;
+  x=dir>0?0:Math.max(0,W()-parseFloat(current.style.width));
+ }
+
+ function stackPointer(e){
+  if(!alive||!current||retrying)return;
+  const now=performance.now();
+  if(now-lastDropAt<90)return;
+  lastDropAt=now;
+  e.preventDefault();
+  drop()
+ }
+ s.style.touchAction='none';
+ s.addEventListener('pointerdown',stackPointer,{capture:true,passive:false});
+ function loop(ts){
+  if(!alive)return;
+  if(!last){last=ts;raf=requestAnimationFrame(loop);return}
+  const dt=Math.max(0,Math.min(.04,(ts-last)/1000));last=ts;
+  if(retrying){raf=requestAnimationFrame(loop);return}
+  const pieceW=parseFloat(current.style.width);
+  const maxX=Math.max(0,W()-pieceW);
+  // 1단은 천천히 시작하고, 층수와 LEVEL이 오를수록 약 3배까지 꾸준히 가속한다.
+  const speedPx=120+floor*11+(level-1)*22;
+  x += dir*speedPx*dt;
+  if(x<=0){x=0;dir=1}
+  if(x>=maxX){x=maxX;dir=-1}
+  current.style.left=x+'px';
+  raf=requestAnimationFrame(loop)
+ }
+ hud();
+ raf=requestAnimationFrame(loop);
+ cleanup=()=>{alive=false;retrying=true;cancelAnimationFrame(raf);s.removeEventListener('pointerdown',stackPointer,true)}
+}
+
+/* run - stable dt + 2 jumps */
+function playRun(){
+ const s=$('#stage');s.innerHTML='<div class="runFrame"><canvas class="runner" id="rc"></canvas><div class="runVignette"></div><div class="runHitFlash" id="runFlash"></div></div><div class="counter" id="runLife">❤️❤️❤️❤️❤️</div><div class="jumpHud" id="jumpHud">점프 2/2</div><div class="runHud" id="runDist">0m · 🪙 +0</div><div class="levelHud" id="levelHud">LEVEL 1</div><div class="gameTip">동전 한 패턴 완주 = GREAT! · GREAT 1회=3단점프권 · GREAT 3회마다 ❤️ +1</div>';
+ const c=$('#rc'),ctx=c.getContext('2d'),flash=$('#runFlash');let alive=true,py=0,vy=0,jumps=0,jumpCap=2,lives=5,inv=0,world=0,score=0,coins=0,obs=[],coinList=[],raf,prev=performance.now(),obsT=.8,coinT=.45,land=0,img=new Image(),level=1,greatTotal=0,tripleCharges=0,patternSeq=0;img.src=currentOsoSrc();
+ const coinPatterns=new Map();let cw=1,ch=1,dpr=1;
+ function lifeHud(){
+  const red=Math.max(0,Math.floor(lives)),empty=Math.max(0,5-red);
+  $('#runLife').textContent='❤️'.repeat(red)+'🖤'.repeat(empty)
+ }
+ function jumpHud(){
+  const left=Math.max(0,jumpCap-jumps),ticket=tripleCharges>0?` · 3단권 ×${tripleCharges}`:'';
+  $('#jumpHud').textContent=`점프 ${left}/${jumpCap}${ticket}`
+ }
+ function resize(){let r=c.getBoundingClientRect();cw=Math.max(1,r.width);ch=Math.max(1,r.height);dpr=Math.min(2,devicePixelRatio||1);c.width=Math.round(cw*dpr);c.height=Math.round(ch*dpr);ctx.setTransform(dpr,0,0,dpr,0,0)}
+ resize();window.addEventListener('resize',resize);
+ c.onpointerdown=()=>{
+  if(jumps>=jumpCap)return;
+  const next=jumps+1;
+  if(next===3&&tripleCharges<=0){jumpCap=2;jumpHud();return}
+  jumps=next;
+  if(jumps===1){vy=-530;tone('good');buzz(9)}
+  else if(jumps===2){vy=-470;tone('perfect');buzz([10,10,18])}
+  else{tripleCharges--;vy=-445;tone('clear');buzz([12,7,24,7,34]);showComboBurst('3단 점프!',Math.max(2,greatTotal),'great')}
+  jumpHud()
+ };
+ function cloud(x,y,scl){ctx.fillStyle='#ffffffc8';ctx.beginPath();ctx.ellipse(x,y,45*scl,20*scl,0,0,6.28);ctx.ellipse(x+34*scl,y+2*scl,34*scl,16*scl,0,0,6.28);ctx.ellipse(x-28*scl,y+3*scl,30*scl,15*scl,0,0,6.28);ctx.fill()}
+ function building(x,base,w,h,col,sign){ctx.fillStyle=col;ctx.fillRect(x,base-h,w,h);ctx.fillStyle='#f5e5b9';for(let y=base-h+28;y<base-45;y+=48)for(let xx=x+12;xx<x+w-20;xx+=44)ctx.fillRect(xx,y,22,21);ctx.fillStyle='#6c432b';ctx.fillRect(x+w*.17,base-38,w*.66,28);ctx.fillStyle='#fff3bd';ctx.font='bold 11px sans-serif';ctx.textAlign='center';ctx.fillText(sign,x+w/2,base-19)}
+ function obstacle(x,y,type){ctx.save();ctx.translate(x,y);if(type==='tower'){ctx.fillStyle='#d18a3d';ctx.strokeStyle='#70442a';ctx.lineWidth=4;for(let k=0;k<2;k++){ctx.fillRect(-27,-35-k*35,54,34);ctx.strokeRect(-27,-35-k*35,54,34)}}else if(type==='cart'){ctx.fillStyle='#dfa155';ctx.strokeStyle='#684329';ctx.lineWidth=5;ctx.fillRect(-31,-28,58,31);ctx.strokeRect(-31,-28,58,31);ctx.beginPath();ctx.moveTo(27,-19);ctx.lineTo(45,-39);ctx.stroke();ctx.fillStyle='#4c4238';ctx.beginPath();ctx.arc(-18,9,8,0,6.28);ctx.arc(19,9,8,0,6.28);ctx.fill()}else{ctx.fillStyle='#d58b3d';ctx.strokeStyle='#70452a';ctx.lineWidth=4;ctx.fillRect(-26,-32,52,36);ctx.strokeRect(-26,-32,52,36)}ctx.restore()}
+ function spawnObs(){let type=level>=4&&Math.random()<.35?'tower':level>=2&&Math.random()<.35?'cart':'crate';obs.push({x:cw+80+Math.random()*160,type})}
+ function spawnCoins(){let n=3+Math.floor(Math.random()*4),base=cw+70,y=ch-175-Math.random()*100,id=++patternSeq;coinPatterns.set(id,{total:n,collected:0,failed:false,done:false});for(let i=0;i<n;i++)coinList.push({x:base+i*43,y:y-Math.sin(i/(n-1||1)*3.14)*48,g:false,spin:Math.random()*6,pattern:id})}
+ function completePattern(id){
+  const p=coinPatterns.get(id);if(!p||p.done||p.failed||p.collected<p.total)return;
+  p.done=true;greatTotal++;tripleCharges++;jumpCap=3;score+=80+greatTotal*10;
+  const heartBonus=greatTotal%3===0;
+  if(heartBonus)lives++;
+  tone('clear');buzz(heartBonus?[24,8,38,8,58,10,82]:[18,8,30,8,45]);
+  const sr=s.getBoundingClientRect();
+  showComboBurs
+
+
+--- currentOsoSrc #6 @ 1310058 ---
+
+prev)/1000);prev=ts,r=s.getBoundingClientRect();
+  if(ts-last>spawnDelay()){spawnWave();last=ts}
+  items.forEach(e=>{if(!e.isConnected)return;let x=+e.dataset.x+(+e.dataset.vx)*dt,y=+e.dataset.y+(+e.dataset.vy)*dt,vy=+e.dataset.vy+900*dt,rot=+e.dataset.rot+190*dt,scale=+(e.dataset.scale||1);e.dataset.x=x;e.dataset.y=y;e.dataset.vy=vy;e.dataset.rot=rot;e.style.left=x+'px';e.style.top=y+'px';e.style.transform=`rotate(${rot}deg) scale(${scale})`;if(y>r.height+105){if(e.dataset.bomb!=='1'&&e.dataset.coin!=='1'&&e.dataset.cut!=='1')combo=0;e.remove();hud()}});
+  items=items.filter(e=>e.isConnected);raf=requestAnimationFrame(loop)
+ }
+ let ti=setInterval(()=>{t--;$('#tm').textContent=t;if(t<=0){alive=false;clearInterval(ti);cancelAnimationFrame(raf);finish('slice',score,playSlice,true,bonusCoins)}},1000);
+ hud();raf=requestAnimationFrame(loop);cleanup=()=>{alive=false;clearInterval(ti);cancelAnimationFrame(raf);s.onpointerdown=s.onpointermove=s.onpointerup=s.onpointercancel=null}
+}
+
+
+/* tteok - detailed pieces + real impact + level patterns */
+function playTteok(){
+ const s=$('#stage');
+ s.innerHTML=`<div class="scene tteokSceneV9"><div class="tteokAwning"></div><div class="tteokShopSign">1884 전통 떡집</div><div class="backShelf"><div class="tteokTray" style="left:7%;right:54%;top:66px"></div><div class="tteokTray" style="left:54%;right:7%;top:66px"></div><div class="tteokPiece" style="left:11%;top:36px"></div><div class="tteokPiece pink" style="left:25%;top:32px"></div><div class="tteokPiece green" style="left:39%;top:37px"></div><div class="tteokPiece pink" style="right:36%;top:35px"></div><div class="tteokPiece" style="right:22%;top:32px"></div><div class="tteokPiece green" style="right:9%;top:37px"></div></div><div class="marketCounter"></div><div class="malletShadowV9"></div><div class="mortarWrap"><div class="mortar"></div><div class="dough" id="dough"></div></div><div class="mortarImpactV9" id="impact"></div><div class="tteokHammer" id="mallet"><div class="woodHammerHead"></div><div class="woodHammerHandle"></div><div class="hammerGrip"></div></div><div class="rhythmTarget" id="target"></div><div class="rhythmRing" id="ring"></div><img class="tteokMascotV9" src="${currentOsoSrc()}" alt="오소"></div><div class="counter" id="tm">35</div><div class="tteokSpeed" id="tteokSpeed">속도 ×1.00</div><div class="comboHud" id="combo">COMBO ×0</div><div class="levelHud" id="levelHud">LEVEL 1</div><div class="gameTip">연속 성공 COMBO · 5콤보마다 강한 피드백!</div><div class="feverWrap"><div class="feverFill" id="feverFill"></div></div><div class="feverText" id="feverText">찰기 0%</div><div class="tteokGrade" id="grade"></div><button class="tteokHitButton" id="hitBtn">쿵! 떡메 내리치기</button>`;
+
+ let score=0,t=35,alive=true,raf,prev=performance.now();
+ let phase=0,combo=0,fever=0,feverTime=0,level=1;
+
+ const ring=$('#ring'),mallet=$('#mallet'),dough=$('#dough'),
+       grade=$('#grade'),impact=$('#impact'),scene=$('.tteokSceneV9'),
+       target=$('#target');
+
+ // 판정 구간은 레벨/콤보와 무관하게 끝까지 동일.
+ const PERFECT_WINDOW=.10;
+ const GREAT_WINDOW=.25;
+ const GOOD_WINDOW=.46;
+
+ // 난이도 상승은 오직 수축 속도만 변화.
+ // LEVEL + COMBO가 오르면 같은 바깥→안쪽 패턴이 점점 빨라진다.
+ function speedNow(){
+  return .78 + (level-1)*.10 + Math.min(1.30, combo*.045);
+ }
+
+ function hud(){
+  $('#combo').textContent=`COMBO ×${combo}`;
+  $('#feverFill').style.width=fever+'%';
+  $('#feverText').textContent=feverTime>0?`🔥 FEVER ${feverTime.toFixed(1)}s`:`찰기 ${Math.floor(fever)}%`;
+  $('#tteokSpeed').textContent=`속도 ×${(speedNow()/.78).toFixed(2)}`;
+ }
+
+ function nextBeat(){
+  phase=0;
+  // 언제나 같은 초록 타깃, 같은 바깥→안쪽 패턴.
+  target.style.borderColor='#53be6a';
+ }
+
+ function impactFx(q){
+  mallet.classList.add('strike');
+  dough.classList.remove('hit');void dough.offsetWidth;dough.classList.add('hit');
+  impact.classList.remove('show');void impact.offsetWidth;impact.classList.add('show');
+  scene.classList.remove('impact');void scene.offsetWidth;scene.classList.add('impact');
+
+  let mr=$('.mortar').getBoundingClientRect(),sr=s.getBoundingClientRect();
+  for(let i=0;i<(q==='perfect'?11:7);i++){
+   let ln=document.createElement('div');
+   ln.className='impactLineV9';
+   ln.style.left=(mr.left-sr.left+mr.width/2+Math.random()*90-45)+'px';
+   ln.style.top=(mr.top-sr.top+25)+'px';
+   ln.style.transform=`rotate(${Math.random()*120-60}deg)`;
+   s.appendChild(ln);setTimeout(()=>ln.remove(),340);
+  }
+  tone('thump');
+  buzz(q==='perfect'?[50,18,75]:[35,14,48]);
+  setTimeout(()=>mallet.classList.remove('strike'),125);
+ }
+
+ function hit(){
+  if(!alive)return;
+
+  // 링은 항상 바깥(2.75) → 중앙(1.0)으로만 수축.
+  const scale=2.75-1.75*phase;
+  const d=Math.abs(scale-1);
+
+  let pts=0,label='MISS',color='#d84a43',gain=-9,q='miss';
+
+  if(d<PERFECT_WINDOW){
+   pts=58;label='PERFECT!';color='#ff9c00';combo++;gain=22;q='perfect';tone('perfect');
+  }else if(d<GREAT_WINDOW){
+   pts=36;label='GREAT!';color='#62b64d';combo++;gain=14;q='great';tone('good');
+  }else if(d<GOOD_WINDOW){
+   pts=18;label='GOOD';color='#4e9ad1';combo++;gain=7;q='good';tone('good');
+  }else{
+   combo=0;tone('bad');softShake();
+  }
+
+  let mult=feverTime>0?2:1;
+  pts=(pts+Math.min(35,combo*3))*mult;
+  score+=pts;
+  fever=Math.max(0,Math.min(100,fever+gain));
+
+  if(fever>=100&&feverTime<=0){
+   feverTime=5;
+   tone('clear');
+   particles(innerWidth/2,innerHeight/2,'🔥',12);
+  }
+
+  $('#gScore').textContent=score;
+  grade.textContent=feverTime>0&&pts>0?label+' ×2':label;
+
+
+
+--- currentOsoSrc #7 @ 1320453 ---
+
+ck',total,playPowerduck,true),720)}else{lv++;setTimeout(loadStage,720)}
+  }else{
+   const gained=pdStageScore(lv,taps,false);total+=gained;$('#gScore').textContent=total;
+   tone('bad');buzz(100);showText(`${taps}회 / ${o.need}회 실패 · +${gained}점`);setTimeout(()=>finish('powerduck',total,playPowerduck,false),650)
+  }
+ }
+ function tick(ts){if(!running)return;let elapsed=ts-start,p=Math.max(0,1-elapsed/1000);fill.style.width=(p*100)+'%';if(elapsed>=1000){finishSecond();return}raf=requestAnimationFrame(tick)}
+ target.onclick=()=>{
+  if(ended)return;if(!running){running=true;start=performance.now();raf=requestAnimationFrame(tick)}
+  taps++;tone('tap');buzz(5);target.classList.add('hit');setTimeout(()=>target.classList.remove('hit'),35);count.textContent=`${taps} 연타`;updatePdScorePreview();let o=targets[lv-1],p=Math.min(1,taps/o.need);crack(p);if(taps===o.need)showText(`목표 돌파! LEVEL ${lv} 점수 ×${PD_SCORE_MULT[lv]}!`)
+ };
+ loadStage();cleanup=()=>{ended=true;running=false;cancelAnimationFrame(raf)}
+}
+
+
+
+/* ===== 오소 우주파이터 : 5-STAGE VERTICAL SHOOTER ===== */
+function playSpacefighter(){
+ const s=$('#stage'),skin=currentSkin(),group=skin.group||'oso';
+ const shotIcon=group==='oso'?'📦':'●';
+ const superName=group==='oso'?'만물상 폭격!':'진주 폭풍!';
+
+ s.innerHTML=`<div class="sfWrap">
+   <canvas id="sfCanvas"></canvas>
+   <div class="sfHud"><div id="sfScore">SCORE 0</div><div class="sfStage" id="sfStageText">STAGE 1</div><div class="sfLife" id="sfLife">♥ 3</div></div><div class="sfBonusCoin" id="sfBonusCoin">🪙 +0</div>
+   <div class="sfGauge"><div class="sfGaugeFill" id="sfGaugeFill"></div><div class="sfGaugeText" id="sfGaugeText">초필살기 0%</div></div>
+   <div class="sfUpgrade"><span class="pow" id="sfPower">POWER 1/5</span><span class="opt" id="sfOption">OPTION 0/5</span></div>
+   <div class="sfBossBar" id="sfBossBar"><div class="sfBossFill" id="sfBossFill"></div><div class="sfBossText" id="sfBossText">BOSS 100%</div></div>
+   <button class="sfSuper" id="sfSuper">${superName}<br>0%</button>
+   <div class="sfFlash" id="sfFlash"></div>
+ </div>`;
+
+ const canvas=$('#sfCanvas'),ctx=canvas.getContext('2d'),wrap=$('.sfWrap'),superBtn=$('#sfSuper');
+ const playerImg=new Image();playerImg.src=currentOsoSrc();
+
+ const STAGES=[
+  {name:'중앙시장',music:'space1',bg:['#ffe0a6','#e88d45'],mobs:['🛒','🍎','🐟','🧺','🥬'],boss:'🛒',bossName:'폭주 만물 장바구니',pattern:'fan'},
+  {name:'진주성',music:'space2',bg:['#b7d9ff','#6b86bb'],mobs:['🏹','🛡️','🔥','🪨','⚔️'],boss:'🏯',bossName:'철갑 성문 수호대',pattern:'wall'},
+  {name:'남강',music:'space3',bg:['#61cce8','#176c9b'],mobs:['🐟','🛶','💧','🌊','🦀'],boss:'🐉',bossName:'남강 회오리 용왕',pattern:'wave'},
+  {name:'지구',music:'space4',bg:['#132d67','#050a21'],mobs:['☄️','🛰️','🪨','🛸','⚡'],boss:'🛰️',bossName:'메테오 머신',pattern:'radial'},
+  {name:'우주와 악의 본거지',music:'space5',bg:['#170526','#02030b'],mobs:['👾','🛸','💀','🔻','☄️'],boss:'👿',bossName:'악의 코어 제로',pattern:'spiral'}
+ ];
+
+ let W=0,H=0,DPR=1,raf=0,alive=true,stageNo=1,stageStart=0,last=performance.now();
+ let player={x:0,y:0,r:17,lives:3,inv:0},shots=[],enemies=[],bullets=[],items=[],stars=[],boss=null;
+ let particles=[],rings=[],score=0,gauge=0,power=1,options=0,lastShot=0,lastSpawn=0,lastEnemyFire=0,lastBossFire=0,bossPhase=0,transition=true,drag=false;
+ let superFx=null,screenShake=0,stagePowerDropped=false,stageOptionDropped=false,killDropMeter=0,bonusCoins=0;
+
+ function resize(){
+  const r=wrap.getBoundingClientRect();
+  W=Math.max(280,r.width);H=Math.max(360,r.height);DPR=Math.min(2,window.devicePixelRatio||1);
+  canvas.width=Math.floor(W*DPR);canvas.height=Math.floor(H*DPR);
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+  if(!player.x){player.x=W*.5;player.y=H*.82}
+ }
+ resize();
+ const ro=new ResizeObserver(resize);ro.observe(wrap);
+
+ for(let i=0;i<90;i++)stars.push({x:Math.random(),y:Math.random(),s:.4+Math.random()*2,p:.2+Math.random()*.9,tw:Math.random()*6.28});
+
+ function clamp(v,a,b){return Math.max(a,Math.min(b,v))}
+ function dist2(a,b){let dx=a.x-b.x,dy=a.y-b.y;return dx*dx+dy*dy}
+ function updateHud(){
+  $('#sfScore').textContent='SCORE '+Math.floor(score).toLocaleString('ko-KR');
+  $('#gScore').textContent=Math.floor(score);
+  $('#sfStageText').textContent=`STAGE ${stageNo} · ${STAGES[stageNo-1].name}`;
+  $('#sfLife').textContent=`♥ ${player.lives}`;
+  $('#sfPower').textContent=`POWER ${power}/5`;
+  $('#sfOption').textContent=`OPTION ${options}/4`;
+  $('#sfGaugeFill').style.height=clamp(gauge,0,100)+'%';
+  $('#sfGaugeFill').style.width='100%';
+  $('#sfGaugeText').textContent=`SUPER ${Math.floor(gauge)}%`;
+  superBtn.innerHTML=`${superName}<br>${Math.floor(gauge)}%`;
+  superBtn.classList.toggle('ready',gauge>=100)
+ }
+ function banner(title,sub){
+  let old=$('.sfStageBanner');if(old)old.remove();
+  const b=document.createElement('div');b.className='sfStageBanner';
+  b.innerHTML=`<b>${title}</b><span>${sub}</span>`;wrap.appendChild(b);
+  setTimeout(()=>b.classList.add('hide'),950);setTimeout(()=>b.remove(),1500)
+ }
+ function toast(msg){
+  const e=document.createElement('div');e.className='sfPickupToast';e.textContent=msg;
+  wrap.appendChild(e);setTimeout(()=>e.remove(),1050)
+ }
+
+ function addParticle(x,y,color='#ffd75d',count=10,speed=150,size=3,life=.55){
+  for(let i=0;i<count;i++){
+   const a=Math.random()*Math.PI*2,v=speed*(.35+Math.random()*.75);
+   particles.push({x,y,vx:Math.cos(a)*v,vy:Math.sin(a)*v,r:size*(.55+Math.random()*.9),life,max:life,color,rot:Math.random()*6.28,sp
+
+
+--- currentOsoSrc #8 @ 1348014 ---
+
+2,42);ctx.closePath();ctx.fill();
+    ctx.beginPath();ctx.moveTo(28,-22);ctx.lineTo(94,-70);ctx.lineTo(72,6);ctx.lineTo(112,34);ctx.lineTo(42,42);ctx.closePath();ctx.fill();
+    ctx.strokeStyle='#ff315d';ctx.lineWidth=5;ctx.shadowColor='#ff315d';ctx.shadowBlur=18;
+    ctx.beginPath();ctx.arc(0,0,boss.r+34+Math.sin(ts*.009)*7,0,6.28);ctx.stroke();
+    ctx.restore();
+   }
+   drawEmoji(boss.icon,boss.x,boss.y,(92+stageNo*9)*(finalForm?1.28:1));
+   if(finalForm){
+    ctx.save();ctx.fillStyle='#fff0a6';ctx.shadowColor='#ff315d';ctx.shadowBlur=16;
+    ctx.beginPath();ctx.arc(boss.x,boss.y+8,7+Math.sin(ts*.013)*2,0,6.28);ctx.fill();ctx.restore()
+   }
+   ctx.fillStyle=finalForm?'#ffb3c3':'#fff';ctx.font=`1000 ${finalForm?14:12}px sans-serif`;ctx.textAlign='center';
+   ctx.fillText(boss.name,boss.x,boss.y+boss.r+34)
+  }
+
+  bullets.forEach(b=>{
+   ctx.save();ctx.fillStyle=b.color;ctx.shadowColor=b.color;ctx.shadowBlur=9;
+   ctx.beginPath();ctx.arc(b.x,b.y,b.r,0,6.28);ctx.fill();
+   ctx.strokeStyle='#fff9';ctx.lineWidth=1;ctx.stroke();ctx.restore()
+  });
+
+  // OPTION 분신 최대 5개
+  const clones=clonePositions();
+  clones.forEach((c,i)=>{
+   if(playerImg.complete&&playerImg.naturalWidth){
+    ctx.save();ctx.globalAlpha=.35+.07*(i%2);ctx.translate(c.x,c.y);
+    ctx.shadowColor='#cf83ff';ctx.shadowBlur=11;
+    ctx.drawImage(playerImg,-20,-21,40,42);ctx.restore()
+   }else{
+    ctx.save();ctx.globalAlpha=.45;
+    drawEmoji(group==='oso'?'🐂':group==='hamo'?'🦦':'🐱',c.x,c.y,30);
+    ctx.restore()
+   }
+  });
+
+  if(player.inv<=0||Math.floor(ts/80)%2===0){
+   if(playerImg.complete&&playerImg.naturalWidth){
+    ctx.save();ctx.translate(player.x,player.y);
+    ctx.shadowColor='#8cf3ff';ctx.shadowBlur=14;
+    ctx.drawImage(playerImg,-30,-31,60,62);ctx.restore()
+   }else{
+    drawEmoji(group==='oso'?'🐂':group==='hamo'?'🦦':'🐱',player.x,player.y,48)
+   }
+  }
+
+  drawEffects(dt);
+  drawSuper(ts);
+  ctx.restore();
+
+  raf=requestAnimationFrame(loop)
+ }
+
+ stageBegin(1);
+ updateHud();
+ raf=requestAnimationFrame(loop);
+ cleanup=()=>{
+  alive=false;cancelAnimationFrame(raf);ro.disconnect();
+  superBtn.onclick=null;stopBGM()
+ }
+}
+
+
+function playOsoRacing(){
+ const s=$('#stage'),img=new Image();img.src=currentOsoSrc();
+ s.innerHTML=`<div class="raceWrap">
+  <canvas id="raceCanvas"></canvas>
+  <div class="raceHud"><div id="raceScore">SCORE 0</div><div class="raceSection" id="raceSection">중앙시장</div><div class="raceTime" id="raceTime">TIME 96.0</div></div>
+  <div class="raceCoinHud" id="raceCoin">🪙 0</div>
+  <div class="raceSpeedometer"><div class="raceNeedle" id="raceNeedle"></div><div class="raceSpeedNum" id="raceSpeedNum">0</div><div class="raceSpeedUnit">km/h</div></div>
+  <button class="raceBoost" id="raceBoost">BOOST<br>0%</button>
+  <button class="raceDrift" id="raceDrift">DRIFT</button>
+  <div class="raceSteer"><button id="raceLeft" aria-label="왼쪽">◀</button><button id="raceRight" aria-label="오른쪽">▶</button></div>
+  <button class="raceBrake" id="raceBrake">BRAKE</button><button class="raceAccel" id="raceAccel">ACCEL</button>
+  <div class="raceControlHint">◀ ▶ 조향 · DRIFT · ACCEL · BRAKE</div>
+ </div>`;
+
+ const wrap=$('.raceWrap'),canvas=$('#raceCanvas'),ctx=canvas.getContext('2d');
+ const boostBtn=$('#raceBoost'),driftBtn=$('#raceDrift'),accelBtn=$('#raceAccel'),brakeBtn=$('#raceBrake'),leftBtn=$('#raceLeft'),rightBtn=$('#raceRight'),needle=$('#raceNeedle');
+
+ let W=360,H=560,DPR=1,raf=0,alive=true,last=performance.now(),time=96;
+ let speed=0,distance=0,score=0,playerX=0,targetX=0,boost=0,boostUntil=0,lastSection=0,shake=0;
+ let accelHeld=false,accelPointer=null,brakeHeld=false,brakePointer=null,driftHeld=false,driftPointer=null,steering=false,steerDir=0,steerPointer=null;
+ let lastBrakeSfx=0,lastLoadBuzz=0,lastTyreSfx=0,lastDriftSfx=0,lastForceBuzz=0,cars=[],raceCoinsOnRoad=[],sparks=[],lastCarSpawn=0,engineNodes=null,cornerSlip=0,raceCoinCount=0,nextCoinLineAt=7000,raceLineSeq=0;
+
+ /* 표시 속도는 현실적인 220/260 km/h.
+    화면 이동은 속도 비례 가속 스크롤이며 최고속도에서 v2.0.3의 9배율 대비 4배 이상. */
+ const FINISH=420000,DRAW=118,NORMAL_MAX=220,BOOST_MAX=260,WORLD_PER_SEG=28;
+ const SEC=[
+  {name:'중앙시장',sky1:'#84cff6',sky2:'#eef9ff',grass:'#e6b96f',kind:'market'},
+  {name:'진주성',sky1:'#9ecbf0',sky2:'#e8f2ff',grass:'#8ca16b',kind:'castle'},
+  {name:'남강',sky1:'#70d0ee',sky2:'#e9fbff',grass:'#65b9a3',kind:'river'},
+  {name:'도심대로',sky1:'#8fc6ff',sky2:'#edf5ff',grass:'#8e9ba8',kind:'city'},
+  {name:'중앙시장 피니시',sky1:'#ffc77c',sky2:'#fff0cf',grass:'#d89259',kind:'finish'}
+ ];
+
+ /* 짧은 꼬불거림이 아니라 긴 직선과 매우 강한 단일 아크 커브. */
+ const COURSE=[
+  {from:0,      to:40000,  curve:0,       label:'시장 대로'},
+  {from:40000,  to:88000,  curve:.00480,  label:'초급격 장거리 우커브'},
+  {from:88000,  to:130000, curve:0,       label:'진주성 직선'},
+  {from:130000, to:182000, curve:-.00540, label:'초급격 성벽 좌커브'},
+  {from:182000, to:220000, curve:0,       label:'남강 진입 직선'},
+  {from:220000, to:274000, curve:.00470,  label:'남강 초급격 우커브'},
+  {from:274000, to:315000, curve:0,       label:'강변 직선'},
+  {from:315000, to:365000, curve:-.00520, label:'도심 초급격 좌커브'},
+  {from:365000, to:392000, curve:.00420,  label:'피니시 급 우스위퍼'},
+  {from:392000, to:420000, curve:0,       label:'피니시 스트레이트'}
+ ];
+
+ function clamp(v,a,b){return Math.max(a,Math.min(b,v))}
+ function sectionIndex(){return clamp(Math.floor(distance/(FINISH/5)),0,4)}
+ function resize(){
+  const r=wrap.getBoundingClientRect(),sr=s.getBoundingClientRect();
+  W=Math.max(300,Ma
+
+
+--- currentOsoSrc #9 @ 1373856 ---
+
+.9: 동전을 실제로 그리는 화면 투영좌표와 같은 좌표계에서 충돌 판정 */
+  const coinHitPts=buildRoadPoints();
+  const carHitX=W*.5+playerX*W*.28,carHitY=H-78;
+  for(const q of raceCoinsOnRoad){
+   if(q.got)continue;
+   const rel=(q.d-distance)/WORLD_PER_SEG;
+   if(rel<=0||rel>DRAW)continue;
+   const p=pointAtRel(rel,coinHitPts);
+   const coinX=p.center+q.lane*p.width*.31;
+   const coinY=p.y-6;
+   const coinScale=.35+p.q*p.q*.80;
+   const hitX=Math.max(22,24*coinScale);
+   if(Math.abs(coinX-carHitX)<=hitX&&coinY>=carHitY-58&&coinY<=carHitY+32){
+    q.got=true;raceCoinCount++;score+=120;boost=clamp(boost+5,0,100);
+    tone('coin');buzz(32);
+    if(raceCoinCount%6===0)banner('COIN LINE!','동전 6개 싹쓸이!')
+   }
+  }
+  raceCoinsOnRoad=raceCoinsOnRoad.filter(q=>!q.got&&(q.d-distance)/WORLD_PER_SEG>-7);
+
+  spawnCar(ts);
+  for(const c of cars){
+   c.d+=c.speed*dt*mapRate*.30;
+   const rel=(c.d-distance)/WORLD_PER_SEG;
+   if(!c.hit&&rel>0&&rel<3.1&&Math.abs(c.lane-playerX)<.19){
+    c.hit=true;speed=Math.max(42,speed-62);shake=11;spark(W*.5+playerX*W*.28,H-76);crashLabel();bombBuzz();score=Math.max(0,score-700)
+   }
+   if(!c.passed&&rel<=0){c.passed=true;boost=clamp(boost+52,0,100);score+=450}
+  }
+  cars=cars.filter(c=>(c.d-distance)/WORLD_PER_SEG>-8&&(c.d-distance)/WORLD_PER_SEG<DRAW+16);
+
+  if(shake>0)shake=Math.max(0,shake-dt*20);updateHud();
+  ctx.save();if(shake>0)ctx.translate((Math.random()-.5)*shake,(Math.random()-.5)*shake);drawRoad();ctx.restore();
+
+  if(distance>=FINISH){banner('FINISH!','초고속 장거리 코스 완주!');raceFinishFanfare();setTimeout(()=>endRace(true),1350);return}
+  if(time<=0){endRace(false);return}
+  raf=requestAnimationFrame(loop)
+ }
+ raf=requestAnimationFrame(loop);
+
+ cleanup=()=>{
+  alive=false;cancelAnimationFrame(raf);if(ro)ro.disconnect();else window.removeEventListener('resize',resize);
+  window.removeEventListener('pointerup',accelUp,true);window.removeEventListener('pointerup',brakeUp,true);window.removeEventListener('pointerup',driftUp,true);window.removeEventListener('pointerup',steerUp,true);
+  boostBtn.removeEventListener('pointerdown',boostDown);boostBtn.onclick=null;stopEngine();stopBGM()
+ }
+}
+
+function playOsoFantasy(){
+ const s=$('#stage'),heroImg=new Image();heroImg.src=currentOsoSrc(),heroGroup=currentSkin().group||'oso';
+ s.innerHTML=`<div class="fantasyWrap"><canvas id="fantasyCanvas"></canvas><div class="fantasyHud"><div id="fantasyStat">LV 1 · HP 20/20 · MP 6/6 · EXP 0/8</div><div class="fantasyPlace" id="fantasyPlace">중앙시장</div></div><button class="fantasyMapBtn" id="fantasyMapBtn">MAP</button><button class="fantasyMenuBtn" id="fantasyMenuBtn">MENU</button><div class="fantasyQuest" id="fantasyQuest"></div><div class="fantasyDialog hide" id="fantasyDialog"></div><div class="fantasySaveMenu" id="fantasySaveMenu"><div class="fantasySaveCard"><div class="fantasyMenuHome" id="fantasyMenuHome"><h3>모험 메뉴</h3><div class="fantasySaveStatus" id="fantasySaveStatus">저장 데이터를 확인하는 중…</div><div class="fantasySaveActions"><button class="status" id="fantasyStatusBtn">스테이터스</button><button id="fantasySaveBtn">중간 저장</button><button id="fantasyLoadBtn">불러오기</button><button class="continue" id="fantasyMenuClose">계속하기</button></div></div><div class="fantasyStatusPage" id="fantasyStatusPage"><h3>스테이터스</h3><div id="fantasyStatusBody"></div><button class="fantasyStatusBack" id="fantasyStatusBack">모험 메뉴로</button></div></div></div><div class="fantasyMapOverlay" id="fantasyMapOverlay"><div class="fantasyMapCard"><h3 id="fantasyMapTitle">전체 지도</h3><canvas class="fantasyMapCanvas" id="fantasyMapCanvas"></canvas><div class="fantasyMapLegend"><span>🔴 현재 위치</span><span>🟡 주민</span><span>🟠 보물상자</span><span>🟣 보스</span><span>🔵 출구</span></div><button class="fantasyMapClose" id="fantasyMapClose">지도 닫기</button></div></div><div class="fantasyControls" id="fantasyControls"><div class="fantasyDpad"><button class="up" data-move="0,-1">▲</button><button class="left" data-move="-1,0">◀</button><button class="right" data-move="1,0">▶</button><button class="down" data-move="0,1">▼</button></div><div class="fantasyMini">사람·상자·문 앞에서<br>A 버튼</div><button class="fantasyAction" id="fantasyAction">A 조사</button></div><div class="fantasyBattle" id="fantasyBattle"><div class="fantasyBattleView" id="fantasyBattleView"><div class="fantasyEnemyName" id="fantasyEnemyName"></div><div class="fantasyEnemyHp"><div id="fantasyEnemyHpFill"></div></div><img class="fantasyHeroBattle" id="fantasyHeroBattle" alt=""><div class="fantasyEnemy" id="fantasyEnemy"></div><div class="fantasyBattleFx" id="fantasyBattleFx"></div><div class="fantasyBattleFlash" id="fantasyBattleFlash"></div></div><div class="fantasyPanels"><div class="fantasyPanel"><div class="fantasyStatus" id="fantasyBattleStat"></div></div><div class="fantasyPanel"><div class="fantasyLog" id="fantasyLog"></div><div class="fantasyCommands"><button data-cmd="attack">공격</button><button data-cmd="magic">마법</button><button data-cmd="special">필살기</button><button data-cmd="guard">방어</button><button data-cmd="item">아이템</button><button data-cmd="run">도망</button></div></div></div><div class="fantasySub" id="fantasySub"></div></div></div>`;
+ const wrap=$('.fantasyWrap'),canvas=$('#fantasyCanvas'),ctx=canvas.getContext('2d'),controls=$('#fantasyControls'),battleEl=$('#fantasyBattle'),subEl=$('#fantasySub'),dialogEl=$('#fantasyDialog'),saveMenu=$('#fantasySaveMenu'),saveStatus=$('#fantasySaveStatus'),loadBtn=$('#fantasyLoadBt
+
+===== KEY: ownedAyo COUNT 0 =====
+
+===== KEY: ownedHamo COUNT 0 =====
