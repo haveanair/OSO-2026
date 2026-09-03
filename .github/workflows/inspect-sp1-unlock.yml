@@ -22,30 +22,34 @@ jobs:
           set -euo pipefail
           python3 - <<'PY'
           from pathlib import Path
-          p=Path('play/index.html')
-          s=p.read_text(encoding='utf-8')
-          keys=[
-            'ownedSkins','OSO_SKINS','window.state','typeof state','소트리스','sotris','SP1','sp1',
-            'renderOsoShop','currentOsoSrc','ownedAyo','ownedHamo'
-          ]
-          out=[]
-          out.append(f'PLAY_LEN={len(s)}\n')
-          for key in keys:
-              poss=[]
-              start=0
+          import json
+          s=Path('play/index.html').read_text(encoding='utf-8')
+          out=[f'PLAY_LEN={len(s)}']
+
+          marker='const OSO_SKINS='
+          pos=s.index(marker)+len(marker)
+          skins,end=json.JSONDecoder().raw_decode(s[pos:])
+          out.append('\n===== OSO_SKINS COMPACT =====')
+          out.append(f'COUNT={len(skins)}')
+          for i,x in enumerate(skins):
+              out.append(f"{i}: id={x.get('id')!r} name={x.get('name')!r} price={x.get('price')!r} group={x.get('group')!r}")
+          paid=[x for x in skins if (x.get('group') or 'oso')=='oso' and float(x.get('price') or 0)>0]
+          out.append('SP1_FILTER_IDS='+repr([x.get('id') for x in paid]))
+
+          for key in ['function renderOsoShop','ownedSkins.push','ownedSkins.includes','selectedSkin','specialUnlocks','sotris-integration.js']:
+              poss=[]; start=0
               while True:
                   i=s.find(key,start)
                   if i<0: break
-                  poss.append(i)
-                  start=i+1
-              out.append(f'===== KEY: {key} COUNT {len(poss)} =====\n')
-              for n,i in enumerate(poss[:20],1):
-                  a=max(0,i-2200); b=min(len(s),i+3200)
-                  out.append(f'\n--- {key} #{n} @ {i} ---\n\n{s[a:b]}\n')
+                  poss.append(i); start=i+1
+              out.append(f'\n===== {key} COUNT {len(poss)} =====')
+              for n,i in enumerate(poss[:12],1):
+                  a=max(0,i-1200); b=min(len(s),i+2200)
+                  out.append(f'\n--- #{n} @ {i} ---\n{s[a:b]}')
           Path('.github/sp1-unlock-inspection.txt').write_text('\n'.join(out),encoding='utf-8')
           PY
           git config user.name 'PWDJ SP1 Inspector'
           git config user.email '34460283+haveanair@users.noreply.github.com'
           git add .github/sp1-unlock-inspection.txt
-          git commit -m 'Inspect SP1 unlock bridge'
+          git commit -m 'Inspect SP1 unlock item mapping'
           git push
