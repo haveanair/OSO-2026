@@ -1,0 +1,14 @@
+SPACEFIGHTER KF21 SELECT v1.0
+UI=two large cards: Character / KF-21
+UNLOCK=real Stage-5 final-form clear, permanent
+RETRY=returns to Character / KF-21 selector after unlock
+CHARACTER=current selected Oso/Hamo/Ayo; existing attacks unchanged
+KF21_NORMAL=white-blue dedicated tracer with short yellow tail; no missile
+KF21_SUPER=missile barrage + repeated screen-wide explosions
+POWER_OPTION_BALANCE=unchanged
+ASSET_SOURCE=accepted SP1 v3.8 embedded KF-21 WebP; no new image generated
+ASSET_BYTES=59254
+ASSET_SHA256=94c41423917d1fbf65838ab5077402342058132eaec7dc674a012403f77b061b
+PLAY_BEFORE_SHA256=d42ae06732943babab83c6fdc7be5a2829b0633077a72174e8b5f66b069fbb97
+PLAY_AFTER_SHA256=76b50f97943526e1cd1ae647d9dcc545d7d8e38b69ef715cfbbc11a2a38ad868
+RETRY_CALLBACKS=2

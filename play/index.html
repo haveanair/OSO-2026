@@ -2625,6 +2625,26 @@ header .chars .headerAyo{height:52px!important;width:auto!important;max-width:78
 }
 
 </style>
+
+<style id="spacefighter-kf21-select-style">
+/* SPACEFIGHTER KF21 SELECT v1.0 */
+.sfCraftSelect{position:absolute;inset:0;z-index:60;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:18px;background:radial-gradient(circle at 50% 24%,#17386f 0,#081b3d 35%,#020713 78%);overflow:hidden;color:#fff}
+.sfCraftSelect:before{content:"";position:absolute;inset:0;background:linear-gradient(90deg,transparent 49.7%,#63d7ff22 50%,transparent 50.3%),linear-gradient(#ffffff08 1px,transparent 1px);background-size:100% 100%,100% 28px;pointer-events:none}
+.sfCraftTitle{position:relative;font-size:clamp(26px,6vw,39px);font-weight:1000;letter-spacing:-1px;text-shadow:0 3px 0 #07152c,0 0 18px #4ccfff;margin-bottom:4px}
+.sfCraftSub{position:relative;font-size:13px;font-weight:900;color:#b9dfff;margin-bottom:15px;text-align:center}
+.sfCraftGrid{position:relative;width:min(620px,96vw);display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.sfCraftCard{position:relative;min-width:0;height:260px;border:2px solid #5576a7;border-radius:20px;padding:12px 10px 13px;background:linear-gradient(180deg,#132d57ee,#07172fee);box-shadow:0 10px 30px #0009,inset 0 0 25px #72d8ff0b;color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;touch-action:manipulation;overflow:hidden}
+.sfCraftCard:active{transform:scale(.975)}
+.sfCraftCard.character{border-color:#f4b949;box-shadow:0 0 0 2px #8f5a19,0 10px 30px #0009,inset 0 0 35px #ffcd5420}
+.sfCraftCard.kf21{border-color:#5ed8ff;box-shadow:0 0 0 2px #145b83,0 10px 30px #0009,inset 0 0 35px #62d8ff20}
+.sfCraftImgBox{height:145px;width:100%;display:flex;align-items:center;justify-content:center;position:relative}
+.sfCraftCard.character .sfCraftImg{width:122px;height:132px;object-fit:contain;filter:drop-shadow(0 7px 7px #0008)}
+.sfCraftCard.kf21 .sfCraftImg{width:95%;height:138px;object-fit:contain;filter:drop-shadow(0 8px 8px #000b) drop-shadow(0 0 8px #69dcff55)}
+.sfCraftName{font-size:20px;font-weight:1000}.sfCraftDesc{font-size:12px;font-weight:850;line-height:1.35;color:#cfe3ff;margin-top:4px;text-align:center}
+.sfCraftBadge{position:absolute;right:9px;top:9px;background:#ffcf37;color:#2b1a00;border:2px solid #fff1a3;border-radius:999px;padding:3px 8px;font-size:11px;font-weight:1000;box-shadow:0 3px 8px #0008;z-index:2}
+.sfCraftHint{position:relative;margin-top:13px;font-size:12px;font-weight:850;color:#9fc8ee;text-align:center}
+@media(max-width:430px){.sfCraftSelect{padding:12px}.sfCraftGrid{gap:8px}.sfCraftCard{height:232px;padding:9px 7px}.sfCraftImgBox{height:125px}.sfCraftCard.character .sfCraftImg{width:104px;height:116px}.sfCraftCard.kf21 .sfCraftImg{height:119px}.sfCraftName{font-size:17px}.sfCraftDesc{font-size:10.5px}.sfCraftSub{font-size:11px}}
+</style>
 </head>
 <body>
 <div id="boot">
@@ -3756,7 +3776,7 @@ function startGame(code){
  readyThen(()=>launch(code))
 }
 function launch(code){
- if(code==='spacefighter'){playSpacefighter();return}
+ if(code==='spacefighter'){beginSpacefighter();return}
  if(code==='racing'){playOsoRacing();return}
  if(code==='fantasy'){playOsoFantasy();return}
  startBGM(code,1);
@@ -4424,10 +4444,29 @@ function playPowerduck(){
 
 
 /* ===== 오소 우주파이터 : 5-STAGE VERTICAL SHOOTER ===== */
-function playSpacefighter(){
+function beginSpacefighter(){
+ const unlocked=!!state.spacefighterKf21Unlocked;
+ if(!unlocked){state.spacefighterCraft='character';save();playSpacefighter('character');return}
+ const s=$('#stage'),skin=currentSkin(),isNew=!!state.spacefighterKf21New;
+ s.innerHTML=`<div class="sfCraftSelect">
+  <div class="sfCraftTitle">출격 선택</div>
+  <div class="sfCraftSub">캐릭터 또는 KF-21 전투기를 선택하시오</div>
+  <div class="sfCraftGrid">
+   <button class="sfCraftCard character" id="sfChooseCharacter"><div class="sfCraftImgBox"><img class="sfCraftImg" src="${currentOsoSrc()}" alt="현재 캐릭터"></div><div class="sfCraftName">캐릭터</div><div class="sfCraftDesc">현재 도감에서 선택한 ${skin.name||'캐릭터'}로 출격<br>기존 공격 · 기존 초필살기</div></button>
+   <button class="sfCraftCard kf21" id="sfChooseKf21">${isNew?'<span class="sfCraftBadge">NEW!</span>':''}<div class="sfCraftImgBox"><img class="sfCraftImg" src="assets/kf21-approved-top.webp?v=20260903-kf21select1" alt="KF-21 전투기"></div><div class="sfCraftName">KF-21</div><div class="sfCraftDesc">전용 고속 트레이서 일반탄<br>초필살기: 미사일 폭격 · 대량 폭발</div></button>
+  </div>
+  <div class="sfCraftHint">5스테이지 클리어 보상 · 해금 후 영구 사용</div>
+ </div>`;
+ const choose=mode=>{state.spacefighterCraft=mode;if(mode==='kf21')state.spacefighterKf21New=false;save();playSpacefighter(mode)};
+ $('#sfChooseCharacter').onclick=()=>choose('character');
+ $('#sfChooseKf21').onclick=()=>choose('kf21');
+ cleanup=()=>{};
+}
+function playSpacefighter(craftMode='character'){
+ const isKf21=craftMode==='kf21';
  const s=$('#stage'),skin=currentSkin(),group=skin.group||'oso';
  const shotIcon=group==='oso'?'📦':'●';
- const superName=group==='oso'?'만물상 폭격!':'진주 폭풍!';
+ const superName=isKf21?'스카이 블레이즈!':(group==='oso'?'만물상 폭격!':'진주 폭풍!');
 
  s.innerHTML=`<div class="sfWrap">
    <canvas id="sfCanvas"></canvas>
@@ -4440,7 +4479,7 @@ function playSpacefighter(){
  </div>`;
 
  const canvas=$('#sfCanvas'),ctx=canvas.getContext('2d'),wrap=$('.sfWrap'),superBtn=$('#sfSuper');
- const playerImg=new Image();playerImg.src=currentOsoSrc();
+ const playerImg=new Image();playerImg.src=isKf21?'assets/kf21-approved-top.webp?v=20260903-kf21select1':currentOsoSrc();
 
  const STAGES=[
   {name:'중앙시장',music:'space1',bg:['#ffe0a6','#e88d45'],mobs:['🛒','🍎','🐟','🧺','🥬'],boss:'🛒',bossName:'폭주 만물 장바구니',pattern:'fan'},
@@ -4678,7 +4717,7 @@ function playSpacefighter(){
   updateHud();
   if(player.lives<=0){
    alive=false;cancelAnimationFrame(raf);ro.disconnect();stopBGM();
-   finish('spacefighter',Math.floor(score),playSpacefighter,false,bonusCoins)
+   finish('spacefighter',Math.floor(score),beginSpacefighter,false,bonusCoins)
   }
  }
 
@@ -4687,7 +4726,7 @@ function playSpacefighter(){
   if(gauge<100||!alive)return;
   gauge=0;bullets=[];
   const now=performance.now();
-  superFx={start:now,end:now+1350,kind:group==='oso'?'cargo':'pearl'};
+  superFx={start:now,end:now+(isKf21?1750:1350),kind:isKf21?'kf21':(group==='oso'?'cargo':'pearl')};
   let bonus=0;
   enemies.forEach(e=>{
    if(e.hp>0){bonus+=120*stageNo;explode(e.x,e.y,true);e.hp=0}
@@ -4824,7 +4863,22 @@ function playSpacefighter(){
   ctx.beginPath();ctx.arc(0,0,20+p*170,0,6.28);ctx.stroke();
   ctx.restore();
 
-  if(superFx.kind==='cargo'){
+  if(superFx.kind==='kf21'){
+   const elapsed=ts-superFx.start;
+   for(let i=0;i<12;i++){
+    const delay=i*72,mp=Math.max(0,Math.min(1,(elapsed-delay)/520));
+    if(mp<=0||mp>=1)continue;
+    const x=((i+.5)/12)*W+Math.sin(i*2.1)*10,y=H+38-mp*(H+95);
+    ctx.save();ctx.translate(x,y);ctx.strokeStyle='#ffb22b';ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(0,18);ctx.lineTo(0,35);ctx.stroke();ctx.fillStyle='#f4f7f8';ctx.shadowBlur=10;ctx.shadowColor='#fff';ctx.beginPath();ctx.moveTo(0,-14);ctx.lineTo(5,8);ctx.lineTo(2,14);ctx.lineTo(-2,14);ctx.lineTo(-5,8);ctx.closePath();ctx.fill();ctx.restore();
+   }
+   if(elapsed>610){
+    const bp=Math.min(1,(elapsed-610)/900);
+    for(let i=0;i<10;i++){
+     const ex=((i*37)%10+.5)*W/10,ey=((i*71)%7+1)*H/9,pulse=Math.max(0,Math.sin(bp*Math.PI*3.4+i*.82));
+     if(pulse>.16){ctx.save();ctx.globalAlpha=.25+.62*pulse;ctx.fillStyle='#fff7bd';ctx.shadowBlur=30;ctx.shadowColor='#ff6a1d';ctx.beginPath();ctx.arc(ex,ey,12+50*pulse,0,6.28);ctx.fill();ctx.fillStyle='#ff6420';ctx.globalAlpha=.38*pulse;ctx.beginPath();ctx.arc(ex,ey,26+76*pulse,0,6.28);ctx.fill();ctx.restore()}
+    }
+   }
+  }else if(superFx.kind==='cargo'){
    for(let i=0;i<10;i++){
     let x=(i+.5)*W/10+Math.sin(ts*.01+i)*8,y=(ts*.7+i*73)%H;
     drawEmoji('📦',x,y,26)
@@ -4905,6 +4959,7 @@ function playSpacefighter(){
  function finishBoss(){
   if(stageNo===5&&boss&&boss.form!==2){transformFinalBoss();return}
   const bx=boss.x,by=boss.y,currentStage=stageNo;
+  if(currentStage===5&&!state.spacefighterKf21Unlocked){state.spacefighterKf21Unlocked=true;state.spacefighterKf21New=true;state.spacefighterCraft='character';save();tone('perfect');buzz([45,20,70,20,120])}
   score+=1000*stageNo;
   boss=null;bullets=[];enemies=[];transition=true;
   $('#sfBossBar').classList.remove('show');
@@ -4920,9 +4975,9 @@ function playSpacefighter(){
   }else{
    setTimeout(()=>{
     alive=false;cancelAnimationFrame(raf);ro.disconnect();stopBGM();
-    s.innerHTML=`<div class="sfEnding"><div class="sfEndingCard"><div class="earth">🌍✨</div><h2>지구에 평화가 찾아왔다.</h2><p>오소와 친구들이 악의 본거지를 무너뜨렸소!</p><strong>1884 진주중앙시장 파이팅!</strong></div></div>`;
+    s.innerHTML=`<div class="sfEnding"><div class="sfEndingCard"><div class="earth">🌍✨</div><h2>지구에 평화가 찾아왔다.</h2><p>오소와 친구들이 악의 본거지를 무너뜨렸소!</p><strong>1884 진주중앙시장 파이팅!</strong>${state.spacefighterKf21New?'<div style="margin-top:15px;padding:10px 12px;border:2px solid #77dcff;border-radius:12px;background:#062550;color:#ffe268;font-weight:1000">NEW FIGHTER · KF-21 전투기 해금!<br><span style="font-size:12px;color:#d6efff">다음 출격부터 캐릭터 / KF-21 선택 가능</span></div>':''}</div></div>`;
     victoryFanfare();bombBuzz();
-    setTimeout(()=>finish('spacefighter',Math.floor(score+5000),playSpacefighter,true,bonusCoins),4400)
+    setTimeout(()=>finish('spacefighter',Math.floor(score+5000),beginSpacefighter,true,bonusCoins),4400)
    },1750)
   }
  }
@@ -5036,7 +5091,13 @@ function playSpacefighter(){
    ctx.globalAlpha=o.clone?.72:1;
    ctx.shadowBlur=o.clone?8:13;
    ctx.shadowColor=group==='oso'?'#ffd35b':'#7ceaff';
-   if(group==='oso'){
+   if(isKf21){
+    const tail=o.clone?11:17;
+    ctx.strokeStyle='#ffd34d';ctx.lineWidth=o.clone?1.8:2.8;ctx.globalAlpha=o.clone?.62:.9;
+    ctx.beginPath();ctx.moveTo(o.x,o.y+tail);ctx.lineTo(o.x,o.y+3);ctx.stroke();
+    ctx.globalAlpha=o.clone?.78:1;ctx.fillStyle='#eefcff';ctx.shadowBlur=o.clone?8:14;ctx.shadowColor='#64ddff';
+    ctx.beginPath();ctx.ellipse(o.x,o.y,o.clone?2:2.8,o.clone?6:8.5,0,0,Math.PI*2);ctx.fill();
+   }else if(group==='oso'){
     ctx.font=`${o.clone?12:16}px sans-serif`;ctx.fillText(shotIcon,o.x,o.y)
    }else{
     ctx.fillStyle='#fffef7';ctx.strokeStyle=o.clone?'#ca9fff':'#72e9ff';ctx.lineWidth=o.clone?1.5:2.5;
@@ -5095,7 +5156,7 @@ function playSpacefighter(){
    if(playerImg.complete&&playerImg.naturalWidth){
     ctx.save();ctx.globalAlpha=.35+.07*(i%2);ctx.translate(c.x,c.y);
     ctx.shadowColor='#cf83ff';ctx.shadowBlur=11;
-    ctx.drawImage(playerImg,-20,-21,40,42);ctx.restore()
+    isKf21?ctx.drawImage(playerImg,-29,-19,58,38):ctx.drawImage(playerImg,-20,-21,40,42);ctx.restore()
    }else{
     ctx.save();ctx.globalAlpha=.45;
     drawEmoji(group==='oso'?'🐂':group==='hamo'?'🦦':'🐱',c.x,c.y,30);
@@ -5107,7 +5168,7 @@ function playSpacefighter(){
    if(playerImg.complete&&playerImg.naturalWidth){
     ctx.save();ctx.translate(player.x,player.y);
     ctx.shadowColor='#8cf3ff';ctx.shadowBlur=14;
-    ctx.drawImage(playerImg,-30,-31,60,62);ctx.restore()
+    isKf21?ctx.drawImage(playerImg,-43,-28,86,56):ctx.drawImage(playerImg,-30,-31,60,62);ctx.restore()
    }else{
     drawEmoji(group==='oso'?'🐂':group==='hamo'?'🦦':'🐱',player.x,player.y,48)
    }
