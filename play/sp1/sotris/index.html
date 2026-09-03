@@ -301,11 +301,15 @@ button{font:inherit;color:inherit;touch-action:none}.screen{position:absolute;in
  width:clamp(120px,23vw,230px)!important;height:clamp(120px,23vw,230px)!important;
  background:#fff2a5!important;opacity:1!important;
  box-shadow:0 0 40px #fff7d6ff,0 0 105px #ffd25ddd,0 0 190px #ff994499!important;
- animation:sunriseLift 6.2s ease-in-out infinite alternate!important
+ animation:sunriseLift 60s cubic-bezier(.22,.61,.36,1) 1 forwards!important
 }
 @keyframes sunriseLift{
- from{transform:translateY(38px) scale(.94);filter:brightness(.94)}
- to{transform:translateY(-20px) scale(1.03);filter:brightness(1.10)}
+ 0%{transform:translate(-12px,54px) scale(.92);filter:brightness(.92)}
+ 20%{transform:translate(-2px,47px) scale(.94);filter:brightness(.95)}
+ 40%{transform:translate(14px,34px) scale(.96);filter:brightness(.98)}
+ 60%{transform:translate(34px,14px) scale(.99);filter:brightness(1.01)}
+ 80%{transform:translate(55px,-12px) scale(1.01);filter:brightness(1.05)}
+ 100%{transform:translate(72px,-42px) scale(1.03);filter:brightness(1.10)}
 }
 #game.stage5 .skyHorizon{
  display:block!important;
