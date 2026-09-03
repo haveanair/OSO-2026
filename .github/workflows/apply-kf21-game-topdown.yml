@@ -1,0 +1,29 @@
+name: Apply KF21 Game Topdown
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/kf21-game-topdown.trigger'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Apply patch
+        run: python3 .github/scripts/fix_kf21_game_topdown.py
+      - name: Verify diff
+        run: git diff --check
+      - name: Commit
+        run: |
+          git config user.name "PWDJ KF21 Angle Fix"
+          git config user.email "34460283+haveanair@users.noreply.github.com"
+          git add play/index.html .github/spacefighter-kf21-angle-fix-report.txt
+          git commit -m "Use top-down KF-21 only during gameplay"
+          git push
