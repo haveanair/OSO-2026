@@ -17,20 +17,22 @@ jobs:
           p=Path('play/sp1/sotris/index.html')
           s=p.read_text(encoding='utf-8')
           old_anim='animation:sunriseLift 6.2s ease-in-out infinite alternate!important'
-          new_anim='animation:sunriseLift 24s cubic-bezier(.22,.61,.36,1) 1 forwards!important'
+          new_anim='animation:sunriseLift 60s cubic-bezier(.22,.61,.36,1) 1 forwards!important'
           old_keys='@keyframes sunriseLift{\n from{transform:translateY(38px) scale(.94);filter:brightness(.94)}\n to{transform:translateY(-20px) scale(1.03);filter:brightness(1.10)}\n}'
-          new_keys='@keyframes sunriseLift{\n 0%{transform:translate(-12px,54px) scale(.92);filter:brightness(.92)}\n 24%{transform:translate(4px,39px) scale(.95);filter:brightness(.96)}\n 50%{transform:translate(28px,16px) scale(.98);filter:brightness(1.00)}\n 76%{transform:translate(54px,-12px) scale(1.01);filter:brightness(1.05)}\n 100%{transform:translate(72px,-42px) scale(1.03);filter:brightness(1.10)}\n}'
+          new_keys='@keyframes sunriseLift{\n 0%{transform:translate(-12px,54px) scale(.92);filter:brightness(.92)}\n 20%{transform:translate(-2px,47px) scale(.94);filter:brightness(.95)}\n 40%{transform:translate(14px,34px) scale(.96);filter:brightness(.98)}\n 60%{transform:translate(34px,14px) scale(.99);filter:brightness(1.01)}\n 80%{transform:translate(55px,-12px) scale(1.01);filter:brightness(1.05)}\n 100%{transform:translate(72px,-42px) scale(1.03);filter:brightness(1.10)}\n}'
           if s.count(old_anim)!=1: raise SystemExit(f'animation count={s.count(old_anim)}')
           if s.count(old_keys)!=1: raise SystemExit(f'keyframes count={s.count(old_keys)}')
           s=s.replace(old_anim,new_anim,1).replace(old_keys,new_keys,1)
           p.write_text(s,encoding='utf-8')
           q=Path('play/sp1/sotris-integration.js')
           t=q.read_text(encoding='utf-8')
-          oldkey='?v=20260904-combo2line1'; newkey='?v=20260904-sunriseArc1'
+          oldkey='?v=20260904-combo2line1'; newkey='?v=20260904-sunrise60s1'
           if t.count(oldkey)!=1: raise SystemExit(f'cache key count={t.count(oldkey)}')
           q.write_text(t.replace(oldkey,newkey,1),encoding='utf-8')
-          assert 'sunriseLift 24s' in s and 'infinite alternate' not in s[s.find('#game.stage5'):s.find('#game.stage5')+5000]
-          Path('.github/sotris-sunrise-arc-report.txt').write_text('SOTRIS STAGE5 SUNRISE ARC VERIFIED\nMOTION=ONE_WAY_RISING_ARC\nDURATION=24s\nREPEAT=NO\nDESCENT=NO\nSTAGE5_KF21=UNTOUCHED\nOTHER_STAGE_BACKGROUNDS=UNTOUCHED\n',encoding='utf-8')
+          assert new_anim in s
+          assert old_anim not in s
+          assert new_keys in s
+          Path('.github/sotris-sunrise-arc-report.txt').write_text('SOTRIS STAGE5 SUNRISE ARC VERIFIED\nMOTION=ONE_WAY_RISING_ARC\nDURATION=60s\nREPEAT=NO\nDESCENT=NO\nSTAGE5_KF21=UNTOUCHED\nOTHER_STAGE_BACKGROUNDS=UNTOUCHED\n',encoding='utf-8')
           PY
       - name: Commit patch
         run: |
@@ -38,5 +40,5 @@ jobs:
           git config user.email '34460283+haveanair@users.noreply.github.com'
           git add play/sp1/sotris/index.html play/sp1/sotris-integration.js .github/sotris-sunrise-arc-report.txt
           git diff --cached --quiet && exit 0
-          git commit -m 'Make Sotris sunrise rise once along an arc'
+          git commit -m 'Make Sotris sunrise rise for one minute'
           git push
