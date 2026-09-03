@@ -1,0 +1,34 @@
+name: Integrate SP1 Sotris Live
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/sp1-sotris.trigger'
+permissions:
+  contents: write
+jobs:
+  integrate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Assemble and integrate SP1
+        run: python tools/assemble_sp1_sotris.py
+      - name: Verify integration
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s play/sp1/sotris/index.html
+          grep -Fq 'SP1 SOTRIS LIVE INTEGRATION' play/index.html
+          grep -Fq 'sotris-sp1' play/sp1/sotris/index.html
+          node --check play/sp1/sotris-integration.js
+      - name: Commit deployed integration
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "PWDJ Pages Builder"
+          git config user.email "34460283+haveanair@users.noreply.github.com"
+          git add -A
+          git commit -m "Integrate SP1 Sotris into live game" || exit 0
+          git push
