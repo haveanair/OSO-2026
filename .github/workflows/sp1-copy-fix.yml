@@ -1,0 +1,67 @@
+name: Fix SP1 unlock wording
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/sp1-copy-fix.trigger'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Patch wording and cache key
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          js_path=Path('play/sp1/sotris-integration.js')
+          play_path=Path('play/index.html')
+          js=js_path.read_text(encoding='utf-8')
+          play=play_path.read_text(encoding='utf-8')
+
+          old_desc='오소 도감 전부 수집 시 해금'
+          new_desc='도감에서 오소 전부 수집 시 해금'
+          if js.count(old_desc)!=1:
+              raise SystemExit(f'old description count={js.count(old_desc)}')
+          js=js.replace(old_desc,new_desc,1)
+
+          old_fx='오소 도감을 모두 모았소!'
+          new_fx='도감에서 오소를 모두 모았소!'
+          if js.count(old_fx)!=1:
+              raise SystemExit(f'old unlock fx count={js.count(old_fx)}')
+          js=js.replace(old_fx,new_fx,1)
+
+          js=js.replace('CARD OSO v3.9.1','CARD OSO v3.9.2',1)
+
+          pattern=r'sp1/sotris-integration\.js\?v=[^"\']+'
+          matches=re.findall(pattern,play)
+          if len(matches)!=1:
+              raise SystemExit(f'SP1 loader count={len(matches)} {matches!r}')
+          play=re.sub(pattern,'sp1/sotris-integration.js?v=20260903-copyfix1',play,count=1)
+
+          js_path.write_text(js,encoding='utf-8')
+          play_path.write_text(play,encoding='utf-8')
+
+          assert new_desc in js and old_desc not in js
+          assert new_fx in js and old_fx not in js
+          assert 'CARD OSO v3.9.2' in js
+          assert play.count('sp1/sotris-integration.js?v=20260903-copyfix1')==1
+          PY
+          node --check play/sp1/sotris-integration.js
+          git diff --check
+          rm -f .github/sp1-copy-fix.trigger .github/workflows/sp1-copy-fix.yml
+          git config user.name 'PWDJ SP1 Copy Fix'
+          git config user.email '34460283+haveanair@users.noreply.github.com'
+          git add -A
+          git commit -m 'Clarify SP1 Oso collection unlock wording'
+          git push
