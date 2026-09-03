@@ -16,7 +16,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Patch shooter and extract approved KF21 asset
+      - name: Patch shooter with Character KF21 selection
         shell: bash
         run: |
           set -euo pipefail
@@ -27,144 +27,148 @@ jobs:
           p=Path('play/index.html')
           s=p.read_text(encoding='utf-8')
           sp=Path('play/sp1/sotris/index.html').read_text(encoding='utf-8')
+          original=s
 
-          # Idempotency guard
           if 'SPACEFIGHTER KF21 SELECT v1.0' in s:
-              raise SystemExit('KF21 select patch already present')
+              raise SystemExit('KF21 selection patch already present')
 
-          # Reuse the already-approved top-view KF-21 image embedded in accepted SP1 v3.8.
+          # Reuse the exact KF-21 artwork already accepted in completed SP1 v3.8.
           mi=sp.find('#game.stage5 .skyFormation .plane')
-          if mi < 0: raise SystemExit('approved KF21 marker not found in SP1')
-          mm=re.search(r'background-image:url\("data:image/png;base64,([^\"]+)"\)', sp[mi:mi+500000])
-          if not mm: raise SystemExit('approved KF21 embedded PNG not found')
-          png=base64.b64decode(mm.group(1))
-          if not png.startswith(b'\x89PNG\r\n\x1a\n') or len(png)<10000:
-              raise SystemExit('approved KF21 PNG validation failed')
-          asset=Path('play/assets/kf21-approved-top.png')
+          if mi < 0: raise SystemExit('SP1 KF21 marker not found')
+          mm=re.search(r'background-image\s*:\s*url\(["\']?data:image/webp;base64,([^"\')]+)', sp[mi:mi+1200000], re.S)
+          if not mm: raise SystemExit('approved SP1 KF21 WebP not found')
+          webp=base64.b64decode(mm.group(1))
+          if len(webp)<10000 or webp[:4]!=b'RIFF' or webp[8:12]!=b'WEBP':
+              raise SystemExit('approved KF21 WebP validation failed')
+          asset=Path('play/assets/kf21-approved-top.webp')
           asset.parent.mkdir(parents=True,exist_ok=True)
-          asset.write_bytes(png)
+          asset.write_bytes(webp)
 
-          # Selection-screen CSS. Two large cards: current character / KF-21.
-          css='''\n<style id="spacefighter-kf21-select-style">\n/* SPACEFIGHTER KF21 SELECT v1.0 */\n.sfCraftSelect{position:absolute;inset:0;z-index:60;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:18px;background:radial-gradient(circle at 50% 25%,#17366d 0,#081a3c 34%,#020713 78%);overflow:hidden;color:#fff}\n.sfCraftSelect:before{content:"";position:absolute;inset:0;background:linear-gradient(90deg,transparent 49.7%,#63d7ff22 50%,transparent 50.3%),linear-gradient(#ffffff08 1px,transparent 1px);background-size:100% 100%,100% 28px;pointer-events:none}\n.sfCraftTitle{position:relative;font-size:clamp(25px,6vw,38px);font-weight:1000;letter-spacing:-1px;text-shadow:0 3px 0 #07152c,0 0 18px #4ccfff;margin-bottom:5px}\n.sfCraftSub{position:relative;font-size:13px;font-weight:900;color:#b9dfff;margin-bottom:15px}\n.sfCraftGrid{position:relative;width:min(620px,96vw);display:grid;grid-template-columns:1fr 1fr;gap:12px}\n.sfCraftCard{position:relative;min-width:0;height:260px;border:2px solid #5576a7;border-radius:20px;padding:12px 10px 13px;background:linear-gradient(180deg,#132d57ee,#07172fee);box-shadow:0 10px 30px #0009,inset 0 0 25px #72d8ff0b;color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;touch-action:manipulation}\n.sfCraftCard:active{transform:scale(.975)}\n.sfCraftCard.character{border-color:#f4b949;box-shadow:0 0 0 2px #8f5a19,0 10px 30px #0009,inset 0 0 35px #ffcd5420}\n.sfCraftCard.kf21{border-color:#5ed8ff;box-shadow:0 0 0 2px #145b83,0 10px 30px #0009,inset 0 0 35px #62d8ff20}\n.sfCraftImgBox{height:145px;width:100%;display:flex;align-items:center;justify-content:center;position:relative}\n.sfCraftCard.character .sfCraftImg{width:122px;height:132px;object-fit:contain;filter:drop-shadow(0 7px 7px #0008)}\n.sfCraftCard.kf21 .sfCraftImg{width:94%;height:138px;object-fit:contain;filter:drop-shadow(0 8px 8px #000b) drop-shadow(0 0 8px #69dcff55)}\n.sfCraftName{font-size:20px;font-weight:1000;margin-top:0}.sfCraftDesc{font-size:12px;font-weight:850;line-height:1.35;color:#cfe3ff;margin-top:4px;text-align:center}\n.sfCraftBadge{position:absolute;right:9px;top:9px;background:#ffcf37;color:#2b1a00;border:2px solid #fff1a3;border-radius:999px;padding:3px 8px;font-size:11px;font-weight:1000;box-shadow:0 3px 8px #0008}\n.sfCraftHint{position:relative;margin-top:13px;font-size:12px;font-weight:850;color:#9fc8ee;text-align:center}\n@media(max-width:430px){.sfCraftSelect{padding:12px}.sfCraftGrid{gap:8px}.sfCraftCard{height:232px;padding:9px 7px}.sfCraftImgBox{height:125px}.sfCraftCard.character .sfCraftImg{width:104px;height:116px}.sfCraftCard.kf21 .sfCraftImg{height:119px}.sfCraftName{font-size:17px}.sfCraftDesc{font-size:10.5px}}\n</style>\n'''
-          if '</head>' not in s: raise SystemExit('head close not found')
+          css='''\n<style id="spacefighter-kf21-select-style">\n/* SPACEFIGHTER KF21 SELECT v1.0 */\n.sfCraftSelect{position:absolute;inset:0;z-index:60;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:18px;background:radial-gradient(circle at 50% 24%,#17386f 0,#081b3d 35%,#020713 78%);overflow:hidden;color:#fff}\n.sfCraftSelect:before{content:"";position:absolute;inset:0;background:linear-gradient(90deg,transparent 49.7%,#63d7ff22 50%,transparent 50.3%),linear-gradient(#ffffff08 1px,transparent 1px);background-size:100% 100%,100% 28px;pointer-events:none}\n.sfCraftTitle{position:relative;font-size:clamp(26px,6vw,39px);font-weight:1000;letter-spacing:-1px;text-shadow:0 3px 0 #07152c,0 0 18px #4ccfff;margin-bottom:4px}\n.sfCraftSub{position:relative;font-size:13px;font-weight:900;color:#b9dfff;margin-bottom:15px;text-align:center}\n.sfCraftGrid{position:relative;width:min(620px,96vw);display:grid;grid-template-columns:1fr 1fr;gap:12px}\n.sfCraftCard{position:relative;min-width:0;height:260px;border:2px solid #5576a7;border-radius:20px;padding:12px 10px 13px;background:linear-gradient(180deg,#132d57ee,#07172fee);box-shadow:0 10px 30px #0009,inset 0 0 25px #72d8ff0b;color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;touch-action:manipulation;overflow:hidden}\n.sfCraftCard:active{transform:scale(.975)}\n.sfCraftCard.character{border-color:#f4b949;box-shadow:0 0 0 2px #8f5a19,0 10px 30px #0009,inset 0 0 35px #ffcd5420}\n.sfCraftCard.kf21{border-color:#5ed8ff;box-shadow:0 0 0 2px #145b83,0 10px 30px #0009,inset 0 0 35px #62d8ff20}\n.sfCraftImgBox{height:145px;width:100%;display:flex;align-items:center;justify-content:center;position:relative}\n.sfCraftCard.character .sfCraftImg{width:122px;height:132px;object-fit:contain;filter:drop-shadow(0 7px 7px #0008)}\n.sfCraftCard.kf21 .sfCraftImg{width:95%;height:138px;object-fit:contain;filter:drop-shadow(0 8px 8px #000b) drop-shadow(0 0 8px #69dcff55)}\n.sfCraftName{font-size:20px;font-weight:1000}.sfCraftDesc{font-size:12px;font-weight:850;line-height:1.35;color:#cfe3ff;margin-top:4px;text-align:center}\n.sfCraftBadge{position:absolute;right:9px;top:9px;background:#ffcf37;color:#2b1a00;border:2px solid #fff1a3;border-radius:999px;padding:3px 8px;font-size:11px;font-weight:1000;box-shadow:0 3px 8px #0008;z-index:2}\n.sfCraftHint{position:relative;margin-top:13px;font-size:12px;font-weight:850;color:#9fc8ee;text-align:center}\n@media(max-width:430px){.sfCraftSelect{padding:12px}.sfCraftGrid{gap:8px}.sfCraftCard{height:232px;padding:9px 7px}.sfCraftImgBox{height:125px}.sfCraftCard.character .sfCraftImg{width:104px;height:116px}.sfCraftCard.kf21 .sfCraftImg{height:119px}.sfCraftName{font-size:17px}.sfCraftDesc{font-size:10.5px}.sfCraftSub{font-size:11px}}\n</style>\n'''
+          if s.count('</head>')!=1: raise SystemExit('head close count invalid')
           s=s.replace('</head>',css+'</head>',1)
 
-          # Replace direct shooter launch with the selection-aware entry point.
           old="if(code==='spacefighter'){playSpacefighter();return}"
-          new="if(code==='spacefighter'){beginSpacefighter();return}"
-          if s.count(old)!=1: raise SystemExit(f'launch shooter pattern count={s.count(old)}')
-          s=s.replace(old,new,1)
+          if s.count(old)!=1: raise SystemExit(f'launch shooter count={s.count(old)}')
+          s=s.replace(old,"if(code==='spacefighter'){beginSpacefighter();return}",1)
 
-          # Add selection entry before shooter core.
           marker='/* ===== 오소 우주파이터 : 5-STAGE VERTICAL SHOOTER ===== */\nfunction playSpacefighter(){'
           if s.count(marker)!=1: raise SystemExit(f'shooter marker count={s.count(marker)}')
-          chooser='''/* ===== 오소 우주파이터 : 5-STAGE VERTICAL SHOOTER ===== */\nfunction beginSpacefighter(){\n const unlocked=!!state.spacefighterKf21Unlocked;\n if(!unlocked){state.spacefighterCraft='character';save();playSpacefighter('character');return}\n const s=$('#stage'),skin=currentSkin();\n const isNew=!!state.spacefighterKf21New;\n s.innerHTML=`<div class="sfCraftSelect">\n   <div class="sfCraftTitle">출격 선택</div>\n   <div class="sfCraftSub">캐릭터 또는 KF-21 전투기를 선택하시오</div>\n   <div class="sfCraftGrid">\n    <button class="sfCraftCard character" id="sfChooseCharacter"><div class="sfCraftImgBox"><img class="sfCraftImg" src="${currentOsoSrc()}" alt="현재 캐릭터"></div><div class="sfCraftName">캐릭터</div><div class="sfCraftDesc">현재 도감에서 선택한 ${skin.name||'캐릭터'}로 출격<br>기존 공격 · 기존 초필살기</div></button>\n    <button class="sfCraftCard kf21" id="sfChooseKf21">${isNew?'<span class="sfCraftBadge">NEW!</span>':''}<div class="sfCraftImgBox"><img class="sfCraftImg" src="assets/kf21-approved-top.png?v=20260903-kf21select1" alt="KF-21 전투기"></div><div class="sfCraftName">KF-21</div><div class="sfCraftDesc">전용 고속 트레이서 일반탄<br>초필살기: 미사일 폭격 · 대량 폭발</div></button>\n   </div>\n   <div class="sfCraftHint">5스테이지 클리어 보상 · 해금 후 영구 사용</div>\n  </div>`;\n const choose=mode=>{state.spacefighterCraft=mode;if(mode==='kf21')state.spacefighterKf21New=false;save();playSpacefighter(mode)};\n $('#sfChooseCharacter').onclick=()=>choose('character');\n $('#sfChooseKf21').onclick=()=>choose('kf21');\n cleanup=()=>{};\n}\nfunction playSpacefighter(craftMode='character'){'''
+          chooser='''/* ===== 오소 우주파이터 : 5-STAGE VERTICAL SHOOTER ===== */\nfunction beginSpacefighter(){\n const unlocked=!!state.spacefighterKf21Unlocked;\n if(!unlocked){state.spacefighterCraft='character';save();playSpacefighter('character');return}\n const s=$('#stage'),skin=currentSkin(),isNew=!!state.spacefighterKf21New;\n s.innerHTML=`<div class="sfCraftSelect">\n  <div class="sfCraftTitle">출격 선택</div>\n  <div class="sfCraftSub">캐릭터 또는 KF-21 전투기를 선택하시오</div>\n  <div class="sfCraftGrid">\n   <button class="sfCraftCard character" id="sfChooseCharacter"><div class="sfCraftImgBox"><img class="sfCraftImg" src="${currentOsoSrc()}" alt="현재 캐릭터"></div><div class="sfCraftName">캐릭터</div><div class="sfCraftDesc">현재 도감에서 선택한 ${skin.name||'캐릭터'}로 출격<br>기존 공격 · 기존 초필살기</div></button>\n   <button class="sfCraftCard kf21" id="sfChooseKf21">${isNew?'<span class="sfCraftBadge">NEW!</span>':''}<div class="sfCraftImgBox"><img class="sfCraftImg" src="assets/kf21-approved-top.webp?v=20260903-kf21select1" alt="KF-21 전투기"></div><div class="sfCraftName">KF-21</div><div class="sfCraftDesc">전용 고속 트레이서 일반탄<br>초필살기: 미사일 폭격 · 대량 폭발</div></button>\n  </div>\n  <div class="sfCraftHint">5스테이지 클리어 보상 · 해금 후 영구 사용</div>\n </div>`;\n const choose=mode=>{state.spacefighterCraft=mode;if(mode==='kf21')state.spacefighterKf21New=false;save();playSpacefighter(mode)};\n $('#sfChooseCharacter').onclick=()=>choose('character');\n $('#sfChooseKf21').onclick=()=>choose('kf21');\n cleanup=()=>{};\n}\nfunction playSpacefighter(craftMode='character'){'''
           s=s.replace(marker,chooser,1)
 
-          # Mode-aware player/super setup.
           old="const s=$('#stage'),skin=currentSkin(),group=skin.group||'oso';\n const shotIcon=group==='oso'?'📦':'●';\n const superName=group==='oso'?'만물상 폭격!':'진주 폭풍!';"
           new="const isKf21=craftMode==='kf21';\n const s=$('#stage'),skin=currentSkin(),group=skin.group||'oso';\n const shotIcon=group==='oso'?'📦':'●';\n const superName=isKf21?'스카이 블레이즈!':(group==='oso'?'만물상 폭격!':'진주 폭풍!');"
           if s.count(old)!=1: raise SystemExit(f'shooter header count={s.count(old)}')
           s=s.replace(old,new,1)
 
-          old="const playerImg=new Image();playerImg.src=currentOsoSrc();"
-          new="const playerImg=new Image();playerImg.src=isKf21?'assets/kf21-approved-top.png?v=20260903-kf21select1':currentOsoSrc();"
-          if s.count(old)!=1: raise SystemExit(f'player image setup count={s.count(old)}')
-          s=s.replace(old,new,1)
+          old='const playerImg=new Image();playerImg.src=currentOsoSrc();'
+          if s.count(old)!=1: raise SystemExit(f'player image count={s.count(old)}')
+          s=s.replace(old,"const playerImg=new Image();playerImg.src=isKf21?'assets/kf21-approved-top.webp?v=20260903-kf21select1':currentOsoSrc();",1)
 
-          # KF-21 normal fire is a dedicated tracer/bullet, explicitly not a missile.
-          shots_i=s.find('for(const o of shots){',s.find("function playSpacefighter(craftMode='character')"))
-          if shots_i<0: raise SystemExit('shots draw loop not found')
-          if_i=s.find("if(group==='oso'){",shots_i,shots_i+1800)
-          if if_i<0: raise SystemExit('character shot branch not found')
-          tracer="""if(isKf21){\n   const len=o.clone?13:18;\n   ctx.strokeStyle='#ffd45a';ctx.lineWidth=o.clone?2:3;ctx.globalAlpha=(o.clone?.64:.9);\n   ctx.beginPath();ctx.moveTo(o.x,o.y+len);ctx.lineTo(o.x,o.y+3);ctx.stroke();\n   ctx.globalAlpha=o.clone?.78:1;ctx.fillStyle='#eafcff';ctx.shadowBlur=o.clone?8:14;ctx.shadowColor='#65dfff';\n   ctx.beginPath();ctx.ellipse(o.x,o.y,2.5*(o.clone?.8:1),8*(o.clone?.85:1),0,0,Math.PI*2);ctx.fill();\n  }else if(group==='oso'){"""
-          s=s[:if_i]+tracer+s[if_i+len("if(group==='oso'){"):]
+          # Dedicated KF-21 tracer for ordinary fire. Missiles are reserved for SUPER only.
+          shooter_i=s.find("function playSpacefighter(craftMode='character')")
+          shots_i=s.find('for(const o of shots){',shooter_i)
+          if shots_i<0: raise SystemExit('shot draw loop missing')
+          branch_i=s.find("if(group==='oso'){",shots_i,shots_i+1400)
+          if branch_i<0: raise SystemExit('character shot branch missing')
+          tracer="""if(isKf21){\n    const tail=o.clone?11:17;\n    ctx.strokeStyle='#ffd34d';ctx.lineWidth=o.clone?1.8:2.8;ctx.globalAlpha=o.clone?.62:.9;\n    ctx.beginPath();ctx.moveTo(o.x,o.y+tail);ctx.lineTo(o.x,o.y+3);ctx.stroke();\n    ctx.globalAlpha=o.clone?.78:1;ctx.fillStyle='#eefcff';ctx.shadowBlur=o.clone?8:14;ctx.shadowColor='#64ddff';\n    ctx.beginPath();ctx.ellipse(o.x,o.y,o.clone?2:2.8,o.clone?6:8.5,0,0,Math.PI*2);ctx.fill();\n   }else if(group==='oso'){"""
+          s=s[:branch_i]+tracer+s[branch_i+len("if(group==='oso'){"):]
 
-          # Super type: KF-21 gets missile/bombing visuals only here; damage/balance remains existing.
-          sf_need="superFx={start:now,end:now+1350,kind:group==='oso'?'cargo':'pearl'};"
-          sf_repl="superFx={start:now,end:now+(isKf21?1750:1350),kind:isKf21?'kf21':(group==='oso'?'cargo':'pearl')};"
-          if s.count(sf_need)!=1: raise SystemExit(f'superFx assignment count={s.count(sf_need)}')
-          s=s.replace(sf_need,sf_repl,1)
+          old="superFx={start:now,end:now+1350,kind:group==='oso'?'cargo':'pearl'};"
+          if s.count(old)!=1: raise SystemExit(f'super assignment count={s.count(old)}')
+          s=s.replace(old,"superFx={start:now,end:now+(isKf21?1750:1350),kind:isKf21?'kf21':(group==='oso'?'cargo':'pearl')};",1)
 
-          # Extend super renderer by inserting KF21 branch before existing cargo branch.
-          sup_i=s.find("if(superFx.kind==='cargo')",s.find("function playSpacefighter(craftMode='character')"))
-          if sup_i<0: raise SystemExit('super renderer cargo branch not found')
-          kfbranch="""if(superFx.kind==='kf21'){\n   const elapsed=ts-superFx.start;\n   for(let i=0;i<12;i++){\n    const delay=i*72,mp=Math.max(0,Math.min(1,(elapsed-delay)/520));\n    if(mp<=0||mp>=1)continue;\n    const x=((i+.5)/12)*W+Math.sin(i*2.1)*10;\n    const y=H+38-mp*(H+95);\n    ctx.save();ctx.translate(x,y);ctx.strokeStyle='#ffb52e';ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(0,18);ctx.lineTo(0,34);ctx.stroke();ctx.fillStyle='#f4f7f8';ctx.shadowBlur=10;ctx.shadowColor='#fff';ctx.beginPath();ctx.moveTo(0,-13);ctx.lineTo(5,8);ctx.lineTo(2,13);ctx.lineTo(-2,13);ctx.lineTo(-5,8);ctx.closePath();ctx.fill();ctx.restore();\n   }\n   if(elapsed>620){\n    const bp=Math.min(1,(elapsed-620)/850);\n    for(let i=0;i<9;i++){\n     const ex=((i*37)%10+.5)*W/10,ey=((i*71)%7+1)*H/9;\n     const pulse=Math.max(0,Math.sin(bp*Math.PI*3+i*.8));\n     if(pulse>.18){ctx.save();ctx.globalAlpha=.28+.55*pulse;ctx.fillStyle='#fff5b5';ctx.shadowBlur=28;ctx.shadowColor='#ff6b20';ctx.beginPath();ctx.arc(ex,ey,12+52*pulse,0,6.28);ctx.fill();ctx.fillStyle='#ff6b20';ctx.globalAlpha=.42*pulse;ctx.beginPath();ctx.arc(ex,ey,28+72*pulse,0,6.28);ctx.fill();ctx.restore()}\n    }\n   }\n  }else if(superFx.kind==='cargo')"""
+          # Missile barrage and repeated wide explosions appear only during KF-21 SUPER.
+          sup_i=s.find("if(superFx.kind==='cargo')",shooter_i)
+          if sup_i<0: raise SystemExit('super cargo renderer missing')
+          kfbranch="""if(superFx.kind==='kf21'){\n   const elapsed=ts-superFx.start;\n   for(let i=0;i<12;i++){\n    const delay=i*72,mp=Math.max(0,Math.min(1,(elapsed-delay)/520));\n    if(mp<=0||mp>=1)continue;\n    const x=((i+.5)/12)*W+Math.sin(i*2.1)*10,y=H+38-mp*(H+95);\n    ctx.save();ctx.translate(x,y);ctx.strokeStyle='#ffb22b';ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(0,18);ctx.lineTo(0,35);ctx.stroke();ctx.fillStyle='#f4f7f8';ctx.shadowBlur=10;ctx.shadowColor='#fff';ctx.beginPath();ctx.moveTo(0,-14);ctx.lineTo(5,8);ctx.lineTo(2,14);ctx.lineTo(-2,14);ctx.lineTo(-5,8);ctx.closePath();ctx.fill();ctx.restore();\n   }\n   if(elapsed>610){\n    const bp=Math.min(1,(elapsed-610)/900);\n    for(let i=0;i<10;i++){\n     const ex=((i*37)%10+.5)*W/10,ey=((i*71)%7+1)*H/9,pulse=Math.max(0,Math.sin(bp*Math.PI*3.4+i*.82));\n     if(pulse>.16){ctx.save();ctx.globalAlpha=.25+.62*pulse;ctx.fillStyle='#fff7bd';ctx.shadowBlur=30;ctx.shadowColor='#ff6a1d';ctx.beginPath();ctx.arc(ex,ey,12+50*pulse,0,6.28);ctx.fill();ctx.fillStyle='#ff6420';ctx.globalAlpha=.38*pulse;ctx.beginPath();ctx.arc(ex,ey,26+76*pulse,0,6.28);ctx.fill();ctx.restore()}\n    }\n   }\n  }else if(superFx.kind==='cargo')"""
           s=s[:sup_i]+kfbranch+s[sup_i+len("if(superFx.kind==='cargo')"):]
 
-          # Draw approved KF21 at a proper wide aspect ratio. Existing character draw remains unchanged.
-          rep_pairs=[
-            ("ctx.drawImage(playerImg,player.x-30,player.y-31,60,62)","isKf21?ctx.drawImage(playerImg,player.x-43,player.y-28,86,56):ctx.drawImage(playerImg,player.x-30,player.y-31,60,62)"),
-            ("ctx.drawImage(playerImg,c.x-20,c.y-21,40,42)","isKf21?ctx.drawImage(playerImg,c.x-29,c.y-19,58,38):ctx.drawImage(playerImg,c.x-20,c.y-21,40,42)")
-          ]
-          for a,b in rep_pairs:
-              if s.count(a)<1: raise SystemExit(f'expected draw pattern missing: {a}')
-              s=s.replace(a,b)
+          # Existing canvas is already translated to each craft position.
+          clone_old='ctx.drawImage(playerImg,-20,-21,40,42)'
+          player_old='ctx.drawImage(playerImg,-30,-31,60,62)'
+          if s.count(clone_old)<1 or s.count(player_old)<1:
+              raise SystemExit(f'draw counts clone={s.count(clone_old)} player={s.count(player_old)}')
+          s=s.replace(clone_old,"isKf21?ctx.drawImage(playerImg,-29,-19,58,38):ctx.drawImage(playerImg,-20,-21,40,42)")
+          s=s.replace(player_old,"isKf21?ctx.drawImage(playerImg,-43,-28,86,56):ctx.drawImage(playerImg,-30,-31,60,62)")
 
-          # Unlock permanently on the real Stage-5 final-form clear.
+          # Permanent unlock only after the real Stage-5 final form is destroyed.
           fb='function finishBoss(){\n  if(stageNo===5&&boss&&boss.form!==2){transformFinalBoss();return}\n  const bx=boss.x,by=boss.y,currentStage=stageNo;'
-          fb2="function finishBoss(){\n  if(stageNo===5&&boss&&boss.form!==2){transformFinalBoss();return}\n  const bx=boss.x,by=boss.y,currentStage=stageNo;\n  if(currentStage===5&&!state.spacefighterKf21Unlocked){state.spacefighterKf21Unlocked=true;state.spacefighterKf21New=true;state.spacefighterCraft='character';save();banner('KF-21 전투기 해금!','다음 출격부터 캐릭터 / KF-21 선택 가능');tone('perfect');buzz([45,20,70,20,120])}"
           if s.count(fb)!=1: raise SystemExit(f'finishBoss head count={s.count(fb)}')
+          fb2="function finishBoss(){\n  if(stageNo===5&&boss&&boss.form!==2){transformFinalBoss();return}\n  const bx=boss.x,by=boss.y,currentStage=stageNo;\n  if(currentStage===5&&!state.spacefighterKf21Unlocked){state.spacefighterKf21Unlocked=true;state.spacefighterKf21New=true;state.spacefighterCraft='character';save();tone('perfect');buzz([45,20,70,20,120])}"
           s=s.replace(fb,fb2,1)
 
-          # Retry after unlock returns to the same Character / KF-21 selection screen.
-          n=s.count("finish('spacefighter',score,playSpacefighter")
-          if n<1: raise SystemExit('spacefighter finish retry callback not found')
-          s=s.replace("finish('spacefighter',score,playSpacefighter","finish('spacefighter',score,beginSpacefighter")
+          # First clear ending explicitly announces the new fighter.
+          ending_old='<strong>1884 진주중앙시장 파이팅!</strong></div></div>`;'
+          ending_new="<strong>1884 진주중앙시장 파이팅!</strong>${state.spacefighterKf21New?'<div style=\"margin-top:15px;padding:10px 12px;border:2px solid #77dcff;border-radius:12px;background:#062550;color:#ffe268;font-weight:1000\">NEW FIGHTER · KF-21 전투기 해금!<br><span style=\"font-size:12px;color:#d6efff\">다음 출격부터 캐릭터 / KF-21 선택 가능</span></div>':''}</div></div>`;"
+          if s.count(ending_old)!=1: raise SystemExit(f'ending marker count={s.count(ending_old)}')
+          s=s.replace(ending_old,ending_new,1)
+
+          # Any shooter finish/retry callback goes back through the two-card selector after unlock.
+          body_i=s.find("function playSpacefighter(craftMode='character')")
+          body_j=s.find('function playOsoRacing()',body_i)
+          if body_i<0 or body_j<0: raise SystemExit('shooter region bounds missing')
+          seg=s[body_i:body_j]
+          retry_count=seg.count(',playSpacefighter,')
+          if retry_count<1: raise SystemExit('no shooter retry callback found')
+          seg=seg.replace(',playSpacefighter,',',beginSpacefighter,')
+          s=s[:body_i]+seg+s[body_j:]
 
           p.write_text(s,encoding='utf-8')
-
-          # Extract inline scripts and syntax-check every plain script block with node.
-          scripts=re.findall(r'<script(?:\s[^>]*)?>(.*?)</script>',s,re.S)
-          tmp=Path('/tmp/jcm-inline-check')
-          tmp.mkdir(exist_ok=True)
-          checked=0
-          for i,code in enumerate(scripts):
-              if not code.strip(): continue
-              f=tmp/f'{i}.js';f.write_text(code,encoding='utf-8')
-              checked+=1
           report=[
             'SPACEFIGHTER KF21 SELECT v1.0',
-            'UI=Character / KF-21 two-card sortie selection',
-            'UNLOCK=Stage 5 final-form clear; permanent state.spacefighterKf21Unlocked',
-            'RETRY=beginSpacefighter selection after unlock',
-            'KF21_NORMAL=dedicated white-blue tracer with yellow tail; NOT missile',
-            'KF21_SUPER=missile barrage + screen-wide bombing/explosion visuals',
-            'ASSET_SOURCE=accepted SP1 v3.8 embedded KF-21 image; no new image generated',
-            f'ASSET_BYTES={len(png)}',
-            f'ASSET_SHA256={hashlib.sha256(png).hexdigest()}',
-            f'PLAY_SHA256={hashlib.sha256(s.encode()).hexdigest()}',
-            f'INLINE_SCRIPTS={checked}',
-            f'SPACEFIGHTER_FINISH_CALLBACK_REPLACEMENTS={n}'
+            'UI=two large cards: Character / KF-21',
+            'UNLOCK=real Stage-5 final-form clear, permanent',
+            'RETRY=returns to Character / KF-21 selector after unlock',
+            'CHARACTER=current selected Oso/Hamo/Ayo; existing attacks unchanged',
+            'KF21_NORMAL=white-blue dedicated tracer with short yellow tail; no missile',
+            'KF21_SUPER=missile barrage + repeated screen-wide explosions',
+            'POWER_OPTION_BALANCE=unchanged',
+            'ASSET_SOURCE=accepted SP1 v3.8 embedded KF-21 WebP; no new image generated',
+            f'ASSET_BYTES={len(webp)}',
+            f'ASSET_SHA256={hashlib.sha256(webp).hexdigest()}',
+            f'PLAY_BEFORE_SHA256={hashlib.sha256(original.encode()).hexdigest()}',
+            f'PLAY_AFTER_SHA256={hashlib.sha256(s.encode()).hexdigest()}',
+            f'RETRY_CALLBACKS={retry_count}'
           ]
           Path('.github/spacefighter-kf21-select-report.txt').write_text('\n'.join(report)+'\n',encoding='utf-8')
           PY
 
-          # Validate all inline JS blocks individually.
           python3 - <<'PY'
           from pathlib import Path
           import re, subprocess, sys
           s=Path('play/index.html').read_text(encoding='utf-8')
           scripts=re.findall(r'<script(?:\s[^>]*)?>(.*?)</script>',s,re.S)
-          n=0
+          checked=0
           for i,code in enumerate(scripts):
               if not code.strip(): continue
-              f=Path('/tmp')/f'inline-{i}.js';f.write_text(code,encoding='utf-8')
+              f=Path('/tmp')/f'jcm-inline-{i}.js';f.write_text(code,encoding='utf-8')
               r=subprocess.run(['node','--check',str(f)],capture_output=True,text=True)
               if r.returncode:
-                  print(r.stdout);print(r.stderr,file=sys.stderr);raise SystemExit(f'inline script {i} syntax fail')
-              n+=1
-          print('INLINE_NODE_CHECK_PASS',n)
+                  print(r.stdout);print(r.stderr,file=sys.stderr);raise SystemExit(f'inline JS syntax failed: {i}')
+              checked+=1
+          print('INLINE_NODE_CHECK_PASS',checked)
           PY
           git diff --check
-          test -s play/assets/kf21-approved-top.png
-          grep -q 'SPACEFIGHTER KF21 SELECT v1.0' play/index.html
-          grep -q "state.spacefighterKf21Unlocked=true" play/index.html
-          grep -q "playSpacefighter('kf21')\|choose('kf21')" play/index.html
-          grep -q "kind:isKf21?'kf21'" play/index.html
+          python3 - <<'PY'
+          from pathlib import Path
+          a=Path('play/assets/kf21-approved-top.webp').read_bytes()
+          assert len(a)>10000 and a[:4]==b'RIFF' and a[8:12]==b'WEBP'
+          s=Path('play/index.html').read_text(encoding='utf-8')
+          assert 'SPACEFIGHTER KF21 SELECT v1.0' in s
+          assert "if(code==='spacefighter'){beginSpacefighter();return}" in s
+          assert "state.spacefighterKf21Unlocked=true" in s
+          assert "choose('kf21')" in s
+          assert "kind:isKf21?'kf21'" in s
+          assert "assets/kf21-approved-top.webp" in s
+          assert '전용 고속 트레이서 일반탄' in s
+          assert '미사일 폭격 · 대량 폭발' in s
+          print('KF21_STATIC_ASSERT_PASS')
+          PY
 
           git config user.name 'PWDJ Spacefighter KF21'
           git config user.email '34460283+haveanair@users.noreply.github.com'
-          git add play/index.html play/assets/kf21-approved-top.png .github/spacefighter-kf21-select-report.txt
+          git add play/index.html play/assets/kf21-approved-top.webp .github/spacefighter-kf21-select-report.txt
           git commit -m 'Add Character and KF-21 sortie selection'
           git push
