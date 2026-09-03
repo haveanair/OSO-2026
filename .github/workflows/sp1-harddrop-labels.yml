@@ -1,0 +1,94 @@
+name: Fix SP1 hard-drop 0.3s labels
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/sp1-harddrop-labels.trigger'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Sync SP1 hard-drop labels and charge animation
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import re, hashlib
+
+          game=Path('play/sp1/sotris/index.html')
+          integ=Path('play/sp1/sotris-integration.js')
+          play=Path('play/index.html')
+
+          gs=game.read_text(encoding='utf-8')
+          js=integ.read_text(encoding='utf-8')
+          ps=play.read_text(encoding='utf-8')
+
+          replacements=[
+              ('content:"0.5초"','content:"0.3초"',1),
+              ('aria-label="0.5초 길게 눌러 즉시 낙하"','aria-label="0.3초 길게 눌러 즉시 낙하"',1),
+              ('▲ 0.5초 길게 즉시 낙하','▲ 0.3초 길게 즉시 낙하',1),
+          ]
+          for old,new,count in replacements:
+              if gs.count(old)!=count:
+                  raise SystemExit(f'pattern count invalid for {old!r}: {gs.count(old)}')
+              gs=gs.replace(old,new,count)
+
+          # Charge-fill animation must visually complete at the same 0.3s as the actual hard drop.
+          if gs.count('transition:height .5s linear')!=2:
+              raise SystemExit(f'charge transition count invalid: {gs.count("transition:height .5s linear")}')
+          gs=gs.replace('transition:height .5s linear','transition:height .3s linear')
+
+          # Keep the already-correct 300ms runtime logic untouched and verify it.
+          runtime="hardHold=setTimeout(()=>{hardFired=true;hardBtn.classList.remove('charging');vibrate(20);hard()},300)"
+          if gs.count(runtime)!=1:
+              raise SystemExit(f'300ms runtime pattern invalid: {gs.count(runtime)}')
+
+          # Bust both integration and iframe caches so mobile browsers cannot keep the old 0.5s text.
+          js,n1=re.subn(r"frame\.src=SP1_URL\+'\?v=[^']+';","frame.src=SP1_URL+'?v=20260903-hard300-labels1';",js,count=1)
+          if n1!=1:
+              raise SystemExit(f'iframe cache key replacement failed: {n1}')
+          ps,n2=re.subn(r'sp1/sotris-integration\.js\?v=[^"\']+', 'sp1/sotris-integration.js?v=20260903-hard300-labels1', ps, count=1)
+          if n2!=1:
+              raise SystemExit(f'integration cache key replacement failed: {n2}')
+
+          game.write_text(gs,encoding='utf-8')
+          integ.write_text(js,encoding='utf-8')
+          play.write_text(ps,encoding='utf-8')
+
+          # Final assertions: no user-facing 0.5s hard-drop remnants.
+          assert 'content:"0.5초"' not in gs
+          assert 'aria-label="0.5초 길게 눌러 즉시 낙하"' not in gs
+          assert '▲ 0.5초 길게 즉시 낙하' not in gs
+          assert 'content:"0.3초"' in gs
+          assert 'aria-label="0.3초 길게 눌러 즉시 낙하"' in gs
+          assert '▲ 0.3초 길게 즉시 낙하' in gs
+          assert gs.count('transition:height .3s linear')==2
+          assert runtime in gs
+          assert "frame.src=SP1_URL+'?v=20260903-hard300-labels1';" in js
+          assert 'sp1/sotris-integration.js?v=20260903-hard300-labels1' in ps
+
+          Path('.github/sp1-harddrop-labels-report.txt').write_text(
+              'SP1 HARD DROP UI SYNC\n'
+              'RUNTIME_MS=300\nBUTTON_LABEL=0.3초\nHELP_LABEL=0.3초\nCHARGE_ANIMATION=0.3s\n'
+              'GAME_SHA256='+hashlib.sha256(gs.encode()).hexdigest()+'\n'
+              'INTEGRATION_SHA256='+hashlib.sha256(js.encode()).hexdigest()+'\n'
+              'PLAY_SHA256='+hashlib.sha256(ps.encode()).hexdigest()+'\n',
+              encoding='utf-8')
+          PY
+
+          node --check play/sp1/sotris-integration.js
+          git diff --check
+          git config user.name 'PWDJ SP1 UI Sync'
+          git config user.email '34460283+haveanair@users.noreply.github.com'
+          git add play/sp1/sotris/index.html play/sp1/sotris-integration.js play/index.html .github/sp1-harddrop-labels-report.txt
+          git commit -m 'Sync SP1 hard drop UI to 0.3 seconds'
+          git push
