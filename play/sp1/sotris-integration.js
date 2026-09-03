@@ -1,4 +1,4 @@
-/* JCM SP1 SOTRIS LIVE INTEGRATION 2026-09-03 · CARD OSO v3.9.1 */
+/* JCM SP1 SOTRIS LIVE INTEGRATION 2026-09-03 · CARD OSO v3.9.2 */
 (function(){
 'use strict';
 if(window.__JCM_SP1_SOTRIS_LIVE__)return;
@@ -57,7 +57,7 @@ function addStyle(){
 }
 function unlockFx(){
  if(document.querySelector('.sp1Unlock'))return;
- const d=document.createElement('div');d.className='sp1Unlock';d.innerHTML='<div class="sp1UnlockCard"><div class="m">🏅</div><h2>SP1 소트리스 해금!</h2><p>오소 도감을 모두 모았소!</p></div>';document.body.appendChild(d);
+ const d=document.createElement('div');d.className='sp1Unlock';d.innerHTML='<div class="sp1UnlockCard"><div class="m">🏅</div><h2>SP1 소트리스 해금!</h2><p>도감에서 오소를 모두 모았소!</p></div>';document.body.appendChild(d);
  try{tone('clear');buzz([45,20,70,25,110])}catch(_){}
  setTimeout(()=>d.remove(),2900);
 }
@@ -66,7 +66,7 @@ function renderCard(){
  const lib=document.getElementById('library');if(!lib)return;
  const newly=unlockIfReady();let sec=document.getElementById('specialGameSection');if(!sec){sec=document.createElement('section');sec.id='specialGameSection';lib.insertAdjacentElement('afterend',sec)}
  const ok=unlocked(),p=progress(),best=Math.max(0,Math.floor(Number(state.best.sotris)||0)),osoSrc=sp1CardOsoSrc();
- sec.innerHTML=`<div class="sp1SectionTitle">🏅 SPECIAL GAME<small>일반 게임 1~10과 별도인 컬렉션 해금 게임</small></div><button id="sp1Card" class="sp1Card ${ok?'':'lock'}"><span class="medal">🏅</span><b>${ok?'SP1 · 소트리스':'SP1 · ???'}</b><p>${ok?'5 STAGES · 아케이드 퍼즐':'오소 도감 전부 수집 시 해금'}</p><div class="best">${ok?`🏆 최고 ${best.toLocaleString()}점`:`오소 수집 ${p.owned} / ${p.total}`}</div>${osoSrc?`<img class="sp1Oso" src="${osoSrc}" alt="오소">`:''}</button>`;
+ sec.innerHTML=`<div class="sp1SectionTitle">🏅 SPECIAL GAME<small>일반 게임 1~10과 별도인 컬렉션 해금 게임</small></div><button id="sp1Card" class="sp1Card ${ok?'':'lock'}"><span class="medal">🏅</span><b>${ok?'SP1 · 소트리스':'SP1 · ???'}</b><p>${ok?'5 STAGES · 아케이드 퍼즐':'도감에서 오소 전부 수집 시 해금'}</p><div class="best">${ok?`🏆 최고 ${best.toLocaleString()}점`:`오소 수집 ${p.owned} / ${p.total}`}</div>${osoSrc?`<img class="sp1Oso" src="${osoSrc}" alt="오소">`:''}</button>`;
  const b=document.getElementById('sp1Card');if(b)b.onclick=()=>{if(ok)launch();else{try{tone('bad');buzz(50)}catch(_){}}};
  if(newly)setTimeout(unlockFx,90);
 }
