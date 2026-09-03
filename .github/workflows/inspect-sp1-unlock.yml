@@ -1,0 +1,51 @@
+name: Inspect SP1 unlock bridge
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/sp1-unlock-inspect.trigger'
+
+permissions:
+  contents: write
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Extract SP1 unlock context
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('play/index.html')
+          s=p.read_text(encoding='utf-8')
+          keys=[
+            'ownedSkins','OSO_SKINS','window.state','typeof state','소트리스','sotris','SP1','sp1',
+            'renderOsoShop','currentOsoSrc','ownedAyo','ownedHamo'
+          ]
+          out=[]
+          out.append(f'PLAY_LEN={len(s)}\n')
+          for key in keys:
+              poss=[]
+              start=0
+              while True:
+                  i=s.find(key,start)
+                  if i<0: break
+                  poss.append(i)
+                  start=i+1
+              out.append(f'===== KEY: {key} COUNT {len(poss)} =====\n')
+              for n,i in enumerate(poss[:20],1):
+                  a=max(0,i-2200); b=min(len(s),i+3200)
+                  out.append(f'\n--- {key} #{n} @ {i} ---\n\n{s[a:b]}\n')
+          Path('.github/sp1-unlock-inspection.txt').write_text('\n'.join(out),encoding='utf-8')
+          PY
+          git config user.name 'PWDJ SP1 Inspector'
+          git config user.email '34460283+haveanair@users.noreply.github.com'
+          git add .github/sp1-unlock-inspection.txt
+          git commit -m 'Inspect SP1 unlock bridge'
+          git push
