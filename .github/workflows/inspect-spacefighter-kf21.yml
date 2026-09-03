@@ -1,0 +1,64 @@
+name: Inspect Spacefighter KF21 integration points
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/spacefighter-kf21-inspect.trigger'
+
+permissions:
+  contents: write
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Extract shooter contexts
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          s=Path('play/index.html').read_text(encoding='utf-8')
+          keys=[
+            'function playSpacefighter()',
+            'function finishBoss()',
+            "finish('spacefighter'",
+            'function startGame(code)',
+            'function launch(code)',
+            "case 'spacefighter'",
+            'playerImg=new Image()',
+            'function firePattern(',
+            'function firePlayer(',
+            'function useSuper()',
+            'for(const o of shots)',
+            'state={',
+            'let state=',
+            'const DEFAULT_STATE',
+            'ownedSkins',
+            'currentOsoSrc()',
+            'function currentOsoSrc',
+            'sfSuper',
+            'retry'
+          ]
+          out=[f'PLAY_LEN={len(s)}']
+          for key in keys:
+              poss=[]; p=0
+              while True:
+                  i=s.find(key,p)
+                  if i<0: break
+                  poss.append(i); p=i+1
+              out.append(f'\n===== {key} COUNT {len(poss)} =====')
+              for n,i in enumerate(poss[:20],1):
+                  a=max(0,i-2800); b=min(len(s),i+9000)
+                  out.append(f'\n--- #{n} @ {i} ---\n{s[a:b]}')
+          Path('.github/spacefighter-kf21-inspection.txt').write_text('\n'.join(out),encoding='utf-8')
+          PY
+          git config user.name 'PWDJ Spacefighter Inspector'
+          git config user.email '34460283+haveanair@users.noreply.github.com'
+          git add .github/spacefighter-kf21-inspection.txt
+          git commit -m 'Inspect spacefighter KF21 integration points'
+          git push
