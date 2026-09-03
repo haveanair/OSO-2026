@@ -1,0 +1,126 @@
+name: Fix SP1 unlock in unlock build
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/sp1-unlock-fix.trigger'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Patch unlock build SP1 bridge
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import json, re, hashlib
+
+          play=Path('play/index.html')
+          integ=Path('play/sp1/sotris-integration.js')
+          unlock=Path('unlock/index.html')
+          ps=play.read_text(encoding='utf-8')
+          js=integ.read_text(encoding='utf-8')
+          us=unlock.read_text(encoding='utf-8')
+
+          # 1) play에서 외부 SP1 통합 스크립트 캐시 키 갱신
+          old_tag='<script src="sp1/sotris-integration.js?v=20260903"></script>'
+          new_tag='<script src="sp1/sotris-integration.js?v=20260903-unlockfix1"></script>'
+          if ps.count(old_tag)!=1:
+              raise SystemExit(f'SP1 script tag count invalid: {ps.count(old_tag)}')
+          ps=ps.replace(old_tag,new_tag,1)
+
+          # 2) 해금판은 play HTML을 document.write하므로 상대경로 기준이 /unlock/로 남는 문제 수정.
+          #    base를 play/로 고정하되 location.pathname은 /unlock/ 그대로라 DEV_ALL_UNLOCKED 판정은 유지된다.
+          old_fetch="fetch('../play/index.html',{cache:'no-cache'}).then(r=>r.text()).then(t=>{document.open();document.write(t);document.close()})"
+          new_fetch="fetch('../play/index.html?v=sp1-v39-unlockfix1',{cache:'no-store'}).then(r=>r.text()).then(t=>{t=t.replace('<head>','<head><base href=\"../play/\">');document.open();document.write(t);document.close()})"
+          if us.count(old_fetch)!=1:
+              raise SystemExit(f'unlock fetch pattern count invalid: {us.count(old_fetch)}')
+          us=us.replace(old_fetch,new_fetch,1)
+
+          # 3) SP1은 해금판이라도 컬렉션 조건 자체를 검증하도록 DEV_ALL_UNLOCKED 우회 제거.
+          old_cond="if((typeof DEV_ALL_UNLOCKED!=='undefined'&&DEV_ALL_UNLOCKED)||allOsoOwned()){"
+          new_cond="if(allOsoOwned()){"
+          if js.count(old_cond)!=1:
+              raise SystemExit(f'SP1 unlock condition count invalid: {js.count(old_cond)}')
+          js=js.replace(old_cond,new_cond,1)
+
+          old_frame="frame.src=SP1_URL+'?v=20260903';"
+          new_frame="frame.src=SP1_URL+'?v=20260903-unlockfix1';"
+          if js.count(old_frame)!=1:
+              raise SystemExit(f'SP1 iframe cache tag count invalid: {js.count(old_frame)}')
+          js=js.replace(old_frame,new_frame,1)
+
+          old_banner='/* JCM SP1 SOTRIS LIVE INTEGRATION 2026-09-03 */'
+          new_banner='/* JCM SP1 SOTRIS LIVE INTEGRATION 2026-09-03 · UNLOCK FIX v3.9 */'
+          if js.count(old_banner)==1:
+              js=js.replace(old_banner,new_banner,1)
+
+          # 기존 구매 완료 사용자는 페이지 진입 즉시 다시 판정하고, 복귀 시에도 재판정.
+          anchor="addStyle();ensureState();renderCard();\n})();"
+          repl="window.__JCM_SP1_SYNC_UNLOCK__=()=>{try{renderCard();return unlocked()}catch(_){return false}};\nwindow.addEventListener('pageshow',()=>{try{renderCard()}catch(_){}});\ndocument.addEventListener('visibilitychange',()=>{if(!document.hidden){try{renderCard()}catch(_){}}});\naddStyle();ensureState();renderCard();\n})();"
+          if js.count(anchor)!=1:
+              raise SystemExit(f'SP1 final anchor count invalid: {js.count(anchor)}')
+          js=js.replace(anchor,repl,1)
+
+          # 구매 직후에도 명시적으로 SP1 판정을 한 번 더 실행한다.
+          buy_old="state.coins-=s.price;state.ownedSkins.push(s.id);state.selectedSkin=s.id;save();tone('clear');buzz([20,15,35]);refresh()"
+          buy_new="state.coins-=s.price;state.ownedSkins.push(s.id);state.selectedSkin=s.id;save();tone('clear');buzz([20,15,35]);refresh();try{if(window.__JCM_SP1_SYNC_UNLOCK__)window.__JCM_SP1_SYNC_UNLOCK__()}catch(_){}"
+          if ps.count(buy_old)!=1:
+              raise SystemExit(f'buy hook count invalid: {ps.count(buy_old)}')
+          ps=ps.replace(buy_old,buy_new,1)
+
+          # 구조 검증: 현재 오소 유료 8종이 컬렉션 조건 대상으로 잡히는지 확인
+          marker='const OSO_SKINS='
+          pos=ps.index(marker)+len(marker)
+          skins,_=json.JSONDecoder().raw_decode(ps[pos:])
+          oso=[x for x in skins if (x.get('group') or 'oso')=='oso' and float(x.get('price') or 0)>0]
+          ids=[x.get('id') for x in oso]
+          expected=['curious','angry','welcome','party','beer1884','fruitmarket','fishmarket','shopping']
+          if ids!=expected:
+              raise SystemExit(f'OSO paid list changed: {ids!r}')
+
+          # 수정본 저장
+          play.write_text(ps,encoding='utf-8')
+          integ.write_text(js,encoding='utf-8')
+          unlock.write_text(us,encoding='utf-8')
+
+          # 후검증
+          assert '<base href="../play/">' in us
+          assert "cache:'no-store'" in us
+          assert 'sotris-integration.js?v=20260903-unlockfix1' in ps
+          assert 'window.__JCM_SP1_SYNC_UNLOCK__' in ps
+          assert 'window.__JCM_SP1_SYNC_UNLOCK__' in js
+          assert "if(allOsoOwned()){" in js
+          assert "DEV_ALL_UNLOCKED)||allOsoOwned" not in js
+          assert "frame.src=SP1_URL+'?v=20260903-unlockfix1';" in js
+
+          report=[
+            'SP1 UNLOCK FIX v3.9',
+            'ROOT_CAUSE=unlock build document.write kept /unlock/ as relative URL base, so play/sp1/sotris-integration.js resolved under /unlock/sp1 and did not load.',
+            'FIX_BASE=../play/',
+            'SPECIAL_RULE=all paid Oso items required even in unlock build',
+            'OSO_IDS='+','.join(ids),
+            'PLAY_SP1_CACHE=20260903-unlockfix1',
+            'PLAY_SHA256='+hashlib.sha256(ps.encode()).hexdigest(),
+            'INTEGRATION_SHA256='+hashlib.sha256(js.encode()).hexdigest(),
+            'UNLOCK_SHA256='+hashlib.sha256(us.encode()).hexdigest(),
+          ]
+          Path('.github/sp1-unlock-fix-report.txt').write_text('\n'.join(report)+'\n',encoding='utf-8')
+          PY
+
+          node --check play/sp1/sotris-integration.js
+          git diff --check
+          git config user.name 'PWDJ SP1 Unlock Fix'
+          git config user.email '34460283+haveanair@users.noreply.github.com'
+          git add play/index.html play/sp1/sotris-integration.js unlock/index.html .github/sp1-unlock-fix-report.txt
+          git commit -m 'Fix SP1 collection unlock in unlock build'
+          git push
