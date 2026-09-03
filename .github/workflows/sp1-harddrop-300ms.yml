@@ -1,0 +1,73 @@
+name: Set SP1 hard drop hold to 300ms
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/sp1-harddrop-300ms.trigger'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Patch SP1 hard drop hold time
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import re, hashlib
+
+          game=Path('play/sp1/sotris/index.html')
+          integ=Path('play/sp1/sotris-integration.js')
+          play=Path('play/index.html')
+
+          gs=game.read_text(encoding='utf-8')
+          js=integ.read_text(encoding='utf-8')
+          ps=play.read_text(encoding='utf-8')
+
+          old="hardHold=setTimeout(()=>{hardFired=true;hardBtn.classList.remove('charging');vibrate(20);hard()},500)"
+          new="hardHold=setTimeout(()=>{hardFired=true;hardBtn.classList.remove('charging');vibrate(20);hard()},300)"
+          if gs.count(old)!=1:
+              raise SystemExit(f'hard drop 500ms pattern count invalid: {gs.count(old)}')
+          gs=gs.replace(old,new,1)
+
+          # Force browsers to fetch the updated SP1 file.
+          js,n1=re.subn(r"frame\.src=SP1_URL\+'\?v=[^']+';","frame.src=SP1_URL+'?v=20260903-hard300';",js,count=1)
+          if n1!=1:
+              raise SystemExit(f'iframe cache key replacement failed: {n1}')
+
+          ps,n2=re.subn(r'sp1/sotris-integration\.js\?v=[^"\']+', 'sp1/sotris-integration.js?v=20260903-hard300', ps, count=1)
+          if n2!=1:
+              raise SystemExit(f'integration cache key replacement failed: {n2}')
+
+          game.write_text(gs,encoding='utf-8')
+          integ.write_text(js,encoding='utf-8')
+          play.write_text(ps,encoding='utf-8')
+
+          assert new in gs and old not in gs
+          assert "frame.src=SP1_URL+'?v=20260903-hard300';" in js
+          assert 'sp1/sotris-integration.js?v=20260903-hard300' in ps
+
+          Path('.github/sp1-harddrop-300ms-report.txt').write_text(
+              'SP1 HARD DROP HOLD FIX\n'
+              'OLD_MS=500\nNEW_MS=300\n'
+              'GAME_SHA256='+hashlib.sha256(gs.encode()).hexdigest()+'\n'
+              'INTEGRATION_SHA256='+hashlib.sha256(js.encode()).hexdigest()+'\n'
+              'PLAY_SHA256='+hashlib.sha256(ps.encode()).hexdigest()+'\n',
+              encoding='utf-8')
+          PY
+
+          node --check play/sp1/sotris-integration.js
+          git diff --check
+          git config user.name 'PWDJ SP1 Control Fix'
+          git config user.email '34460283+haveanair@users.noreply.github.com'
+          git add play/sp1/sotris/index.html play/sp1/sotris-integration.js play/index.html .github/sp1-harddrop-300ms-report.txt
+          git commit -m 'Set SP1 hard drop hold to 0.3 seconds'
+          git push
