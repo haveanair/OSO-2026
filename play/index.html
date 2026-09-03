@@ -3773,6 +3773,7 @@ function startGame(code){
  if(!state.unlock[code])return;
  if(cleanup){cleanup();cleanup=null}
  const g=game(code);activeGameCode=code;$('#gameOverlay').classList.add('show');$('#gTitle').textContent=g.name;$('#gScore').textContent='0';updateBestHud(0);$('#stage').innerHTML='';
+ if(code==='spacefighter'){beginSpacefighter();return}
  readyThen(()=>launch(code))
 }
 function launch(code){
@@ -4446,7 +4447,7 @@ function playPowerduck(){
 /* ===== 오소 우주파이터 : 5-STAGE VERTICAL SHOOTER ===== */
 function beginSpacefighter(){
  const unlocked=!!state.spacefighterKf21Unlocked;
- if(!unlocked){state.spacefighterCraft='character';save();playSpacefighter('character');return}
+ if(!unlocked){state.spacefighterCraft='character';save();$('#stage').innerHTML='';readyThen(()=>playSpacefighter('character'));return}
  const s=$('#stage'),skin=currentSkin(),isNew=!!state.spacefighterKf21New;
  s.innerHTML=`<div class="sfCraftSelect">
   <div class="sfCraftTitle">출격 선택</div>
@@ -4457,7 +4458,7 @@ function beginSpacefighter(){
   </div>
   <div class="sfCraftHint">5스테이지 클리어 보상 · 해금 후 영구 사용</div>
  </div>`;
- const choose=mode=>{state.spacefighterCraft=mode;if(mode==='kf21')state.spacefighterKf21New=false;save();playSpacefighter(mode)};
+ const choose=mode=>{state.spacefighterCraft=mode;if(mode==='kf21')state.spacefighterKf21New=false;save();s.innerHTML='';readyThen(()=>playSpacefighter(mode))};
  $('#sfChooseCharacter').onclick=()=>choose('character');
  $('#sfChooseKf21').onclick=()=>choose('kf21');
  cleanup=()=>{};
