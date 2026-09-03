@@ -3505,7 +3505,7 @@ function renderOsoShop(){
    const s=OSO_SKINS.find(x=>x.id===btn.dataset.buy);if(!s)return;
    if(state.ownedSkins.includes(s.id)){state.selectedSkin=s.id;save();refresh();tone('good');return}
    if((state.coins||0)<s.price){tone('bad');buzz(70);btn.textContent='코인이 부족하소!';setTimeout(renderOsoShop,700);return}
-   state.coins-=s.price;state.ownedSkins.push(s.id);state.selectedSkin=s.id;save();tone('clear');buzz([20,15,35]);refresh()
+   state.coins-=s.price;state.ownedSkins.push(s.id);state.selectedSkin=s.id;save();tone('clear');buzz([20,15,35]);refresh();try{if(window.__JCM_SP1_SYNC_UNLOCK__)window.__JCM_SP1_SYNC_UNLOCK__()}catch(_){}
  })
 }
 
@@ -6893,5 +6893,5 @@ refresh();renderRanking();initGpsUi();initQrUi();boot();
 </script>
 
 <!-- SP1 SOTRIS LIVE INTEGRATION -->
-<script src="sp1/sotris-integration.js?v=20260903"></script>
+<script src="sp1/sotris-integration.js?v=20260903-unlockfix1"></script>
 </body></html>

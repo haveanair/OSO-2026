@@ -1,0 +1,9 @@
+SP1 UNLOCK FIX v3.9
+ROOT_CAUSE=unlock build document.write kept /unlock/ as relative URL base, so play/sp1/sotris-integration.js resolved under /unlock/sp1 and did not load.
+FIX_BASE=../play/
+SPECIAL_RULE=all paid Oso items required even in unlock build
+OSO_IDS=curious,angry,welcome,party,beer1884,fruitmarket,fishmarket,shopping
+PLAY_SP1_CACHE=20260903-unlockfix1
+PLAY_SHA256=4c5e8854c59471cf9531bed3f65d1b0abd1f2eaf50a5239bba5c9ab2a805d7c7
+INTEGRATION_SHA256=afb88bb3d2d66b627e0d81aae4784045e09f61a3fe0eb281267eb8df7d35daae
+UNLOCK_SHA256=65d3b65782d9627e08ab0569988290e5d7ded184ed9208dde820df9dfca467d3

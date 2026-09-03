@@ -1,4 +1,4 @@
-/* JCM SP1 SOTRIS LIVE INTEGRATION 2026-09-03 */
+/* JCM SP1 SOTRIS LIVE INTEGRATION 2026-09-03 · UNLOCK FIX v3.9 */
 (function(){
 'use strict';
 if(window.__JCM_SP1_SOTRIS_LIVE__)return;
@@ -26,7 +26,7 @@ function allOsoOwned(){
 function unlockIfReady(){
  ensureState();
  if(state.specialUnlocks.sotris)return false;
- if((typeof DEV_ALL_UNLOCKED!=='undefined'&&DEV_ALL_UNLOCKED)||allOsoOwned()){
+ if(allOsoOwned()){
   state.specialUnlocks.sotris=true;
   try{save()}catch(_){}
   return true;
@@ -69,7 +69,7 @@ function ensureHost(){
 }
 function updateCoin(){const e=document.getElementById('sp1Coin');if(e)e.textContent='🪙 '+Number(state.coins||0).toLocaleString()}
 function toast(t,d=1900){const e=document.getElementById('sp1Toast');if(!e)return;e.textContent=t;e.classList.add('show');clearTimeout(e._t);e._t=setTimeout(()=>e.classList.remove('show'),d)}
-function launch(){if(!unlocked())return;ensureHost();settled.clear();pendingRank=false;pendingMilestones=[];try{if(typeof stopBGM==='function')stopBGM()}catch(_){}updateCoin();host.classList.add('show');frame.src=SP1_URL+'?v=20260903';}
+function launch(){if(!unlocked())return;ensureHost();settled.clear();pendingRank=false;pendingMilestones=[];try{if(typeof stopBGM==='function')stopBGM()}catch(_){}updateCoin();host.classList.add('show');frame.src=SP1_URL+'?v=20260903-unlockfix1';}
 function close(){if(!host)return;try{frame.src='about:blank'}catch(_){}host.classList.remove('show');try{if(typeof refresh==='function')refresh();if(typeof startBGM==='function')startBGM('hub',1)}catch(_){}if(pendingRank){pendingRank=false;setTimeout(()=>{try{promptInitialsIfNeeded(null)}catch(_){}},350)}}
 function settle(d){
  ensureState();const session=String(d.session||''),attempt=Math.max(0,Math.floor(Number(d.attempt)||0));if(!session||!attempt)return;const key=session+':'+attempt;if(settled.has(key))return;settled.add(key);
@@ -83,5 +83,8 @@ function settle(d){
 }
 window.addEventListener('message',e=>{if(!frame||e.source!==frame.contentWindow)return;const d=e.data||{};if(d.source!=='sotris-sp1')return;if(d.type==='RESULT')settle(d);else if(d.type==='EXIT')close()});
 if(typeof refresh==='function'&&!refresh.__sp1LiveWrapped){const original=refresh;refresh=function(){const r=original.apply(this,arguments);try{renderCard()}catch(_){}return r};refresh.__sp1LiveWrapped=true}
+window.__JCM_SP1_SYNC_UNLOCK__=()=>{try{renderCard();return unlocked()}catch(_){return false}};
+window.addEventListener('pageshow',()=>{try{renderCard()}catch(_){}});
+document.addEventListener('visibilitychange',()=>{if(!document.hidden){try{renderCard()}catch(_){}}});
 addStyle();ensureState();renderCard();
 })();
