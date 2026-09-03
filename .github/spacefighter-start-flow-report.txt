@@ -1,0 +1,487 @@
+===== function startGame COUNT=1 =====
+
+--- #1 @1275643 ---
+=null;
+ function draw(){const v=seq[i];e.innerHTML=`<div class="readyDisc ${v==='GO!'?'go':''}">${v}</div>`;if(v==='GO!')tone('perfect');else beep(580,.04,.025)}
+ draw();
+ ti=setInterval(()=>{i++;if(i<seq.length){draw()}else{clearInterval(ti);e.remove();fn()}},480);
+ cleanup=()=>{clearInterval(ti);if(e.isConnected)e.remove()}
+}
+let activeGameCode=null;
+function updateBestHud(current=null){
+ const el=$('#gBest');if(!el)return;
+ const saved=activeGameCode&&state.best?Math.max(0,Math.floor(Number(state.best[activeGameCode])||0)):0;
+ let cur=current;
+ if(cur==null){const raw=String($('#gScore')?.textContent||'0').replace(/[^0-9.-]/g,'');cur=Number(raw)||0}
+ el.textContent=`🏆 최고 ${Math.max(saved,Math.floor(Number(cur)||0))}`
+}
+const gScoreObserver=new MutationObserver(()=>updateBestHud());
+if($('#gScore'))gScoreObserver.observe($('#gScore'),{childList:true,subtree:true,characterData:true});
+
+function startGame(code){
+ if(!state.unlock[code])return;
+ if(cleanup){cleanup();cleanup=null}
+ const g=game(code);activeGameCode=code;$('#gameOverlay').classList.add('show');$('#gTitle').textContent=g.name;$('#gScore').textContent='0';updateBestHud(0);$('#stage').innerHTML='';
+ readyThen(()=>launch(code))
+}
+function launch(code){
+ if(code==='spacefighter'){beginSpacefighter();return}
+ if(code==='racing'){playOsoRacing();return}
+ if(code==='fantasy'){playOsoFantasy();return}
+ startBGM(code,1);
+ ({basket:playBasket,fish:playFish,stack:playStack,run:playRun,slice:playSlice,tteok:playTteok,powerduck:playPowerduck}[code])()
+}
+$('#quit').onclick=()=>{if(cleanup){cleanup();cleanup=null}stopBGM();startBGM('hub',1);$('#gameOverlay').classList.remove('show');activeGameCode=null;refresh()};
+
+/* basket */
+function playBasket(){
+ const s=$('#stage');s.innerHTML=`<div class="scene basketScene"><div class="skyGrad"></div><div class="marketAwning"></div><div class="marketSign">싱싱 청과</div><div class="stallBack"></div><div class="stallShelf"></div><div class="produceTray trayL">🍎🥬🍊</div><div class="produceTray trayR">🥕🍓🍐</div></div><div class="counter" id="tm">35</div><div class="comboHud" id="combo">COMBO ×0</div><div class="lifeHud" id="life">❤️❤️❤️</div><div class="levelHud" id="levelHud">LEVEL 1</div><div class="playCoinHud" id="playCoinHud">🪙 +0</div><div class="gameTip">LEVEL 3부터 좌우 흔들림 · LEVEL 4부터 2개 동시낙하 · 동전은 실제 코인 보너스!</div><img class="catchOso" src="${currentOsoSrc()}" alt="오소"><div class="basket"></div>`;
+ let score=0,t=35,alive=true,items=[],x=.5,last=0,raf,combo=0,lives=3,level=1,bonusCoins=0,prev=performance.now();const basket=$('.basket'),oso=$('.catchOso');
+ function setX(px){const r=s.getBoundingClientRect();x=Math.max(.14,Math.min(.86,(px-r.left)/r.width));let q=x*r.width;basket.style.left=(q-62)+'px';oso.style.left=(q-52)+'px'}
+ let r0=s.getBoundingClientRect();setX(r0.left+r0.width/2);s.onpointermove=e=>setX(e.clientX);s.onpointerdown=e=>setX(e.clientX);
+ function hud(){$('#combo').textContent=`COMBO ×${combo}`;$('#life').textContent='❤️'.repeat(lives)+'🖤'.repeat(3-lives);const c=$('#playCoinHud');if(c)c.textContent=`🪙 +${bonusCoins}`} 
+ function spawn(){let count=level>=4&&Math.random()<.4?2:1;for(let j=0;j<count;j++){let roll=Math.random(),bomb=.07+level*.015,kind=roll<bomb?'bomb':roll<bomb+.08?'coin':'good',el=document.createElement('div');el.className='falling popIn';el.textContent=kind==='bomb'?'💣':kind==='coin'?'🪙':['🍎','🥬','🍊','🥕','🍓','🍐'][Math.floor(Math.random()*6)];el.dataset.kind=kind;el.dataset.x=.07+Math.random()*.86;el.dataset.y=-.08-j*.07;el.dataset.v=.27+level*.045+Math.random()*.08;el.dataset.phase=Math.random()*6.28;s.appendChild(el);items.push(el)}}
+ let ti=setInterval(()=>{t--;$('#tm').textContent=t;if(t<=0){alive=false;clearInterval(ti);cancelAnimationFrame(raf);finish('basket',score,playBasket,true,bonusCoins)}},1000);
+ function loop(ts){if(!alive)return;let dt=Math.min(.033,(ts-prev)/1000);prev=ts,r=s.getBoundingClientRect();if(ts-last>Math.max(210,610-level*75)){spawn();last=ts}items.forEach(el=>{let y=+el.dataset.y+(+el.dataset.v)*dt,xp=+el.dataset.x;if(level>=3)xp+=Math.sin(y*12+(+el.dataset.phase))*.0011;el.data
+
+===== function readyThen COUNT=1 =====
+
+--- #1 @1274582 ---
+eat(stars)}${'☆'.repeat(3-stars)}</div><div>🪙 +${rewardTotal}${rewardDetail} · 현재 보유 ${state.coins}</div><div>🏆 누적점수 ${Number(state.todayScore||0).toLocaleString('ko-KR')}점</div>${scoreBonusUnlocks.length?`<div class="resultBadge">🔓 ${scoreBonusUnlocks.map(c=>game(c).name).join(' · ')} 해금!</div>`:''}<div class="actions"><button id="rx">나가기</button><button class="primary" id="rr">한판 더!</button></div>`;
+ $('#stage').appendChild(r);
+ if(crossedMilestones.length)playCoinMilestones(crossedMilestones);
+
+ // 누적점수가 새 순위 기준을 돌파하면 결과화면과 동시에 자동으로 등록 안내.
+ setTimeout(()=>promptInitialsIfNeeded(null),60);
+
+ let resultActionLocked=false;
+ $('#rx').onclick=()=>{
+  if(resultActionLocked)return;
+  resultActionLocked=true;
+  if(r.isConnected)r.remove();
+  $('#quit').click();
+ };
+ $('#rr').onclick=()=>{
+  if(resultActionLocked)return;
+  resultActionLocked=true;
+  if(r.isConnected)r.remove();
+  retry()
+ }
+}
+function readyThen(fn){
+ const s=$('#stage'),e=document.createElement('div');e.className='readyCount';s.appendChild(e);
+ const seq=['3','2','1','GO!'];let i=0,ti=null;
+ function draw(){const v=seq[i];e.innerHTML=`<div class="readyDisc ${v==='GO!'?'go':''}">${v}</div>`;if(v==='GO!')tone('perfect');else beep(580,.04,.025)}
+ draw();
+ ti=setInterval(()=>{i++;if(i<seq.length){draw()}else{clearInterval(ti);e.remove();fn()}},480);
+ cleanup=()=>{clearInterval(ti);if(e.isConnected)e.remove()}
+}
+let activeGameCode=null;
+function updateBestHud(current=null){
+ const el=$('#gBest');if(!el)return;
+ const saved=activeGameCode&&state.best?Math.max(0,Math.floor(Number(state.best[activeGameCode])||0)):0;
+ let cur=current;
+ if(cur==null){const raw=String($('#gScore')?.textContent||'0').replace(/[^0-9.-]/g,'');cur=Number(raw)||0}
+ el.textContent=`🏆 최고 ${Math.max(saved,Math.floor(Number(cur)||0))}`
+}
+const gScoreObserver=new MutationObserver(()=>updateBestHud());
+if($('#gScore'))gScoreObserver.observe($('#gScore'),{childList:true,subtree:true,characterData:true});
+
+function startGame(code){
+ if(!state.unlock[code])return;
+ if(cleanup){cleanup();cleanup=null}
+ const g=game(code);activeGameCode=code;$('#gameOverlay').classList.add('show');$('#gTitle').textContent=g.name;$('#gScore').textContent='0';updateBestHud(0);$('#stage').innerHTML='';
+ readyThen(()=>launch(code))
+}
+function launch(code){
+ if(code==='spacefighter'){beginSpacefighter();return}
+ if(code==='racing'){playOsoRacing();return}
+ if(code==='fantasy'){playOsoFantasy();return}
+ startBGM(code,1);
+ ({basket:playBasket,fish:playFish,stack:playStack,run:playRun,slice:playSlice,tteok:playTteok,powerduck:playPowerduck}[code])()
+}
+$('#quit').onclick=()=>{if(cleanup){cleanup();cleanup=null}stopBGM();startBGM('hub',1);$('#gameOverlay').classList.remove('show');activeGameCode=null;refresh()};
+
+/* basket */
+function playBasket(){
+ const s=$('#stage');s.innerHTML=`<div class="scene basketScene"><div class="skyGrad"></div><div class="marketAwning"></div><div class="marketSign">싱싱 청과</div><div class="stallBack"></div><div class="stallShelf"></div><div class="produceTray trayL">🍎🥬🍊</div><div class="produceTray trayR">🥕🍓🍐</div></div><div class="counter" id="tm">35</div><div class="comboHud" id="combo">COMBO ×0</div><div class="lifeHud" id="life">❤️❤️❤️</div><div class="levelHud" id="levelHud">LEVEL 1</div><div class="playCoinHud" id="playCoinHud">🪙 +0</div><div class="gameTip">LEVEL 3부터 좌우 흔들림 · LEVEL 4부터 2개 동시낙하 · 동전은 실제 코인 보너스!</div><img class="catchOso" src="${currentOsoSrc()}" alt="오소"><div class="basket"></div>`;
+ let score=0,t=35,alive=true,items=[],x=.5,last=0,raf,combo=0,lives=3,level=1,bonusCoins=0,prev=performance.now();const basket=$('.basket'),oso=$('.catchOso');
+ function setX(px){const r=s.getBoundingClientRect();x=Math.max(.14,Math.min(.86,(px-r.left)/r.width));let q=x*r.width;basket.style.left=(q-62)+'px';oso.style.left=(q-52)+'px'}
+ let r0=s.getBoundingClientRect();setX(r0.left+r0.width/2);s.onpointermove=e=>setX(e.clientX);s.onpointerdown=e=>setX(e.clientX);
+ function hud(){$('#combo').textContent=`COMBO ×${combo}`;$('#life').textContent='❤️'.repeat(lives)+'🖤'.repeat(3-lives);const c=$('#playCoinHud');
+
+===== function launch COUNT=1 =====
+
+--- #1 @1275953 ---
+ected)e.remove()}
+}
+let activeGameCode=null;
+function updateBestHud(current=null){
+ const el=$('#gBest');if(!el)return;
+ const saved=activeGameCode&&state.best?Math.max(0,Math.floor(Number(state.best[activeGameCode])||0)):0;
+ let cur=current;
+ if(cur==null){const raw=String($('#gScore')?.textContent||'0').replace(/[^0-9.-]/g,'');cur=Number(raw)||0}
+ el.textContent=`🏆 최고 ${Math.max(saved,Math.floor(Number(cur)||0))}`
+}
+const gScoreObserver=new MutationObserver(()=>updateBestHud());
+if($('#gScore'))gScoreObserver.observe($('#gScore'),{childList:true,subtree:true,characterData:true});
+
+function startGame(code){
+ if(!state.unlock[code])return;
+ if(cleanup){cleanup();cleanup=null}
+ const g=game(code);activeGameCode=code;$('#gameOverlay').classList.add('show');$('#gTitle').textContent=g.name;$('#gScore').textContent='0';updateBestHud(0);$('#stage').innerHTML='';
+ readyThen(()=>launch(code))
+}
+function launch(code){
+ if(code==='spacefighter'){beginSpacefighter();return}
+ if(code==='racing'){playOsoRacing();return}
+ if(code==='fantasy'){playOsoFantasy();return}
+ startBGM(code,1);
+ ({basket:playBasket,fish:playFish,stack:playStack,run:playRun,slice:playSlice,tteok:playTteok,powerduck:playPowerduck}[code])()
+}
+$('#quit').onclick=()=>{if(cleanup){cleanup();cleanup=null}stopBGM();startBGM('hub',1);$('#gameOverlay').classList.remove('show');activeGameCode=null;refresh()};
+
+/* basket */
+function playBasket(){
+ const s=$('#stage');s.innerHTML=`<div class="scene basketScene"><div class="skyGrad"></div><div class="marketAwning"></div><div class="marketSign">싱싱 청과</div><div class="stallBack"></div><div class="stallShelf"></div><div class="produceTray trayL">🍎🥬🍊</div><div class="produceTray trayR">🥕🍓🍐</div></div><div class="counter" id="tm">35</div><div class="comboHud" id="combo">COMBO ×0</div><div class="lifeHud" id="life">❤️❤️❤️</div><div class="levelHud" id="levelHud">LEVEL 1</div><div class="playCoinHud" id="playCoinHud">🪙 +0</div><div class="gameTip">LEVEL 3부터 좌우 흔들림 · LEVEL 4부터 2개 동시낙하 · 동전은 실제 코인 보너스!</div><img class="catchOso" src="${currentOsoSrc()}" alt="오소"><div class="basket"></div>`;
+ let score=0,t=35,alive=true,items=[],x=.5,last=0,raf,combo=0,lives=3,level=1,bonusCoins=0,prev=performance.now();const basket=$('.basket'),oso=$('.catchOso');
+ function setX(px){const r=s.getBoundingClientRect();x=Math.max(.14,Math.min(.86,(px-r.left)/r.width));let q=x*r.width;basket.style.left=(q-62)+'px';oso.style.left=(q-52)+'px'}
+ let r0=s.getBoundingClientRect();setX(r0.left+r0.width/2);s.onpointermove=e=>setX(e.clientX);s.onpointerdown=e=>setX(e.clientX);
+ function hud(){$('#combo').textContent=`COMBO ×${combo}`;$('#life').textContent='❤️'.repeat(lives)+'🖤'.repeat(3-lives);const c=$('#playCoinHud');if(c)c.textContent=`🪙 +${bonusCoins}`} 
+ function spawn(){let count=level>=4&&Math.random()<.4?2:1;for(let j=0;j<count;j++){let roll=Math.random(),bomb=.07+level*.015,kind=roll<bomb?'bomb':roll<bomb+.08?'coin':'good',el=document.createElement('div');el.className='falling popIn';el.textContent=kind==='bomb'?'💣':kind==='coin'?'🪙':['🍎','🥬','🍊','🥕','🍓','🍐'][Math.floor(Math.random()*6)];el.dataset.kind=kind;el.dataset.x=.07+Math.random()*.86;el.dataset.y=-.08-j*.07;el.dataset.v=.27+level*.045+Math.random()*.08;el.dataset.phase=Math.random()*6.28;s.appendChild(el);items.push(el)}}
+ let ti=setInterval(()=>{t--;$('#tm').textContent=t;if(t<=0){alive=false;clearInterval(ti);cancelAnimationFrame(raf);finish('basket',score,playBasket,true,bonusCoins)}},1000);
+ function loop(ts){if(!alive)return;let dt=Math.min(.033,(ts-prev)/1000);prev=ts,r=s.getBoundingClientRect();if(ts-last>Math.max(210,610-level*75)){spawn();last=ts}items.forEach(el=>{let y=+el.dataset.y+(+el.dataset.v)*dt,xp=+el.dataset.x;if(level>=3)xp+=Math.sin(y*12+(+el.dataset.phase))*.0011;el.dataset.x=xp;el.dataset.y=y;el.style.left=(xp*r.width-20)+'px';el.style.top=(y*r.height)+'px';el.style.transform=`rotate(${y*220}deg)`;if(y>.76&&y<.92&&Math.abs(xp-x)<.16){let br=basket.getBoundingClientRect(),cx=br.left+br.width/2,cy=br.top;if(el.dataset.kind==='bomb'){lives--;combo=0;score=Math.max(0,score-35);
+
+===== function beginSpacefighter COUNT=1 =====
+
+--- #1 @1322453 ---
+total;
+   tone('bad');buzz(100);showText(`${taps}회 / ${o.need}회 실패 · +${gained}점`);setTimeout(()=>finish('powerduck',total,playPowerduck,false),650)
+  }
+ }
+ function tick(ts){if(!running)return;let elapsed=ts-start,p=Math.max(0,1-elapsed/1000);fill.style.width=(p*100)+'%';if(elapsed>=1000){finishSecond();return}raf=requestAnimationFrame(tick)}
+ target.onclick=()=>{
+  if(ended)return;if(!running){running=true;start=performance.now();raf=requestAnimationFrame(tick)}
+  taps++;tone('tap');buzz(5);target.classList.add('hit');setTimeout(()=>target.classList.remove('hit'),35);count.textContent=`${taps} 연타`;updatePdScorePreview();let o=targets[lv-1],p=Math.min(1,taps/o.need);crack(p);if(taps===o.need)showText(`목표 돌파! LEVEL ${lv} 점수 ×${PD_SCORE_MULT[lv]}!`)
+ };
+ loadStage();cleanup=()=>{ended=true;running=false;cancelAnimationFrame(raf)}
+}
+
+
+
+/* ===== 오소 우주파이터 : 5-STAGE VERTICAL SHOOTER ===== */
+function beginSpacefighter(){
+ const unlocked=!!state.spacefighterKf21Unlocked;
+ if(!unlocked){state.spacefighterCraft='character';save();playSpacefighter('character');return}
+ const s=$('#stage'),skin=currentSkin(),isNew=!!state.spacefighterKf21New;
+ s.innerHTML=`<div class="sfCraftSelect">
+  <div class="sfCraftTitle">출격 선택</div>
+  <div class="sfCraftSub">캐릭터 또는 KF-21 전투기를 선택하시오</div>
+  <div class="sfCraftGrid">
+   <button class="sfCraftCard character" id="sfChooseCharacter"><div class="sfCraftImgBox"><img class="sfCraftImg" src="${currentOsoSrc()}" alt="현재 캐릭터"></div><div class="sfCraftName">캐릭터</div><div class="sfCraftDesc">현재 선택<br><strong>${skin.name||'캐릭터'}</strong><br>기존 공격 · 기존 초필살기</div></button>
+   <button class="sfCraftCard kf21" id="sfChooseKf21">${isNew?'<span class="sfCraftBadge">NEW!</span>':''}<div class="sfCraftImgBox"><img class="sfCraftImg" src="assets/kf21-approved-top.webp?v=20260903-kf21select1" alt="KF-21 전투기"></div><div class="sfCraftName">KF-21</div><div class="sfCraftDesc">전용 고속 트레이서 일반탄<br>초필살기: 미사일 폭격 · 대량 폭발</div></button>
+  </div>
+  <div class="sfCraftHint">5스테이지 클리어 보상 · 해금 후 영구 사용</div>
+ </div>`;
+ const choose=mode=>{state.spacefighterCraft=mode;if(mode==='kf21')state.spacefighterKf21New=false;save();playSpacefighter(mode)};
+ $('#sfChooseCharacter').onclick=()=>choose('character');
+ $('#sfChooseKf21').onclick=()=>choose('kf21');
+ cleanup=()=>{};
+}
+function playSpacefighter(craftMode='character'){
+ const isKf21=craftMode==='kf21';
+ const s=$('#stage'),skin=currentSkin(),group=skin.group||'oso';
+ const shotIcon=group==='oso'?'📦':'●';
+ const superName=isKf21?'스카이 블레이즈!':(group==='oso'?'만물상 폭격!':'진주 폭풍!');
+
+ s.innerHTML=`<div class="sfWrap">
+   <canvas id="sfCanvas"></canvas>
+   <div class="sfHud"><div id="sfScore">SCORE 0</div><div class="sfStage" id="sfStageText">STAGE 1</div><div class="sfLife" id="sfLife">♥ 3</div></div><div class="sfBonusCoin" id="sfBonusCoin">🪙 +0</div>
+   <div class="sfGauge"><div class="sfGaugeFill" id="sfGaugeFill"></div><div class="sfGaugeText" id="sfGaugeText">초필살기 0%</div></div>
+   <div class="sfUpgrade"><span class="pow" id="sfPower">POWER 1/5</span><span class="opt" id="sfOption">OPTION 0/5</span></div>
+   <div class="sfBossBar" id="sfBossBar"><div class="sfBossFill" id="sfBossFill"></div><div class="sfBossText" id="sfBossText">BOSS 100%</div></div>
+   <button class="sfSuper" id="sfSuper">${superName}<br>0%</button>
+   <div class="sfFlash" id="sfFlash"></div>
+ </div>`;
+
+ const canvas=$('#sfCanvas'),ctx=canvas.getContext('2d'),wrap=$('.sfWrap'),superBtn=$('#sfSuper');
+ const playerImg=new Image();playerImg.src=isKf21?'assets/kf21-game-topdown.webp?v=20260904-kf21game2':currentOsoSrc();
+
+ const STAGES=[
+  {name:'중앙시장',music:'space1',bg:['#ffe0a6','#e88d45'],mobs:['🛒','🍎','🐟','🧺','🥬'],boss:'🛒',bossName:'폭주 만물 장바구니',pattern:'fan'},
+  {name:'진주성',music:'space2',bg:['#b7d9ff','#6b86bb'],mobs:['🏹','🛡️','🔥','🪨','⚔️'],boss:'🏯',bossName:'철갑 성문 수호대',pattern:'wall'},
+  {name:'남강',music:'space3',bg:['#61cce8','#176c9b'],mobs:['🐟','🛶','💧','🌊','🦀'],boss:'🐉',bossName:'남강 회오리 용왕',pattern:'wave'},
+  {name:'지구',music:'space4',bg:['#132d67','#050a21'],mobs:['☄️','🛰️','🪨','🛸','⚡'],boss:'🛰️',bossName:'메테오 
+
+===== function showSpacefighterCraftSelect COUNT=0 =====
+
+===== playSpacefighter( COUNT=3 =====
+
+--- #1 @1322591 ---
+alse),650)
+  }
+ }
+ function tick(ts){if(!running)return;let elapsed=ts-start,p=Math.max(0,1-elapsed/1000);fill.style.width=(p*100)+'%';if(elapsed>=1000){finishSecond();return}raf=requestAnimationFrame(tick)}
+ target.onclick=()=>{
+  if(ended)return;if(!running){running=true;start=performance.now();raf=requestAnimationFrame(tick)}
+  taps++;tone('tap');buzz(5);target.classList.add('hit');setTimeout(()=>target.classList.remove('hit'),35);count.textContent=`${taps} 연타`;updatePdScorePreview();let o=targets[lv-1],p=Math.min(1,taps/o.need);crack(p);if(taps===o.need)showText(`목표 돌파! LEVEL ${lv} 점수 ×${PD_SCORE_MULT[lv]}!`)
+ };
+ loadStage();cleanup=()=>{ended=true;running=false;cancelAnimationFrame(raf)}
+}
+
+
+
+/* ===== 오소 우주파이터 : 5-STAGE VERTICAL SHOOTER ===== */
+function beginSpacefighter(){
+ const unlocked=!!state.spacefighterKf21Unlocked;
+ if(!unlocked){state.spacefighterCraft='character';save();playSpacefighter('character');return}
+ const s=$('#stage'),skin=currentSkin(),isNew=!!state.spacefighterKf21New;
+ s.innerHTML=`<div class="sfCraftSelect">
+  <div class="sfCraftTitle">출격 선택</div>
+  <div class="sfCraftSub">캐릭터 또는 KF-21 전투기를 선택하시오</div>
+  <div class="sfCraftGrid">
+   <button class="sfCraftCard character" id="sfChooseCharacter"><div class="sfCraftImgBox"><img class="sfCraftImg" src="${currentOsoSrc()}" alt="현재 캐릭터"></div><div class="sfCraftName">캐릭터</div><div class="sfCraftDesc">현재 선택<br><strong>${skin.name||'캐릭터'}</strong><br>기존 공격 · 기존 초필살기</div></button>
+   <button class="sfCraftCard kf21" id="sfChooseKf21">${isNew?'<span class="sfCraftBadge">NEW!</span>':''}<div class="sfCraftImgBox"><img class="sfCraftImg" src="assets/kf21-approved-top.webp?v=20260903-kf21select1" alt="KF-21 전투기"></div><div class="sfCraftName">KF-21</div><div class="sfCraftDesc">전용 고속 트레이서 일반탄<br>초필살기: 미사일 폭격 · 대량 폭발</div></button>
+  </div>
+  <div class="sfCraftHint">5스테이지 클리어 보상 · 해금 후 영구 사용</div>
+ </div>`;
+ const choose=mode=>{state.spacefighterCraft=mode;if(mode==='kf21')state.spacefighterKf21New=false;save();playSpacefighter(mode)};
+ $('#sfChooseCharacter').onclick=()=>choose('character');
+ $('#sfChooseKf21').onclick=()=>choose('kf21');
+ cleanup=()=>{};
+}
+function playSpacefighter(craftMode='character'){
+ const isKf21=craftMode==='kf21';
+ const s=$('#stage'),skin=currentSkin(),group=skin.group||'oso';
+ const shotIcon=group==='oso'?'📦':'●';
+ const superName=isKf21?'스카이 블레이즈!':(group==='oso'?'만물상 폭격!':'진주 폭풍!');
+
+ s.innerHTML=`<div class="sfWrap">
+   <canvas id="sfCanvas"></canvas>
+   <div class="sfHud"><div id="sfScore">SCORE 0</div><div class="sfStage" id="sfStageText">STAGE 1</div><div class="sfLife" id="sfLife">♥ 3</div></div><div class="sfBonusCoin" id="sfBonusCoin">🪙 +0</div>
+   <div class="sfGauge"><div class="sfGaugeFill" id="sfGaugeFill"></div><div class="sfGaugeText" id="sfGaugeText">초필살기 0%</div></div>
+   <div class="sfUpgrade"><span class="pow" id="sfPower">POWER 1/5</span><span class="opt" id="sfOption">OPTION 0/5</span></div>
+   <div class="sfBossBar" id="sfBossBar"><div class="sfBossFill" id="sfBossFill"></div><div class="sfBossText" id="sfBossText">BOSS 100%</div></div>
+   <button class="sfSuper" id="sfSuper">${superName}<br>0%</button>
+   <div class="sfFlash" id="sfFlash"></div>
+ </div>`;
+
+ const canvas=$('#sfCanvas'),ctx=canvas.getContext('2d'),wrap=$('.sfWrap'),superBtn=$('#sfSuper');
+ const playerImg=new Image();playerImg.src=isKf21?'assets/kf21-game-topdown.webp?v=20260904-kf21game2':currentOsoSrc();
+
+ const STAGES=[
+  {name:'중앙시장',music:'space1',bg:['#ffe0a6','#e88d45'],mobs:['🛒','🍎','🐟','🧺','🥬'],boss:'🛒',bossName:'폭주 만물 장바구니',pattern:'fan'},
+  {name:'진주성',music:'space2',bg:['#b7d9ff','#6b86bb'],mobs:['🏹','🛡️','🔥','🪨','⚔️'],boss:'🏯',bossName:'철갑 성문 수호대',pattern:'wall'},
+  {name:'남강',music:'space3',bg:['#61cce8','#176c9b'],mobs:['🐟','🛶','💧','🌊','🦀'],boss:'🐉',bossName:'남강 회오리 용왕',pattern:'wave'},
+  {name:'지구',music:'space4',bg:['#132d67','#050a21'],mobs:['☄️','🛰️','🪨','🛸','⚡'],boss:'🛰️',bossName:'메테오 머신',pattern:'radial'},
+  {name:'우주와 악의 본거지',music:'space5',bg:['#170526','#02030b'],mobs:['👾','🛸','💀','🔻','☄️'],boss:'👿',bossName:'악의 코어 제
+
+--- #2 @1323705 ---
+ftSub">캐릭터 또는 KF-21 전투기를 선택하시오</div>
+  <div class="sfCraftGrid">
+   <button class="sfCraftCard character" id="sfChooseCharacter"><div class="sfCraftImgBox"><img class="sfCraftImg" src="${currentOsoSrc()}" alt="현재 캐릭터"></div><div class="sfCraftName">캐릭터</div><div class="sfCraftDesc">현재 선택<br><strong>${skin.name||'캐릭터'}</strong><br>기존 공격 · 기존 초필살기</div></button>
+   <button class="sfCraftCard kf21" id="sfChooseKf21">${isNew?'<span class="sfCraftBadge">NEW!</span>':''}<div class="sfCraftImgBox"><img class="sfCraftImg" src="assets/kf21-approved-top.webp?v=20260903-kf21select1" alt="KF-21 전투기"></div><div class="sfCraftName">KF-21</div><div class="sfCraftDesc">전용 고속 트레이서 일반탄<br>초필살기: 미사일 폭격 · 대량 폭발</div></button>
+  </div>
+  <div class="sfCraftHint">5스테이지 클리어 보상 · 해금 후 영구 사용</div>
+ </div>`;
+ const choose=mode=>{state.spacefighterCraft=mode;if(mode==='kf21')state.spacefighterKf21New=false;save();playSpacefighter(mode)};
+ $('#sfChooseCharacter').onclick=()=>choose('character');
+ $('#sfChooseKf21').onclick=()=>choose('kf21');
+ cleanup=()=>{};
+}
+function playSpacefighter(craftMode='character'){
+ const isKf21=craftMode==='kf21';
+ const s=$('#stage'),skin=currentSkin(),group=skin.group||'oso';
+ const shotIcon=group==='oso'?'📦':'●';
+ const superName=isKf21?'스카이 블레이즈!':(group==='oso'?'만물상 폭격!':'진주 폭풍!');
+
+ s.innerHTML=`<div class="sfWrap">
+   <canvas id="sfCanvas"></canvas>
+   <div class="sfHud"><div id="sfScore">SCORE 0</div><div class="sfStage" id="sfStageText">STAGE 1</div><div class="sfLife" id="sfLife">♥ 3</div></div><div class="sfBonusCoin" id="sfBonusCoin">🪙 +0</div>
+   <div class="sfGauge"><div class="sfGaugeFill" id="sfGaugeFill"></div><div class="sfGaugeText" id="sfGaugeText">초필살기 0%</div></div>
+   <div class="sfUpgrade"><span class="pow" id="sfPower">POWER 1/5</span><span class="opt" id="sfOption">OPTION 0/5</span></div>
+   <div class="sfBossBar" id="sfBossBar"><div class="sfBossFill" id="sfBossFill"></div><div class="sfBossText" id="sfBossText">BOSS 100%</div></div>
+   <button class="sfSuper" id="sfSuper">${superName}<br>0%</button>
+   <div class="sfFlash" id="sfFlash"></div>
+ </div>`;
+
+ const canvas=$('#sfCanvas'),ctx=canvas.getContext('2d'),wrap=$('.sfWrap'),superBtn=$('#sfSuper');
+ const playerImg=new Image();playerImg.src=isKf21?'assets/kf21-game-topdown.webp?v=20260904-kf21game2':currentOsoSrc();
+
+ const STAGES=[
+  {name:'중앙시장',music:'space1',bg:['#ffe0a6','#e88d45'],mobs:['🛒','🍎','🐟','🧺','🥬'],boss:'🛒',bossName:'폭주 만물 장바구니',pattern:'fan'},
+  {name:'진주성',music:'space2',bg:['#b7d9ff','#6b86bb'],mobs:['🏹','🛡️','🔥','🪨','⚔️'],boss:'🏯',bossName:'철갑 성문 수호대',pattern:'wall'},
+  {name:'남강',music:'space3',bg:['#61cce8','#176c9b'],mobs:['🐟','🛶','💧','🌊','🦀'],boss:'🐉',bossName:'남강 회오리 용왕',pattern:'wave'},
+  {name:'지구',music:'space4',bg:['#132d67','#050a21'],mobs:['☄️','🛰️','🪨','🛸','⚡'],boss:'🛰️',bossName:'메테오 머신',pattern:'radial'},
+  {name:'우주와 악의 본거지',music:'space5',bg:['#170526','#02030b'],mobs:['👾','🛸','💀','🔻','☄️'],boss:'👿',bossName:'악의 코어 제로',pattern:'spiral'}
+ ];
+
+ let W=0,H=0,DPR=1,raf=0,alive=true,stageNo=1,stageStart=0,last=performance.now();
+ let player={x:0,y:0,r:17,lives:3,inv:0},shots=[],enemies=[],bullets=[],items=[],stars=[],boss=null;
+ let particles=[],rings=[],score=0,gauge=0,power=1,options=0,lastShot=0,lastSpawn=0,lastEnemyFire=0,lastBossFire=0,bossPhase=0,transition=true,drag=false;
+ let superFx=null,screenShake=0,stagePowerDropped=false,stageOptionDropped=false,killDropMeter=0,bonusCoins=0;
+
+ function resize(){
+  const r=wrap.getBoundingClientRect();
+  W=Math.max(280,r.width);H=Math.max(360,r.height);DPR=Math.min(2,window.devicePixelRatio||1);
+  canvas.width=Math.floor(W*DPR);canvas.height=Math.floor(H*DPR);
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+  if(!player.x){player.x=W*.5;player.y=H*.82}
+ }
+ resize();
+ const ro=new ResizeObserver(resize);ro.observe(wrap);
+
+ for(let i=0;i<90;i++)stars.push({x:Math.random(),y:Math.random(),s:.4+Math.random()*2,p:.2+Math.random()*.9,tw:Math.random()*6.28});
+
+ function clamp(v,a,b){return Math.max(a,Math.min(b,v))}
+ function dist2(a,b){let dx=a.x-b.x,dy=a.y-b.y;return dx*dx+dy*dy}
+ fun
+
+--- #3 @1323864 ---
+g class="sfCraftImg" src="${currentOsoSrc()}" alt="현재 캐릭터"></div><div class="sfCraftName">캐릭터</div><div class="sfCraftDesc">현재 선택<br><strong>${skin.name||'캐릭터'}</strong><br>기존 공격 · 기존 초필살기</div></button>
+   <button class="sfCraftCard kf21" id="sfChooseKf21">${isNew?'<span class="sfCraftBadge">NEW!</span>':''}<div class="sfCraftImgBox"><img class="sfCraftImg" src="assets/kf21-approved-top.webp?v=20260903-kf21select1" alt="KF-21 전투기"></div><div class="sfCraftName">KF-21</div><div class="sfCraftDesc">전용 고속 트레이서 일반탄<br>초필살기: 미사일 폭격 · 대량 폭발</div></button>
+  </div>
+  <div class="sfCraftHint">5스테이지 클리어 보상 · 해금 후 영구 사용</div>
+ </div>`;
+ const choose=mode=>{state.spacefighterCraft=mode;if(mode==='kf21')state.spacefighterKf21New=false;save();playSpacefighter(mode)};
+ $('#sfChooseCharacter').onclick=()=>choose('character');
+ $('#sfChooseKf21').onclick=()=>choose('kf21');
+ cleanup=()=>{};
+}
+function playSpacefighter(craftMode='character'){
+ const isKf21=craftMode==='kf21';
+ const s=$('#stage'),skin=currentSkin(),group=skin.group||'oso';
+ const shotIcon=group==='oso'?'📦':'●';
+ const superName=isKf21?'스카이 블레이즈!':(group==='oso'?'만물상 폭격!':'진주 폭풍!');
+
+ s.innerHTML=`<div class="sfWrap">
+   <canvas id="sfCanvas"></canvas>
+   <div class="sfHud"><div id="sfScore">SCORE 0</div><div class="sfStage" id="sfStageText">STAGE 1</div><div class="sfLife" id="sfLife">♥ 3</div></div><div class="sfBonusCoin" id="sfBonusCoin">🪙 +0</div>
+   <div class="sfGauge"><div class="sfGaugeFill" id="sfGaugeFill"></div><div class="sfGaugeText" id="sfGaugeText">초필살기 0%</div></div>
+   <div class="sfUpgrade"><span class="pow" id="sfPower">POWER 1/5</span><span class="opt" id="sfOption">OPTION 0/5</span></div>
+   <div class="sfBossBar" id="sfBossBar"><div class="sfBossFill" id="sfBossFill"></div><div class="sfBossText" id="sfBossText">BOSS 100%</div></div>
+   <button class="sfSuper" id="sfSuper">${superName}<br>0%</button>
+   <div class="sfFlash" id="sfFlash"></div>
+ </div>`;
+
+ const canvas=$('#sfCanvas'),ctx=canvas.getContext('2d'),wrap=$('.sfWrap'),superBtn=$('#sfSuper');
+ const playerImg=new Image();playerImg.src=isKf21?'assets/kf21-game-topdown.webp?v=20260904-kf21game2':currentOsoSrc();
+
+ const STAGES=[
+  {name:'중앙시장',music:'space1',bg:['#ffe0a6','#e88d45'],mobs:['🛒','🍎','🐟','🧺','🥬'],boss:'🛒',bossName:'폭주 만물 장바구니',pattern:'fan'},
+  {name:'진주성',music:'space2',bg:['#b7d9ff','#6b86bb'],mobs:['🏹','🛡️','🔥','🪨','⚔️'],boss:'🏯',bossName:'철갑 성문 수호대',pattern:'wall'},
+  {name:'남강',music:'space3',bg:['#61cce8','#176c9b'],mobs:['🐟','🛶','💧','🌊','🦀'],boss:'🐉',bossName:'남강 회오리 용왕',pattern:'wave'},
+  {name:'지구',music:'space4',bg:['#132d67','#050a21'],mobs:['☄️','🛰️','🪨','🛸','⚡'],boss:'🛰️',bossName:'메테오 머신',pattern:'radial'},
+  {name:'우주와 악의 본거지',music:'space5',bg:['#170526','#02030b'],mobs:['👾','🛸','💀','🔻','☄️'],boss:'👿',bossName:'악의 코어 제로',pattern:'spiral'}
+ ];
+
+ let W=0,H=0,DPR=1,raf=0,alive=true,stageNo=1,stageStart=0,last=performance.now();
+ let player={x:0,y:0,r:17,lives:3,inv:0},shots=[],enemies=[],bullets=[],items=[],stars=[],boss=null;
+ let particles=[],rings=[],score=0,gauge=0,power=1,options=0,lastShot=0,lastSpawn=0,lastEnemyFire=0,lastBossFire=0,bossPhase=0,transition=true,drag=false;
+ let superFx=null,screenShake=0,stagePowerDropped=false,stageOptionDropped=false,killDropMeter=0,bonusCoins=0;
+
+ function resize(){
+  const r=wrap.getBoundingClientRect();
+  W=Math.max(280,r.width);H=Math.max(360,r.height);DPR=Math.min(2,window.devicePixelRatio||1);
+  canvas.width=Math.floor(W*DPR);canvas.height=Math.floor(H*DPR);
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+  if(!player.x){player.x=W*.5;player.y=H*.82}
+ }
+ resize();
+ const ro=new ResizeObserver(resize);ro.observe(wrap);
+
+ for(let i=0;i<90;i++)stars.push({x:Math.random(),y:Math.random(),s:.4+Math.random()*2,p:.2+Math.random()*.9,tw:Math.random()*6.28});
+
+ function clamp(v,a,b){return Math.max(a,Math.min(b,v))}
+ function dist2(a,b){let dx=a.x-b.x,dy=a.y-b.y;return dx*dx+dy*dy}
+ function updateHud(){
+  $('#sfScore').textContent='SCORE '+Math.floor(score).toLocaleString('ko-KR');
+  $('#gScore').textContent=Math.floor(score);
+  $('#sfStageT
+
+===== startGame(code) COUNT=1 =====
+
+--- #1 @1275652 ---
+unction draw(){const v=seq[i];e.innerHTML=`<div class="readyDisc ${v==='GO!'?'go':''}">${v}</div>`;if(v==='GO!')tone('perfect');else beep(580,.04,.025)}
+ draw();
+ ti=setInterval(()=>{i++;if(i<seq.length){draw()}else{clearInterval(ti);e.remove();fn()}},480);
+ cleanup=()=>{clearInterval(ti);if(e.isConnected)e.remove()}
+}
+let activeGameCode=null;
+function updateBestHud(current=null){
+ const el=$('#gBest');if(!el)return;
+ const saved=activeGameCode&&state.best?Math.max(0,Math.floor(Number(state.best[activeGameCode])||0)):0;
+ let cur=current;
+ if(cur==null){const raw=String($('#gScore')?.textContent||'0').replace(/[^0-9.-]/g,'');cur=Number(raw)||0}
+ el.textContent=`🏆 최고 ${Math.max(saved,Math.floor(Number(cur)||0))}`
+}
+const gScoreObserver=new MutationObserver(()=>updateBestHud());
+if($('#gScore'))gScoreObserver.observe($('#gScore'),{childList:true,subtree:true,characterData:true});
+
+function startGame(code){
+ if(!state.unlock[code])return;
+ if(cleanup){cleanup();cleanup=null}
+ const g=game(code);activeGameCode=code;$('#gameOverlay').classList.add('show');$('#gTitle').textContent=g.name;$('#gScore').textContent='0';updateBestHud(0);$('#stage').innerHTML='';
+ readyThen(()=>launch(code))
+}
+function launch(code){
+ if(code==='spacefighter'){beginSpacefighter();return}
+ if(code==='racing'){playOsoRacing();return}
+ if(code==='fantasy'){playOsoFantasy();return}
+ startBGM(code,1);
+ ({basket:playBasket,fish:playFish,stack:playStack,run:playRun,slice:playSlice,tteok:playTteok,powerduck:playPowerduck}[code])()
+}
+$('#quit').onclick=()=>{if(cleanup){cleanup();cleanup=null}stopBGM();startBGM('hub',1);$('#gameOverlay').classList.remove('show');activeGameCode=null;refresh()};
+
+/* basket */
+function playBasket(){
+ const s=$('#stage');s.innerHTML=`<div class="scene basketScene"><div class="skyGrad"></div><div class="marketAwning"></div><div class="marketSign">싱싱 청과</div><div class="stallBack"></div><div class="stallShelf"></div><div class="produceTray trayL">🍎🥬🍊</div><div class="produceTray trayR">🥕🍓🍐</div></div><div class="counter" id="tm">35</div><div class="comboHud" id="combo">COMBO ×0</div><div class="lifeHud" id="life">❤️❤️❤️</div><div class="levelHud" id="levelHud">LEVEL 1</div><div class="playCoinHud" id="playCoinHud">🪙 +0</div><div class="gameTip">LEVEL 3부터 좌우 흔들림 · LEVEL 4부터 2개 동시낙하 · 동전은 실제 코인 보너스!</div><img class="catchOso" src="${currentOsoSrc()}" alt="오소"><div class="basket"></div>`;
+ let score=0,t=35,alive=true,items=[],x=.5,last=0,raf,combo=0,lives=3,level=1,bonusCoins=0,prev=performance.now();const basket=$('.basket'),oso=$('.catchOso');
+ function setX(px){const r=s.getBoundingClientRect();x=Math.max(.14,Math.min(.86,(px-r.left)/r.width));let q=x*r.width;basket.style.left=(q-62)+'px';oso.style.left=(q-52)+'px'}
+ let r0=s.getBoundingClientRect();setX(r0.left+r0.width/2);s.onpointermove=e=>setX(e.clientX);s.onpointerdown=e=>setX(e.clientX);
+ function hud(){$('#combo').textContent=`COMBO ×${combo}`;$('#life').textContent='❤️'.repeat(lives)+'🖤'.repeat(3-lives);const c=$('#playCoinHud');if(c)c.textContent=`🪙 +${bonusCoins}`} 
+ function spawn(){let count=level>=4&&Math.random()<.4?2:1;for(let j=0;j<count;j++){let roll=Math.random(),bomb=.07+level*.015,kind=roll<bomb?'bomb':roll<bomb+.08?'coin':'good',el=document.createElement('div');el.className='falling popIn';el.textContent=kind==='bomb'?'💣':kind==='coin'?'🪙':['🍎','🥬','🍊','🥕','🍓','🍐'][Math.floor(Math.random()*6)];el.dataset.kind=kind;el.dataset.x=.07+Math.random()*.86;el.dataset.y=-.08-j*.07;el.dataset.v=.27+level*.045+Math.random()*.08;el.dataset.phase=Math.random()*6.28;s.appendChild(el);items.push(el)}}
+ let ti=setInterval(()=>{t--;$('#tm').textContent=t;if(t<=0){alive=false;clearInterval(ti);cancelAnimationFrame(raf);finish('basket',score,playBasket,true,bonusCoins)}},1000);
+ function loop(ts){if(!alive)return;let dt=Math.min(.033,(ts-prev)/1000);prev=ts,r=s.getBoundingClientRect();if(ts-last>Math.max(210,610-level*75)){spawn();last=ts}items.forEach(el=>{let y=+el.dataset.y+(+el.dataset.v)*dt,xp=+el.dataset.x;if(level>=3)xp+=Math.sin(y*12+(+el.dataset.phase))*.0011;el.dataset.x=xp;
+
+===== readyThen(()=>launch(code)) COUNT=1 =====
+
+--- #1 @1275923 ---
+{clearInterval(ti);if(e.isConnected)e.remove()}
+}
+let activeGameCode=null;
+function updateBestHud(current=null){
+ const el=$('#gBest');if(!el)return;
+ const saved=activeGameCode&&state.best?Math.max(0,Math.floor(Number(state.best[activeGameCode])||0)):0;
+ let cur=current;
+ if(cur==null){const raw=String($('#gScore')?.textContent||'0').replace(/[^0-9.-]/g,'');cur=Number(raw)||0}
+ el.textContent=`🏆 최고 ${Math.max(saved,Math.floor(Number(cur)||0))}`
+}
+const gScoreObserver=new MutationObserver(()=>updateBestHud());
+if($('#gScore'))gScoreObserver.observe($('#gScore'),{childList:true,subtree:true,characterData:true});
+
+function startGame(code){
+ if(!state.unlock[code])return;
+ if(cleanup){cleanup();cleanup=null}
+ const g=game(code);activeGameCode=code;$('#gameOverlay').classList.add('show');$('#gTitle').textContent=g.name;$('#gScore').textContent='0';updateBestHud(0);$('#stage').innerHTML='';
+ readyThen(()=>launch(code))
+}
+function launch(code){
+ if(code==='spacefighter'){beginSpacefighter();return}
+ if(code==='racing'){playOsoRacing();return}
+ if(code==='fantasy'){playOsoFantasy();return}
+ startBGM(code,1);
+ ({basket:playBasket,fish:playFish,stack:playStack,run:playRun,slice:playSlice,tteok:playTteok,powerduck:playPowerduck}[code])()
+}
+$('#quit').onclick=()=>{if(cleanup){cleanup();cleanup=null}stopBGM();startBGM('hub',1);$('#gameOverlay').classList.remove('show');activeGameCode=null;refresh()};
+
+/* basket */
+function playBasket(){
+ const s=$('#stage');s.innerHTML=`<div class="scene basketScene"><div class="skyGrad"></div><div class="marketAwning"></div><div class="marketSign">싱싱 청과</div><div class="stallBack"></div><div class="stallShelf"></div><div class="produceTray trayL">🍎🥬🍊</div><div class="produceTray trayR">🥕🍓🍐</div></div><div class="counter" id="tm">35</div><div class="comboHud" id="combo">COMBO ×0</div><div class="lifeHud" id="life">❤️❤️❤️</div><div class="levelHud" id="levelHud">LEVEL 1</div><div class="playCoinHud" id="playCoinHud">🪙 +0</div><div class="gameTip">LEVEL 3부터 좌우 흔들림 · LEVEL 4부터 2개 동시낙하 · 동전은 실제 코인 보너스!</div><img class="catchOso" src="${currentOsoSrc()}" alt="오소"><div class="basket"></div>`;
+ let score=0,t=35,alive=true,items=[],x=.5,last=0,raf,combo=0,lives=3,level=1,bonusCoins=0,prev=performance.now();const basket=$('.basket'),oso=$('.catchOso');
+ function setX(px){const r=s.getBoundingClientRect();x=Math.max(.14,Math.min(.86,(px-r.left)/r.width));let q=x*r.width;basket.style.left=(q-62)+'px';oso.style.left=(q-52)+'px'}
+ let r0=s.getBoundingClientRect();setX(r0.left+r0.width/2);s.onpointermove=e=>setX(e.clientX);s.onpointerdown=e=>setX(e.clientX);
+ function hud(){$('#combo').textContent=`COMBO ×${combo}`;$('#life').textContent='❤️'.repeat(lives)+'🖤'.repeat(3-lives);const c=$('#playCoinHud');if(c)c.textContent=`🪙 +${bonusCoins}`} 
+ function spawn(){let count=level>=4&&Math.random()<.4?2:1;for(let j=0;j<count;j++){let roll=Math.random(),bomb=.07+level*.015,kind=roll<bomb?'bomb':roll<bomb+.08?'coin':'good',el=document.createElement('div');el.className='falling popIn';el.textContent=kind==='bomb'?'💣':kind==='coin'?'🪙':['🍎','🥬','🍊','🥕','🍓','🍐'][Math.floor(Math.random()*6)];el.dataset.kind=kind;el.dataset.x=.07+Math.random()*.86;el.dataset.y=-.08-j*.07;el.dataset.v=.27+level*.045+Math.random()*.08;el.dataset.phase=Math.random()*6.28;s.appendChild(el);items.push(el)}}
+ let ti=setInterval(()=>{t--;$('#tm').textContent=t;if(t<=0){alive=false;clearInterval(ti);cancelAnimationFrame(raf);finish('basket',score,playBasket,true,bonusCoins)}},1000);
+ function loop(ts){if(!alive)return;let dt=Math.min(.033,(ts-prev)/1000);prev=ts,r=s.getBoundingClientRect();if(ts-last>Math.max(210,610-level*75)){spawn();last=ts}items.forEach(el=>{let y=+el.dataset.y+(+el.dataset.v)*dt,xp=+el.dataset.x;if(level>=3)xp+=Math.sin(y*12+(+el.dataset.phase))*.0011;el.dataset.x=xp;el.dataset.y=y;el.style.left=(xp*r.width-20)+'px';el.style.top=(y*r.height)+'px';el.style.transform=`rotate(${y*220}deg)`;if(y>.76&&y<.92&&Math.abs(xp-x)<.16){let br=basket.getBoundingClientRect(),cx=br.left+br.width/2,cy=br.top;if(el.dataset.kind==='bomb'){lives--;combo
