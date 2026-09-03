@@ -1,0 +1,16 @@
+COIN ECONOMY v2 VERIFIED
+GENERIC_CLEAR_MAX=240
+RPG_CLEAR_EXTRA=3000
+RUN_PICKUP_BONUS=5
+OTHER_PICKUP_BONUS=10
+BASKET=10
+FISH=10
+SLICE=10
+SPACEFIGHTER=10
+RACING=10
+FANTASY=10
+RUN_PHYSICAL_COUNTER_AND_SCORE_UNCHANGED=YES
+RACING_PHYSICAL_COUNTER_AND_SCORE_UNCHANGED=YES
+SPACEFIGHTER_SUPER_SCORE_UNCHANGED=YES
+CHANGES=common reward x2 + RPG 3000 declaration | RPG 3000 wallet credit | result reward breakdown | basket pickup +10 | basket feedback +10 | fish + slice pickup +10 | fish + slice feedback +10 | spacefighter pickup +10 | spacefighter feedback +10 | run pickup payout +5 (1 finish path) | racing pickup payout +10 | RPG pickup +10 | RPG pickup feedback +10
+PLAY_SHA256=c9594d68e769212fe158637a2fe34d19a5c9cc6b3361fcb8dd8c5658447fe9aa
