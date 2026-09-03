@@ -1,0 +1,79 @@
+name: Fix tteok button lower layer
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/fix-tteok-button-layer.trigger'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Remove hidden gameTip behind tteok hit button
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib
+          p=Path('play/index.html')
+          s=p.read_text(encoding='utf-8')
+          a=s.find('function playTteok(){')
+          b=s.find('function playPowerduck(){',a)
+          if a<0 or b<0:
+              raise SystemExit('tteok function scope not found')
+          part=s[a:b]
+          target='<div class="gameTip">연속 성공 COMBO · 5콤보마다 강한 피드백!</div>'
+          if part.count(target)!=1:
+              raise SystemExit(f'tteok gameTip occurrence expected 1, got {part.count(target)}')
+          part=part.replace(target,'',1)
+          s2=s[:a]+part+s[b:]
+          # Guards: hit button must stay untouched and generic gameTip CSS/other games must remain.
+          if '<button class="tteokHitButton" id="hitBtn">쿵! 떡메 내리치기</button>' not in s2:
+              raise SystemExit('tteok hit button changed unexpectedly')
+          if '.gameTip{' not in s2:
+              raise SystemExit('generic gameTip CSS removed unexpectedly')
+          if target in s2[a:b]:
+              raise SystemExit('tteok hidden gameTip still present')
+          p.write_text(s2,encoding='utf-8')
+          Path('.github/tteok-button-layer-fix-report.txt').write_text('\n'.join([
+            'TTEOK BUTTON LAYER FIX VERIFIED',
+            'ROOT_CAUSE=generic gameTip at bottom 10px z-index 8 was hidden behind tteokHitButton bottom 22px z-index 10, leaving its lower border visible',
+            'FIX=remove tteok-only gameTip markup',
+            'TTEOK_HIT_BUTTON_UNCHANGED=YES',
+            'GENERIC_GAMETIP_CSS_UNCHANGED=YES',
+            'OTHER_GAMES_GAMETIP_UNCHANGED=YES',
+            'IMAGE_ASSETS_CHANGED=NO',
+            'PLAY_SHA256='+hashlib.sha256(s2.encode()).hexdigest(),
+          ])+'\n',encoding='utf-8')
+          PY
+          python3 - <<'PY'
+          from pathlib import Path
+          import re, subprocess, tempfile, os
+          s=Path('play/index.html').read_text(encoding='utf-8')
+          scripts=re.findall(r'<script(?:\s[^>]*)?>(.*?)</script>',s,re.S|re.I)
+          checked=0
+          for body in scripts:
+              if not body.strip(): continue
+              fd,path=tempfile.mkstemp(suffix='.js');os.close(fd)
+              Path(path).write_text(body,encoding='utf-8')
+              r=subprocess.run(['node','--check',path],capture_output=True,text=True)
+              os.unlink(path)
+              if r.returncode:
+                  raise SystemExit(r.stderr)
+              checked+=1
+          print('INLINE_JS_CHECKED',checked)
+          PY
+          git diff --check
+          git config user.name 'PWDJ Tteok Layer Fix'
+          git config user.email '34460283+haveanair@users.noreply.github.com'
+          git add play/index.html .github/tteok-button-layer-fix-report.txt
+          git commit -m 'Remove tteok button lower layer artifact'
+          git push
