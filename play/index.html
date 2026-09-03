@@ -2627,7 +2627,7 @@ header .chars .headerAyo{height:52px!important;width:auto!important;max-width:78
 </style>
 
 <style id="spacefighter-kf21-select-style">
-/* SPACEFIGHTER KF21 SELECT v1.0 */
+/* SPACEFIGHTER KF21 SELECT v1.1 GAME TOPDOWN */
 .sfCraftSelect{position:absolute;inset:0;z-index:60;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:18px;background:radial-gradient(circle at 50% 24%,#17386f 0,#081b3d 35%,#020713 78%);overflow:hidden;color:#fff}
 .sfCraftSelect:before{content:"";position:absolute;inset:0;background:linear-gradient(90deg,transparent 49.7%,#63d7ff22 50%,transparent 50.3%),linear-gradient(#ffffff08 1px,transparent 1px);background-size:100% 100%,100% 28px;pointer-events:none}
 .sfCraftTitle{position:relative;font-size:clamp(26px,6vw,39px);font-weight:1000;letter-spacing:-1px;text-shadow:0 3px 0 #07152c,0 0 18px #4ccfff;margin-bottom:4px}
@@ -4452,7 +4452,7 @@ function beginSpacefighter(){
   <div class="sfCraftTitle">출격 선택</div>
   <div class="sfCraftSub">캐릭터 또는 KF-21 전투기를 선택하시오</div>
   <div class="sfCraftGrid">
-   <button class="sfCraftCard character" id="sfChooseCharacter"><div class="sfCraftImgBox"><img class="sfCraftImg" src="${currentOsoSrc()}" alt="현재 캐릭터"></div><div class="sfCraftName">캐릭터</div><div class="sfCraftDesc">현재 도감에서 선택한 ${skin.name||'캐릭터'}로 출격<br>기존 공격 · 기존 초필살기</div></button>
+   <button class="sfCraftCard character" id="sfChooseCharacter"><div class="sfCraftImgBox"><img class="sfCraftImg" src="${currentOsoSrc()}" alt="현재 캐릭터"></div><div class="sfCraftName">캐릭터</div><div class="sfCraftDesc">현재 선택<br><strong>${skin.name||'캐릭터'}</strong><br>기존 공격 · 기존 초필살기</div></button>
    <button class="sfCraftCard kf21" id="sfChooseKf21">${isNew?'<span class="sfCraftBadge">NEW!</span>':''}<div class="sfCraftImgBox"><img class="sfCraftImg" src="assets/kf21-approved-top.webp?v=20260903-kf21select1" alt="KF-21 전투기"></div><div class="sfCraftName">KF-21</div><div class="sfCraftDesc">전용 고속 트레이서 일반탄<br>초필살기: 미사일 폭격 · 대량 폭발</div></button>
   </div>
   <div class="sfCraftHint">5스테이지 클리어 보상 · 해금 후 영구 사용</div>
@@ -4479,7 +4479,7 @@ function playSpacefighter(craftMode='character'){
  </div>`;
 
  const canvas=$('#sfCanvas'),ctx=canvas.getContext('2d'),wrap=$('.sfWrap'),superBtn=$('#sfSuper');
- const playerImg=new Image();playerImg.src=isKf21?'assets/kf21-approved-top.webp?v=20260903-kf21select1':currentOsoSrc();
+ const playerImg=new Image();playerImg.src=isKf21?'assets/kf21-game-topdown.webp?v=20260904-kf21game1':currentOsoSrc();
 
  const STAGES=[
   {name:'중앙시장',music:'space1',bg:['#ffe0a6','#e88d45'],mobs:['🛒','🍎','🐟','🧺','🥬'],boss:'🛒',bossName:'폭주 만물 장바구니',pattern:'fan'},
@@ -4975,9 +4975,17 @@ function playSpacefighter(craftMode='character'){
   }else{
    setTimeout(()=>{
     alive=false;cancelAnimationFrame(raf);ro.disconnect();stopBGM();
-    s.innerHTML=`<div class="sfEnding"><div class="sfEndingCard"><div class="earth">🌍✨</div><h2>지구에 평화가 찾아왔다.</h2><p>오소와 친구들이 악의 본거지를 무너뜨렸소!</p><strong>1884 진주중앙시장 파이팅!</strong>${state.spacefighterKf21New?'<div style="margin-top:15px;padding:10px 12px;border:2px solid #77dcff;border-radius:12px;background:#062550;color:#ffe268;font-weight:1000">NEW FIGHTER · KF-21 전투기 해금!<br><span style="font-size:12px;color:#d6efff">다음 출격부터 캐릭터 / KF-21 선택 가능</span></div>':''}</div></div>`;
+    s.innerHTML=`<div class="sfEnding"><div class="sfEndingCard"><div class="earth">🌍✨</div><h2>지구에 평화가 찾아왔다.</h2><p>오소와 친구들이 악의 본거지를 무너뜨렸소!</p><strong>1884 진주중앙시장 파이팅!</strong></div></div>`;
     victoryFanfare();bombBuzz();
-    setTimeout(()=>finish('spacefighter',Math.floor(score+5000),beginSpacefighter,true,bonusCoins),4400)
+    if(state.spacefighterKf21New){
+     setTimeout(()=>{
+      s.innerHTML=`<div class="sfEnding"><div class="sfEndingCard"><div style="font-size:56px">✈️✨</div><h2>KF-21 전투기 해금!</h2><p>다음 출격부터 선택할 수 있소.</p><strong>캐릭터 / KF-21</strong></div></div>`;
+      tone('perfect');buzz([45,20,70,20,120]);
+      setTimeout(()=>finish('spacefighter',Math.floor(score+5000),beginSpacefighter,true,bonusCoins),1900)
+     },4400)
+    }else{
+     setTimeout(()=>finish('spacefighter',Math.floor(score+5000),beginSpacefighter,true,bonusCoins),4400)
+    }
    },1750)
   }
  }
@@ -5156,7 +5164,7 @@ function playSpacefighter(craftMode='character'){
    if(playerImg.complete&&playerImg.naturalWidth){
     ctx.save();ctx.globalAlpha=.35+.07*(i%2);ctx.translate(c.x,c.y);
     ctx.shadowColor='#cf83ff';ctx.shadowBlur=11;
-    isKf21?ctx.drawImage(playerImg,-29,-19,58,38):ctx.drawImage(playerImg,-20,-21,40,42);ctx.restore()
+    isKf21?ctx.drawImage(playerImg,-25,-25,50,50):ctx.drawImage(playerImg,-20,-21,40,42);ctx.restore()
    }else{
     ctx.save();ctx.globalAlpha=.45;
     drawEmoji(group==='oso'?'🐂':group==='hamo'?'🦦':'🐱',c.x,c.y,30);
@@ -5168,7 +5176,7 @@ function playSpacefighter(craftMode='character'){
    if(playerImg.complete&&playerImg.naturalWidth){
     ctx.save();ctx.translate(player.x,player.y);
     ctx.shadowColor='#8cf3ff';ctx.shadowBlur=14;
-    isKf21?ctx.drawImage(playerImg,-43,-28,86,56):ctx.drawImage(playerImg,-30,-31,60,62);ctx.restore()
+    isKf21?ctx.drawImage(playerImg,-40,-40,80,80):ctx.drawImage(playerImg,-30,-31,60,62);ctx.restore()
    }else{
     drawEmoji(group==='oso'?'🐂':group==='hamo'?'🦦':'🐱',player.x,player.y,48)
    }
