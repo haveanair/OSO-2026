@@ -1,4 +1,4 @@
-/* JCM SP1 SOTRIS LIVE INTEGRATION 2026-09-03 · UNLOCK FIX v3.9 */
+/* JCM SP1 SOTRIS LIVE INTEGRATION 2026-09-03 · CARD OSO v3.9.1 */
 (function(){
 'use strict';
 if(window.__JCM_SP1_SOTRIS_LIVE__)return;
@@ -35,13 +35,20 @@ function unlockIfReady(){
 }
 function unlocked(){ensureState();return !!state.specialUnlocks.sotris||unlockIfReady()}
 function progress(){const a=osoItems();return {owned:a.filter(s=>state.ownedSkins.includes(s.id)).length,total:a.length}}
+function sp1CardOsoSrc(){
+ try{
+  const a=Array.isArray(OSO_SKINS)?OSO_SKINS:[];
+  const s=a.find(x=>x.id==='default')||a.find(x=>(x.group||'oso')==='oso');
+  return s&&s.src?s.src:'';
+ }catch(_){return ''}
+}
 
 function addStyle(){
  if(document.getElementById('sp1LiveStyle'))return;
  const s=document.createElement('style');s.id='sp1LiveStyle';s.textContent=`
  #specialGameSection{margin:18px 0 8px}.sp1SectionTitle{font-weight:1000;font-size:18px;color:#5c4028;margin:0 3px 9px}.sp1SectionTitle small{display:block;font-size:9px;opacity:.65;margin-top:2px}
- .sp1Card{width:100%;min-height:132px;text-align:left;position:relative;overflow:hidden;border:3px solid #704a31;border-radius:22px;background:radial-gradient(circle at 88% 15%,#75dcff55,transparent 29%),linear-gradient(135deg,#071226,#17375f 58%,#6a4a92);color:#fff;box-shadow:0 6px #b18455,0 14px 24px #88603a20;padding:13px 14px 12px;touch-action:manipulation}
- .sp1Card:before{content:'SPECIAL';position:absolute;right:-24px;top:14px;transform:rotate(35deg);background:#ffd44e;color:#39260f;padding:4px 30px;font-size:9px;font-weight:1000}.sp1Card.lock{filter:grayscale(.78);opacity:.64}.sp1Card.lock:after{content:'🔒';position:absolute;right:13px;bottom:11px;font-size:30px}.sp1Card .medal{font-size:35px;margin-right:7px}.sp1Card b{font-size:17px;vertical-align:8px}.sp1Card p{font-size:10px;margin:5px 0 0;color:#dce8ff;font-weight:800}.sp1Card .best{margin-top:9px;font-size:11px;font-weight:1000;color:#ffe477}
+ .sp1Card{width:100%;min-height:150px;text-align:left;position:relative;overflow:hidden;border:3px solid #704a31;border-radius:22px;background:radial-gradient(circle at 88% 15%,#75dcff55,transparent 29%),linear-gradient(135deg,#071226,#17375f 58%,#6a4a92);color:#fff;box-shadow:0 6px #b18455,0 14px 24px #88603a20;padding:16px 132px 14px 14px;touch-action:manipulation}
+ .sp1Card:before{content:'SPECIAL';position:absolute;right:-24px;top:14px;transform:rotate(35deg);background:#ffd44e;color:#39260f;padding:4px 30px;font-size:9px;font-weight:1000}.sp1Card.lock{filter:grayscale(.78);opacity:.64}.sp1Card.lock:after{content:'🔒';position:absolute;right:13px;bottom:11px;font-size:30px}.sp1Card .medal{font-size:35px;margin-right:7px}.sp1Card b{font-size:17px;vertical-align:8px}.sp1Card p{font-size:10px;margin:7px 0 0;color:#dce8ff;font-weight:800}.sp1Card .best{margin-top:11px;font-size:11px;font-weight:1000;color:#ffe477}.sp1Card .sp1Oso{position:absolute;right:12px;bottom:-7px;width:108px;height:132px;object-fit:contain;object-position:center bottom;filter:drop-shadow(0 7px 7px #0007);pointer-events:none;z-index:1}.sp1Card:before{z-index:3}.sp1Card>span,.sp1Card>b,.sp1Card>p,.sp1Card>.best{position:relative;z-index:2}@media(max-width:390px){.sp1Card{padding-right:116px}.sp1Card .sp1Oso{right:7px;width:98px;height:123px}}
  #sp1Host{position:fixed;inset:0;z-index:9998;background:#06101f;display:none}#sp1Host.show{display:block}#sp1Host iframe{position:absolute;inset:0;width:100%;height:100%;border:0;background:#071226}
  .sp1MainBar{position:absolute;z-index:5;left:0;right:0;top:0;height:54px;display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:7px;padding:max(5px,env(safe-area-inset-top)) 8px 5px;background:linear-gradient(#fffdf2,#ffe79b);border-bottom:3px solid #b88841;color:#49331f;box-shadow:0 4px 12px #0004}.sp1MainBar button{border:2px solid #8b6136;border-radius:12px;background:#fff;padding:7px 9px;font-weight:1000}.sp1MainBar b{text-align:center;font-size:13px}.sp1MainBar .coin{font-size:11px;font-weight:1000;white-space:nowrap}
  .sp1Toast{position:absolute;z-index:9;left:50%;top:68px;transform:translateX(-50%) translateY(-12px);max-width:92vw;background:#091326ee;color:#fff;border:2px solid #ffd45a;border-radius:15px;padding:10px 13px;text-align:center;font-size:12px;font-weight:1000;box-shadow:0 8px 25px #0009;opacity:0;pointer-events:none;transition:.2s}.sp1Toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
@@ -58,8 +65,8 @@ function renderCard(){
  addStyle();ensureState();
  const lib=document.getElementById('library');if(!lib)return;
  const newly=unlockIfReady();let sec=document.getElementById('specialGameSection');if(!sec){sec=document.createElement('section');sec.id='specialGameSection';lib.insertAdjacentElement('afterend',sec)}
- const ok=unlocked(),p=progress(),best=Math.max(0,Math.floor(Number(state.best.sotris)||0));
- sec.innerHTML=`<div class="sp1SectionTitle">🏅 SPECIAL GAME<small>일반 게임 1~10과 별도인 컬렉션 해금 게임</small></div><button id="sp1Card" class="sp1Card ${ok?'':'lock'}"><span class="medal">🏅</span><b>${ok?'SP1 · 소트리스':'SP1 · ???'}</b><p>${ok?'5 STAGES · 아케이드 퍼즐':'오소 도감 전부 수집 시 해금'}</p><div class="best">${ok?`🏆 최고 ${best.toLocaleString()}점`:`오소 수집 ${p.owned} / ${p.total}`}</div></button>`;
+ const ok=unlocked(),p=progress(),best=Math.max(0,Math.floor(Number(state.best.sotris)||0)),osoSrc=sp1CardOsoSrc();
+ sec.innerHTML=`<div class="sp1SectionTitle">🏅 SPECIAL GAME<small>일반 게임 1~10과 별도인 컬렉션 해금 게임</small></div><button id="sp1Card" class="sp1Card ${ok?'':'lock'}"><span class="medal">🏅</span><b>${ok?'SP1 · 소트리스':'SP1 · ???'}</b><p>${ok?'5 STAGES · 아케이드 퍼즐':'오소 도감 전부 수집 시 해금'}</p><div class="best">${ok?`🏆 최고 ${best.toLocaleString()}점`:`오소 수집 ${p.owned} / ${p.total}`}</div>${osoSrc?`<img class="sp1Oso" src="${osoSrc}" alt="오소">`:''}</button>`;
  const b=document.getElementById('sp1Card');if(b)b.onclick=()=>{if(ok)launch();else{try{tone('bad');buzz(50)}catch(_){}}};
  if(newly)setTimeout(unlockFx,90);
 }
