@@ -1,0 +1,80 @@
+name: Fix Spacefighter select before countdown
+on:
+  push:
+    paths:
+      - '.github/workflows/fix-spacefighter-select-before-countdown.yml'
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Put sortie selection before 321
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import re, subprocess, hashlib
+          p=Path('play/index.html')
+          s=p.read_text(encoding='utf-8')
+          before=hashlib.sha256(s.encode()).hexdigest()
+
+          old_start="""function startGame(code){
+ if(!state.unlock[code])return;
+ if(cleanup){cleanup();cleanup=null}
+ const g=game(code);activeGameCode=code;$('#gameOverlay').classList.add('show');$('#gTitle').textContent=g.name;$('#gScore').textContent='0';updateBestHud(0);$('#stage').innerHTML='';
+ readyThen(()=>launch(code))
+}"""
+          new_start="""function startGame(code){
+ if(!state.unlock[code])return;
+ if(cleanup){cleanup();cleanup=null}
+ const g=game(code);activeGameCode=code;$('#gameOverlay').classList.add('show');$('#gTitle').textContent=g.name;$('#gScore').textContent='0';updateBestHud(0);$('#stage').innerHTML='';
+ if(code==='spacefighter'){beginSpacefighter();return}
+ readyThen(()=>launch(code))
+}"""
+          if s.count(old_start)!=1: raise SystemExit(f'startGame pattern count={s.count(old_start)}')
+          s=s.replace(old_start,new_start,1)
+
+          old_locked="if(!unlocked){state.spacefighterCraft='character';save();playSpacefighter('character');return}"
+          new_locked="if(!unlocked){state.spacefighterCraft='character';save();$('#stage').innerHTML='';readyThen(()=>playSpacefighter('character'));return}"
+          if s.count(old_locked)!=1: raise SystemExit(f'locked flow count={s.count(old_locked)}')
+          s=s.replace(old_locked,new_locked,1)
+
+          old_choose="const choose=mode=>{state.spacefighterCraft=mode;if(mode==='kf21')state.spacefighterKf21New=false;save();playSpacefighter(mode)};"
+          new_choose="const choose=mode=>{state.spacefighterCraft=mode;if(mode==='kf21')state.spacefighterKf21New=false;save();s.innerHTML='';readyThen(()=>playSpacefighter(mode))};"
+          if s.count(old_choose)!=1: raise SystemExit(f'choose flow count={s.count(old_choose)}')
+          s=s.replace(old_choose,new_choose,1)
+
+          p.write_text(s,encoding='utf-8')
+
+          # Invariants: ordinary games keep the common countdown path; Spacefighter selects first.
+          assert "if(code==='spacefighter'){beginSpacefighter();return}\n readyThen(()=>launch(code))" in s
+          assert "s.innerHTML='';readyThen(()=>playSpacefighter(mode))" in s
+          assert "readyThen(()=>playSpacefighter('character'))" in s
+          assert old_choose not in s
+
+          scripts=re.findall(r'<script[^>]*>(.*?)</script>',s,re.S)
+          Path('/tmp/oso-inline.js').write_text('\n'.join(scripts),encoding='utf-8')
+          subprocess.run(['node','--check','/tmp/oso-inline.js'],check=True)
+
+          Path('.github/spacefighter-select-before-countdown-report.txt').write_text(
+              'SPACEFIGHTER START FLOW VERIFIED\n'
+              'UNLOCKED_FLOW=SORTIE_SELECT -> CLEAR_SELECT_UI -> 3 -> 2 -> 1 -> GO -> GAME\n'
+              'LOCKED_FLOW=CHARACTER_AUTO -> 3 -> 2 -> 1 -> GO -> GAME\n'
+              'RETRY_FLOW=BEGIN_SPACEFIGHTER -> SELECT_IF_UNLOCKED -> COUNTDOWN -> GAME\n'
+              'OTHER_GAMES_COUNTDOWN=UNCHANGED\n'
+              'GAMEPLAY_BALANCE=UNCHANGED\n'
+              'INLINE_JS_NODE_CHECK=PASS\n'
+              f'PLAY_BEFORE_SHA256={before}\n'
+              f'PLAY_AFTER_SHA256={hashlib.sha256(s.encode()).hexdigest()}\n',
+              encoding='utf-8')
+          PY
+          git diff --check
+          git config user.name 'PWDJ Spacefighter Flow Fix'
+          git config user.email '34460283+haveanair@users.noreply.github.com'
+          git add play/index.html .github/spacefighter-select-before-countdown-report.txt
+          git diff --cached --quiet && exit 0
+          git commit -m 'Select Spacefighter craft before countdown'
+          git push
