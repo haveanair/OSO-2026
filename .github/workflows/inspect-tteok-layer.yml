@@ -1,0 +1,59 @@
+name: Inspect tteok lower layer
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/inspect-tteok-layer.trigger'
+
+permissions:
+  contents: write
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Extract tteok CSS and markup
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          s=Path('play/index.html').read_text(encoding='utf-8')
+          out=[]
+          out.append(f'PLAY_LEN={len(s)}')
+
+          # CSS rules that mention tteok plus generic lower-control/button rules likely reused there.
+          rules=re.findall(r'([^{}]+)\{([^{}]*)\}',s,re.S)
+          for sel,body in rules:
+              low=sel.lower()+body.lower()
+              if 'tteok' in low or 'hitbtn' in low or 'strike' in low or 'gamebtn' in low or 'control' in low and ('bottom' in low or 'position' in low):
+                  text=sel.strip()+'{'+body.strip()+'}'
+                  if len(text)<5000:
+                      out.append('\nCSS '+text)
+
+          # Context around all relevant strings.
+          keys=['function playTteok(){','떡메','내려치기','철기','tteok','strike','hitBtn','hitbtn','controlDock','gameTip']
+          seen=set()
+          for key in keys:
+              start=0
+              while True:
+                  i=s.find(key,start)
+                  if i<0: break
+                  start=i+1
+                  a=max(0,i-1800);b=min(len(s),i+3200)
+                  tag=(a,b)
+                  if tag in seen: continue
+                  seen.add(tag)
+                  out.append(f'\n===== {key} @ {i} =====\n{s[a:b]}')
+                  if len(seen)>80: break
+
+          Path('.github/tteok-layer-inspection.txt').write_text('\n'.join(out),encoding='utf-8')
+          PY
+          git config user.name 'PWDJ Tteok Inspector'
+          git config user.email '34460283+haveanair@users.noreply.github.com'
+          git add .github/tteok-layer-inspection.txt
+          git commit -m 'Inspect tteok lower UI layer'
+          git push
