@@ -1,0 +1,89 @@
+name: Fix Sotris combo two-line display
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/sotris-combo-two-line.trigger'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Patch Sotris combo display
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib
+          p=Path('play/sp1/sotris/index.html')
+          s=p.read_text(encoding='utf-8')
+
+          old="text.textContent=streak>=2?`${msg}  ${streak} COMBO!`:msg;"
+          new="if(streak>=2){text.innerHTML=`${msg}<br>${streak} COMBO!`;text.classList.add('comboTwoLine')}else{text.textContent=msg;text.classList.remove('comboTwoLine')}"
+          if s.count(old)!=1:
+              raise SystemExit(f'combo assignment count invalid: {s.count(old)}')
+          s=s.replace(old,new,1)
+
+          css='''\n/* ===== v3.8.1 COMBO TWO-LINE FIX ===== */\n.comboText.comboTwoLine{\n  width:min(92vw,760px)!important;\n  white-space:normal!important;\n  text-align:center!important;\n  line-height:.82!important;\n  font-size:clamp(38px,8vw,76px)!important;\n}\n.comboText.sotrisMega.comboTwoLine{\n  font-size:clamp(44px,10vw,104px)!important;\n  line-height:.78!important;\n}\n'''
+          if 'v3.8.1 COMBO TWO-LINE FIX' in s:
+              raise SystemExit('combo two-line CSS already present')
+          pos=s.find('</style>')
+          if pos<0: raise SystemExit('style close not found')
+          s=s[:pos]+css+s[pos:]
+
+          # Guard unrelated accepted SP1 behavior/assets.
+          for token in [
+              '0.3초 길게 눌러 즉시 낙하',
+              'frame',
+              'STAGE_NAMES',
+              'sotrisMegaPop',
+              'data:image/webp;base64,'
+          ]:
+              if token not in s: raise SystemExit('guard missing: '+token)
+          if "`${msg}  ${streak} COMBO!`" in s: raise SystemExit('old one-line combo still present')
+          if "`${msg}<br>${streak} COMBO!`" not in s: raise SystemExit('two-line combo missing')
+          if '.comboText.comboTwoLine' not in s: raise SystemExit('combo CSS missing')
+
+          p.write_text(s,encoding='utf-8')
+          Path('.github/sotris-combo-two-line-report.txt').write_text('\n'.join([
+              'SOTRIS COMBO TWO-LINE FIX VERIFIED',
+              'COMBO_LINE_1=LINE CLEAR NAME',
+              'COMBO_LINE_2=n COMBO!',
+              'SINGLE_CLEAR_LAYOUT=UNCHANGED',
+              'MEGA_EFFECT=KEPT_WITH_MOBILE_SAFE_TWO_LINE_SIZE',
+              'IMAGE_ASSETS=UNTOUCHED',
+              'GAME_RULES=UNTOUCHED',
+              'SOTRIS_SHA256='+hashlib.sha256(s.encode()).hexdigest(),
+          ])+'\n',encoding='utf-8')
+          PY
+
+          python3 - <<'PY'
+          from pathlib import Path
+          import re, subprocess, tempfile, os
+          s=Path('play/sp1/sotris/index.html').read_text(encoding='utf-8')
+          scripts=re.findall(r'<script(?:\s[^>]*)?>(.*?)</script>',s,re.S|re.I)
+          n=0
+          for body in scripts:
+              if not body.strip(): continue
+              fd,path=tempfile.mkstemp(suffix='.js'); os.close(fd)
+              Path(path).write_text(body,encoding='utf-8')
+              r=subprocess.run(['node','--check',path],capture_output=True,text=True)
+              os.unlink(path)
+              if r.returncode: raise SystemExit(r.stderr)
+              n+=1
+          print('INLINE_JS_CHECKED',n)
+          PY
+          git diff --check
+          git config user.name 'PWDJ Sotris Combo Fix'
+          git config user.email '34460283+haveanair@users.noreply.github.com'
+          git add play/sp1/sotris/index.html .github/sotris-combo-two-line-report.txt
+          git commit -m 'Show Sotris combo text on two lines'
+          git push
