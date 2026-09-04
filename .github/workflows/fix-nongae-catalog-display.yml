@@ -1,0 +1,29 @@
+name: Fix Nongae catalog display
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/fix-nongae-catalog-display.yml'
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Restore Nongae 01 and fix locked catalog display
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 .github/nongae_catalog_fix.py
+          git diff --check
+          echo '--- diff summary ---'
+          git diff --stat
+          git status --short
+          git config user.name 'PWDJ Nongae Catalog Fix'
+          git config user.email '34460283+haveanair@users.noreply.github.com'
+          git add play/index.html play/assets/nongae-01.webp .github/nongae-catalog-fix-report.txt
+          git commit -m 'Fix locked Nongae catalog display and image'
+          git push
