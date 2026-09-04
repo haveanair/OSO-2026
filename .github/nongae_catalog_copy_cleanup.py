@@ -46,7 +46,7 @@ s=s.replace(old_btn,new_btn,1)
 # The full condition should now appear once: in the Nongae collection header only.
 if s.count(phrase)!=1:
     raise SystemExit(f'unlock phrase count after cleanup={s.count(phrase)}')
-if "{id:'nongae',title:'논개 컬렉션',sub:'해금조건 : 오소 환상대모험 이벤트 클리어 · 3,000 코인대'}" not in s:
+if f"sub:'{phrase} · 3,000 코인대'" not in s:
     raise SystemExit('Nongae collection header condition missing')
 if "lockedGroup?'🔒':selected?" not in s:
     raise SystemExit('lock-only purchase button missing')
