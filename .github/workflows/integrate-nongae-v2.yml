@@ -15,8 +15,20 @@ jobs:
       - name: Apply and verify Nongae integration
         shell: bash
         run: |
+          set +e
+          python3 .github/nongae_patch.py > /tmp/nongae-final.log 2>&1
+          rc=$?
+          cat /tmp/nongae-final.log
+          if [ "$rc" -ne 0 ]; then
+            cp /tmp/nongae-final.log .github/nongae-final-failure.txt
+            git config user.name 'PWDJ Nongae Diagnostics'
+            git config user.email '34460283+haveanair@users.noreply.github.com'
+            git add .github/nongae-final-failure.txt
+            git commit -m 'Record finalized Nongae integration failure' || true
+            git push || true
+            exit "$rc"
+          fi
           set -euo pipefail
-          python3 .github/nongae_patch.py
           git diff --check
           git config user.name 'PWDJ Nongae Integration'
           git config user.email '34460283+haveanair@users.noreply.github.com'
