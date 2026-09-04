@@ -1,0 +1,46 @@
+name: Integrate Nongae v2
+on:
+  push:
+    paths:
+      - '.github/workflows/integrate-nongae-v2.yml'
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Prepare Nongae patch
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('.github/nongae_patch.py')
+          s=p.read_text(encoding='utf-8')
+          a=s.index('# Decode the two user-selected Nongae character assets.')
+          b=s.index('# Add two Nongae characters to the encyclopedia collection.')
+          repl="""# Validate the two existing user-selected Nongae character assets. No image generation.\na1=Path('play/assets/nongae-01.webp').read_bytes()\na2=Path('play/assets/nongae-02.webp').read_bytes()\nh1=hashlib.sha256(a1).hexdigest()\nh2=hashlib.sha256(a2).hexdigest()\nif h1!='8a74066a1cb863e6a6b7b1490706f4c8f9ab16fe404154952e31b8cc911be409':\n    raise SystemExit('Nongae 01 asset hash mismatch '+h1)\nif h2!='0ce3842414f9fcea328fb984380566b0af41486d0d05bbdbb4a97624ce5a23a7':\n    raise SystemExit('Nongae 02 asset hash mismatch '+h2)\n\n"""
+          s=s[:a]+repl+s[b:]
+          marker='# Preserve the tall Nongae proportions in the vertical shooter.'
+          super_patch="""# Nongae super: Heavenly Jade Ring Attack. Canvas effects only; no new image asset.\nold_super_name=\"const superName=isKf21?'스카이 블레이즈!':(group==='oso'?'만물상 폭격!':'진주 폭풍!');\"\nnew_super_name=\"const superName=isKf21?'스카이 블레이즈!':(isNongae?'천상의 옥가락지 어택!':(group==='oso'?'만물상 폭격!':'진주 폭풍!'));\"\nif s.count(old_super_name)!=1:\n    raise SystemExit('super name pattern count='+str(s.count(old_super_name)))\ns=s.replace(old_super_name,new_super_name,1)\n\nold_super_fx=\"superFx={start:now,end:now+(isKf21?1750:1350),kind:isKf21?'kf21':(group==='oso'?'cargo':'pearl')};\"\nnew_super_fx=\"superFx={start:now,end:now+(isKf21?1750:isNongae?1900:1350),kind:isKf21?'kf21':isNongae?'heaven_jade':(group==='oso'?'cargo':'pearl')};\"\nif s.count(old_super_fx)!=1:\n    raise SystemExit('super fx pattern count='+str(s.count(old_super_fx)))\ns=s.replace(old_super_fx,new_super_fx,1)\n\nold_draw=\"  if(superFx.kind==='kf21'){\"\nnew_draw=\"\"\"  if(superFx.kind==='heaven_jade'){\n   const elapsed=ts-superFx.start;\n   ctx.save();ctx.globalCompositeOperation='lighter';\n   const sky=ctx.createLinearGradient(0,0,0,H*.7);\n   sky.addColorStop(0,`rgba(230,255,248,${.34*fade})`);sky.addColorStop(.5,`rgba(92,245,204,${.16*fade})`);sky.addColorStop(1,'rgba(46,198,157,0)');\n   ctx.fillStyle=sky;ctx.fillRect(0,0,W,H*.78);\n   for(let i=0;i<14;i++){\n    const delay=i*82,rp=Math.max(0,Math.min(1,(elapsed-delay)/620));\n    if(rp<=0||rp>=1)continue;\n    const col=i%7,row=(i/7)|0;\n    const x=(.08+col*.14)*W+Math.sin(i*2.7)*8;\n    const y=-42+rp*(H+96)+row*26;\n    const rr=18+(i%3)*4;\n    ctx.save();ctx.translate(x,y);ctx.rotate((i%2?-1:1)*(elapsed*.0018+i*.31));ctx.scale(1,.42);\n    ctx.shadowBlur=24;ctx.shadowColor='#5ff0c4';ctx.strokeStyle=`rgba(72,226,180,${.95*(1-rp*.25)})`;ctx.lineWidth=7;\n    ctx.beginPath();ctx.arc(0,0,rr,0,Math.PI*2);ctx.stroke();\n    ctx.shadowBlur=7;ctx.strokeStyle='rgba(229,255,248,.96)';ctx.lineWidth=2.2;\n    ctx.beginPath();ctx.arc(-1,-1,rr-4,3.35,5.8);ctx.stroke();ctx.restore();\n   }\n   const haloP=Math.max(0,Math.min(1,(elapsed-250)/1050));\n   if(haloP>0){\n    const hx=boss?boss.x:W*.5,hy=boss?boss.y:H*.34,rr=48+haloP*210;\n    ctx.save();ctx.translate(hx,hy);ctx.scale(1,.38);ctx.shadowBlur=34;ctx.shadowColor='#7affd6';\n    ctx.strokeStyle=`rgba(102,255,210,${fade*.9})`;ctx.lineWidth=14*(1-haloP*.45);ctx.beginPath();ctx.arc(0,0,rr,0,Math.PI*2);ctx.stroke();\n    ctx.strokeStyle=`rgba(240,255,250,${fade*.9})`;ctx.lineWidth=4;ctx.beginPath();ctx.arc(0,0,rr*.72,0,Math.PI*2);ctx.stroke();ctx.restore();\n   }\n   ctx.restore();\n  }else if(superFx.kind==='kf21'){\"\"\"\nif s.count(old_draw)!=1:\n    raise SystemExit('super draw pattern count='+str(s.count(old_draw)))\ns=s.replace(old_draw,new_draw,1)\n\n"""
+          if s.count(marker)!=1:
+              raise SystemExit('nongae size marker count='+str(s.count(marker)))
+          s=s.replace(marker,super_patch+marker,1)
+          s=s.replace("'SPACEFIGHTER_SUPER=unchanged',","'SPACEFIGHTER_SUPER=Heavenly Jade Ring Attack (Canvas only)',")
+          verify="assert \"천상의 옥가락지 어택!\" in s\nassert \"superFx.kind==='heaven_jade'\" in s\nassert \"sky.addColorStop\" in s\n"
+          s=s.replace("assert \"isNongae?ctx.drawImage(playerImg,-22,-39,44,70)\" in s\n", "assert \"isNongae?ctx.drawImage(playerImg,-22,-39,44,70)\" in s\n"+verify)
+          p.write_text(s,encoding='utf-8')
+          PY
+      - name: Apply and verify Nongae integration
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 .github/nongae_patch.py
+          git diff --check
+          git config user.name 'PWDJ Nongae Integration'
+          git config user.email '34460283+haveanair@users.noreply.github.com'
+          git add -A
+          git commit -m 'Add Nongae unlock and Heavenly Jade Ring Attack'
+          git push
