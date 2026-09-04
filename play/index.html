@@ -6901,7 +6901,7 @@ function playOsoFantasy(){
 function fantasyCoinDrop(e){
  const amount=fantasyBattleCoinReward(e);
  if(!amount)return 0;
- fantasyBonusCoins+=amount;
+ const beforeCoins=state.coins||0;state.coins=beforeCoins+amount;save();
  const fx=document.createElement('div');fx.className='fantasyCoinDropFx';fx.textContent=`🪙 +${amount.toLocaleString('ko-KR')}`;battleFx.appendChild(fx);setTimeout(()=>fx.remove(),1300);
  tone('coin');buzz(amount>=3000?[28,10,45,10,70]:amount>=1000?[20,8,34]:[12,6,22]);
  log(`${e.name} 격파 보상! 🪙 +${amount.toLocaleString('ko-KR')}`);updateHud();return amount
