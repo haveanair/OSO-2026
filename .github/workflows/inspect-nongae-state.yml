@@ -1,0 +1,35 @@
+name: Inspect Nongae state hooks
+on:
+  push:
+    paths:
+      - '.github/workflows/inspect-nongae-state.yml'
+permissions:
+  contents: write
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Inspect state and RPG save key
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          s=Path('play/index.html').read_text(encoding='utf-8')
+          out=[]
+          for pat in ['FANTASY_SAVE_KEY','ownedSkins','selectedSkin','function save()','function loadState','localStorage.getItem(KEY','const KEY=','let state=','const state=']:
+              idx=[]; pos=0
+              while True:
+                  i=s.find(pat,pos)
+                  if i<0: break
+                  idx.append(i);pos=i+len(pat)
+              out.append(f'===== {pat} COUNT={len(idx)} =====')
+              for i in idx[:10]: out.append(s[max(0,i-1300):min(len(s),i+2500)])
+          Path('.github/nongae-state-report.txt').write_text('\n'.join(out),encoding='utf-8')
+          PY
+          git config user.name 'PWDJ Inspector'
+          git config user.email '34460283+haveanair@users.noreply.github.com'
+          git add .github/nongae-state-report.txt
+          git commit -m 'Inspect Nongae state hooks' || exit 0
+          git push
