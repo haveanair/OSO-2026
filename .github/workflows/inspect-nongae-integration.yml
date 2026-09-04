@@ -1,0 +1,39 @@
+name: Inspect Nongae integration points
+on:
+  push:
+    paths:
+      - '.github/workflows/inspect-nongae-integration.yml'
+permissions:
+  contents: write
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Inspect collection RPG and shooter hooks
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('play/index.html')
+          s=p.read_text(encoding='utf-8')
+          keys=['const OSO_SKINS','function renderOsoShop','ownedSkins','selectedSkin','function playOsoFantasy','finish(\'fantasy\'','fantasyClear','function playSpacefighter','shotIcon','shots.push','drawImage(playerImg','ctx.fillText(shotIcon']
+          out=[]
+          for key in keys:
+              idxs=[]; pos=0
+              while True:
+                  i=s.find(key,pos)
+                  if i<0: break
+                  idxs.append(i); pos=i+1
+              out.append(f'===== {key} COUNT={len(idxs)} =====')
+              for n,i in enumerate(idxs[:8],1):
+                  out.append(f'--- {n} @ {i} ---')
+                  out.append(s[max(0,i-2200):min(len(s),i+6500)])
+          Path('.github/nongae-integration-inspection.txt').write_text('\n'.join(out),encoding='utf-8')
+          PY
+          git config user.name 'PWDJ Inspector'
+          git config user.email '34460283+haveanair@users.noreply.github.com'
+          git add .github/nongae-integration-inspection.txt
+          git commit -m 'Inspect Nongae integration points' || exit 0
+          git push
