@@ -15,8 +15,20 @@ jobs:
       - name: Add Nongae collection unlock and jade-ring shots
         shell: bash
         run: |
+          set +e
+          python3 .github/nongae_patch.py > /tmp/nongae-patch.log 2>&1
+          rc=$?
+          cat /tmp/nongae-patch.log
+          if [ "$rc" -ne 0 ]; then
+            cp /tmp/nongae-patch.log .github/nongae-patch-failure.txt
+            git config user.name 'PWDJ Nongae Diagnostics'
+            git config user.email '34460283+haveanair@users.noreply.github.com'
+            git add .github/nongae-patch-failure.txt
+            git commit -m 'Record Nongae patch failure' || true
+            git push || true
+            exit "$rc"
+          fi
           set -euo pipefail
-          python3 .github/nongae_patch.py
           git diff --check
           git config user.name 'PWDJ Nongae Integration'
           git config user.email '34460283+haveanair@users.noreply.github.com'
