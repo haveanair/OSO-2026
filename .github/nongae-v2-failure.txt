@@ -1,1 +1,11 @@
-Nongae 01 asset hash mismatch 4b223ec1d0bd1d6a7d80698a3efe376f58c0d494f0a51a6f8af8b1219cc21091
+Traceback (most recent call last):
+  File "/home/runner/work/OSO-2026/OSO-2026/.github/nongae_patch.py", line 13, in <module>
+    a2=b''.join(base64.b64decode(Path(f'.github/nongae-02.part{i}').read_text().strip(),validate=True) for i in (1,2,3))
+       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/runner/work/OSO-2026/OSO-2026/.github/nongae_patch.py", line 13, in <genexpr>
+    a2=b''.join(base64.b64decode(Path(f'.github/nongae-02.part{i}').read_text().strip(),validate=True) for i in (1,2,3))
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/base64.py", line 88, in b64decode
+    return binascii.a2b_base64(s, strict_mode=validate)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+binascii.Error: Invalid base64-encoded string: number of data characters (5001) cannot be 1 more than a multiple of 4
