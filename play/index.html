@@ -1,6 +1,131 @@
 <!doctype html>
 <html lang="ko">
 <head>
+<script>
+/* OSO FOREGROUND AUDIO GATE v1 */
+(()=>{
+  if(window.__osoForegroundAudioGateInstalled)return;
+  window.__osoForegroundAudioGateInstalled=true;
+
+  const contexts=new Set();
+  const resumeContexts=new Set();
+  const resumeMedia=new Set();
+  const nativeResumes=new WeakMap();
+  const isVisible=()=>document.visibilityState==='visible';
+
+  const guardSource=(src)=>{
+    if(!src||src.__osoForegroundGuarded)return src;
+    src.__osoForegroundGuarded=true;
+    const nativeStart=typeof src.start==='function'?src.start.bind(src):null;
+    const nativeStop=typeof src.stop==='function'?src.stop.bind(src):null;
+    if(nativeStart){
+      src.start=(...args)=>{
+        if(isVisible())return nativeStart(...args);
+        try{
+          const now=src.context&&Number.isFinite(src.context.currentTime)?src.context.currentTime:0;
+          nativeStart(now);
+          if(nativeStop)nativeStop(now);
+          src.__osoSuppressed=true;
+        }catch(_){ }
+      };
+    }
+    if(nativeStop){
+      src.stop=(...args)=>{
+        if(src.__osoSuppressed)return;
+        return nativeStop(...args);
+      };
+    }
+    return src;
+  };
+
+  const NativeAC=window.AudioContext||window.webkitAudioContext;
+  if(NativeAC){
+    function ForegroundAudioContext(...args){
+      const ctx=new NativeAC(...args);
+      contexts.add(ctx);
+      const nativeResume=typeof ctx.resume==='function'?ctx.resume.bind(ctx):null;
+      if(nativeResume){
+        nativeResumes.set(ctx,nativeResume);
+        try{
+          ctx.resume=(...rargs)=>isVisible()?nativeResume(...rargs):Promise.resolve();
+        }catch(_){ }
+      }
+      if(typeof ctx.createOscillator==='function'){
+        const makeOsc=ctx.createOscillator.bind(ctx);
+        try{ctx.createOscillator=(...a)=>guardSource(makeOsc(...a));}catch(_){ }
+      }
+      if(typeof ctx.createBufferSource==='function'){
+        const makeBuf=ctx.createBufferSource.bind(ctx);
+        try{ctx.createBufferSource=(...a)=>guardSource(makeBuf(...a));}catch(_){ }
+      }
+      if(!isVisible()&&ctx.state==='running'){
+        Promise.resolve(ctx.suspend()).catch(()=>{});
+      }
+      return ctx;
+    }
+    ForegroundAudioContext.prototype=NativeAC.prototype;
+    try{Object.setPrototypeOf(ForegroundAudioContext,NativeAC);}catch(_){ }
+    try{window.AudioContext=ForegroundAudioContext;}catch(_){ }
+    if(window.webkitAudioContext){
+      try{window.webkitAudioContext=ForegroundAudioContext;}catch(_){ }
+    }
+  }
+
+  const mediaProto=window.HTMLMediaElement&&window.HTMLMediaElement.prototype;
+  const nativePlay=mediaProto&&mediaProto.play;
+  if(nativePlay){
+    mediaProto.play=function(...args){
+      if(!isVisible())return Promise.resolve();
+      return nativePlay.apply(this,args);
+    };
+  }
+
+  const suspendForBackground=()=>{
+    document.querySelectorAll('audio,video').forEach(m=>{
+      if(!m.paused&&!m.ended){
+        resumeMedia.add(m);
+        try{m.pause();}catch(_){ }
+      }
+    });
+    contexts.forEach(ctx=>{
+      if(ctx.state==='running'){
+        resumeContexts.add(ctx);
+        Promise.resolve(ctx.suspend()).catch(()=>{});
+      }
+    });
+  };
+
+  const resumeForForeground=()=>{
+    if(!isVisible())return;
+    const media=[...resumeMedia];
+    resumeMedia.clear();
+    media.forEach(m=>{
+      if(!m.ended&&m.isConnected&&nativePlay){
+        Promise.resolve(nativePlay.call(m)).catch(()=>{});
+      }
+    });
+    const ctxs=[...resumeContexts];
+    resumeContexts.clear();
+    ctxs.forEach(ctx=>{
+      if(ctx.state==='suspended'){
+        const resume=nativeResumes.get(ctx);
+        if(resume)Promise.resolve(resume()).catch(()=>{});
+      }
+    });
+  };
+
+  document.addEventListener('visibilitychange',()=>{
+    if(isVisible())resumeForForeground();
+    else suspendForBackground();
+  },{passive:true});
+  window.addEventListener('pagehide',suspendForBackground,{passive:true});
+  window.addEventListener('pageshow',resumeForForeground,{passive:true});
+  document.addEventListener('freeze',suspendForBackground,{passive:true});
+  document.addEventListener('resume',resumeForForeground,{passive:true});
+  if(!isVisible())suspendForBackground();
+})();
+</script>
+
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
 <meta name="theme-color" content="#f6b91c">
