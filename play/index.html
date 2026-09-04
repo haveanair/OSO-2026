@@ -3521,7 +3521,7 @@ function renderOsoShop(){
   const lockedGroup=gr.id==='nongae'&&!state.nongaeUnlocked;
   const cards=OSO_SKINS.filter(s=>(s.group||'oso')===gr.id).map(s=>{
    const owned=state.ownedSkins.includes(s.id),selected=state.selectedSkin===s.id;
-   return `<div class="skinCard ${selected?'selected':''} group-${gr.id}" data-skin="${s.id}"><span class="charBadge ${gr.id}">${s.badge||gr.title}</span><img src="${s.src}" alt="${s.name}" style="${lockedGroup?'visibility:hidden;filter:grayscale(1);opacity:0':''}"><b>${s.name}</b>${s.note?'<small>'+s.note+'</small>':''}<button class="${selected?'selectedBtn':owned?'owned':''}" data-buy="${s.id}" ${lockedGroup?'disabled':''}>${lockedGroup?'🔒':selected?'사용 중':owned?'사용하기':`🪙 ${s.price.toLocaleString()} 구입`}</button></div>`
+   return `<div class="skinCard ${selected?'selected':''} group-${gr.id}" data-skin="${s.id}"><span class="charBadge ${gr.id}">${s.badge||gr.title}</span><img src="${s.src}" alt="${s.name}" style="${lockedGroup?'visibility:hidden;filter:grayscale(1);opacity:0':''}"><b>${s.name}</b>${s.note?'<small>'+s.note+'</small>':(['nongae_jade','nongae_resolve'].includes(s.id)?'<small aria-hidden="true">&nbsp;</small>':'')}<button class="${selected?'selectedBtn':owned?'owned':''}" data-buy="${s.id}" ${lockedGroup?'disabled':''}>${lockedGroup?'🔒':selected?'사용 중':owned?'사용하기':`🪙 ${s.price.toLocaleString()} 구입`}</button></div>`
   }).join('');
   return `<div class="shopGroupHead ${gr.id}"><b>${gr.title}</b><small>${gr.sub}</small></div>${cards}`
  }).join('');
