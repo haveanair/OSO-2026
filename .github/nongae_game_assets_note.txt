@@ -1,0 +1,3 @@
+NONGAE 01 optimized game asset: 195x300 WebP, 18286 bytes, SHA256 f2ab2a311d8851ab02f42b1d1fa75cb19f8b75d54b51f0fa481a4fc695fc973b
+NONGAE 02 optimized game asset: 271x340 WebP, 29686 bytes, SHA256 2438389f82bca6e53c885abccb621cbd1d52fb2c3e3f5119f27a72f6077995e5
+Source: existing user-selected extracted characters; resized/re-encoded only. No generated artwork.
