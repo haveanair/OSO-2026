@@ -1,5 +1,5 @@
 name: Integrate Nongae v2
-# corrected Nongae 02 asset run
+# valid Nongae 02 asset run
 on:
   push:
     paths:
