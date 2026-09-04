@@ -1,0 +1,1659 @@
+===== FANTASY_SAVE_KEY COUNT=3 =====
+ERO_LIMITS.mp,mp),atk:Math.min(HERO_LIMITS.atk,atk),def:Math.min(HERO_LIMITS.def,def)}
+ }
+ function normalizeHeroProgress(){
+  hero.lv=clamp(Math.floor(Number(hero.lv)||1),1,currentLevelCap());
+  const coreFloor=expectedHeroCoreStats(hero.lv);
+  const expectedTp=tpCapForLevel(hero.lv);
+  hero.maxTp=clamp(Math.max(Number(hero.maxTp)||100,expectedTp),100,TP_ABSOLUTE_MAX);
+  hero.tp=clamp(Number(hero.tp)||0,0,hero.maxTp);
+  hero.maxHp=clamp(Math.max(Number(hero.maxHp)||20,coreFloor.hp),1,HERO_LIMITS.hp);
+  hero.maxMp=clamp(Math.max(Number(hero.maxMp)||6,coreFloor.mp),0,HERO_LIMITS.mp);
+  hero.atk=clamp(Math.max(Number(hero.atk)||6,coreFloor.atk),1,HERO_LIMITS.atk);
+  hero.def=clamp(Math.max(Number(hero.def)||2,coreFloor.def),0,HERO_LIMITS.def);
+  hero.hp=clamp(Number(hero.hp)||hero.maxHp,0,hero.maxHp);
+  hero.mp=clamp(Number(hero.mp)||hero.maxMp,0,hero.maxMp);
+  if(hero.lv>=currentLevelCap()){hero.lv=currentLevelCap();hero.xp=0;hero.next=0}
+  else if(!Number(hero.next)||hero.next<=0)hero.next=8+hero.lv*5
+ }
+ function map(){return MAPS[zone]}function tileAt(x,y){if(y<0||y>=map().grid.length||x<0||x>=map().grid[0].length)return '#';return map().grid[y][x]}function blocked(x,y){return '#S~'.includes(tileAt(x,y))}function adj(x,y){return Math.abs(hero.x-x)+Math.abs(hero.y-y)<=1}
+ const FANTASY_SAVE_KEY='jcm-fantasy-save-v200';
+ function fantasySaveInfo(){try{const raw=localStorage.getItem(FANTASY_SAVE_KEY);if(!raw)return null;return JSON.parse(raw)}catch(e){return null}}
+ function refreshSaveStatus(){const d=fantasySaveInfo();if(!d){saveStatus.textContent='중간 저장 데이터가 없습니다.';loadBtn.disabled=true;return}loadBtn.disabled=false;const when=d.savedAt?new Date(d.savedAt).toLocaleString('ko-KR'):'';saveStatus.textContent=`LV ${d.hero?.lv||1} · ${MAPS[d.zone||0]?.name||'중앙시장'} · 누적 ${Math.floor(d.score||0).toLocaleString('ko-KR')}점${when?' · '+when:''}`}
+ function syncLegendaryGearState(){if(run.opened&&run.opened.town_shield)run.shield=true;if(run.opened&&run.opened.town_radish)run.radish=true;if(run.shield||run.radish)run.legendUnlocked=true}
+ function renderFantasyStatus(){
+  syncLegendaryGearState();
+  const weapon=equippedWeapon(),armor=equippedArmor(),acc=accessory();
+  const maxed=hero.lv>=currentLevelCap()||!hero.next,expPct=maxed?100:clamp(Math.round((hero.xp/Math.max(1,hero.next))*100),0,100),remain=maxed?0:Math.max(0,hero.next-hero.xp);
+  const atkBase=hero.atk,defBase=hero.def,atkGear=weapon.atk+acc.atk,defGear=armor.def+acc.def;
+  statusBody.innerHTML=`<div class="fantasyStatusIdentity"><b>${heroHonor()} · LV ${hero.lv}${maxed?' MAX':''}</b><span>${map().name}</span></div>
+   <div class="fantasyStatusVitals"><div class="fantasyStatusCell"><small>HP</small><b>${hero.hp} / ${hero.maxHp}</b></div><div class="fantasyStatusCell"><small>MP</small><b>${hero.mp} / ${hero.maxMp}</b></div><div class="fantasyStatusCell"><small>TP</small><b>${hero.tp} / ${hero.maxTp}</b></div></div>
+   <div class="fantasyStatusExp"><div class="fantasyStatusExpHead"><span>경험치</span><b>${maxed?'MAX':`${hero.xp} / ${hero.next}`}</b></div><div class="fantasyStatusExpBar"><i style="width:${expPct}%"></i></div><div class="fantasyStatusExpFoot">${maxed?(hasLegendaryItem()?'한계돌파 최고 레벨 30 달성':'기본 최고 레벨 20 달성 · 전설 아이템 2종 모두 보유 시 LV30 한계돌파'):(hasLegendaryItem()?`한계돌파 · 다음 레벨까지 ${remain} EXP`:`다음 레벨까지 ${remain} EXP`)}</div></div>
+   <div class="fantasyStatusSection"><div class="fantasyStatusSectionTitle">전투 능력</div><div class="fantasyStatusCombat"><div class="fantasyStatusCombatBox"><strong>공격력 ${totalAtk()}</strong><span>기본 ${atkBase} + 무기 ${weapon.atk} + 장신구 ${acc.atk}</span></div><div class="fantasyStatusCombatBox"><strong>방어력 ${totalDef()}</strong><span>기본 ${defBase} + 방어구 ${armor.def} + 장신구 ${acc.def}</span></div></div></div>
+   <div class="fantasyStatusSection"><div 
+lizeHeroProgress(){
+  hero.lv=clamp(Math.floor(Number(hero.lv)||1),1,currentLevelCap());
+  const coreFloor=expectedHeroCoreStats(hero.lv);
+  const expectedTp=tpCapForLevel(hero.lv);
+  hero.maxTp=clamp(Math.max(Number(hero.maxTp)||100,expectedTp),100,TP_ABSOLUTE_MAX);
+  hero.tp=clamp(Number(hero.tp)||0,0,hero.maxTp);
+  hero.maxHp=clamp(Math.max(Number(hero.maxHp)||20,coreFloor.hp),1,HERO_LIMITS.hp);
+  hero.maxMp=clamp(Math.max(Number(hero.maxMp)||6,coreFloor.mp),0,HERO_LIMITS.mp);
+  hero.atk=clamp(Math.max(Number(hero.atk)||6,coreFloor.atk),1,HERO_LIMITS.atk);
+  hero.def=clamp(Math.max(Number(hero.def)||2,coreFloor.def),0,HERO_LIMITS.def);
+  hero.hp=clamp(Number(hero.hp)||hero.maxHp,0,hero.maxHp);
+  hero.mp=clamp(Number(hero.mp)||hero.maxMp,0,hero.maxMp);
+  if(hero.lv>=currentLevelCap()){hero.lv=currentLevelCap();hero.xp=0;hero.next=0}
+  else if(!Number(hero.next)||hero.next<=0)hero.next=8+hero.lv*5
+ }
+ function map(){return MAPS[zone]}function tileAt(x,y){if(y<0||y>=map().grid.length||x<0||x>=map().grid[0].length)return '#';return map().grid[y][x]}function blocked(x,y){return '#S~'.includes(tileAt(x,y))}function adj(x,y){return Math.abs(hero.x-x)+Math.abs(hero.y-y)<=1}
+ const FANTASY_SAVE_KEY='jcm-fantasy-save-v200';
+ function fantasySaveInfo(){try{const raw=localStorage.getItem(FANTASY_SAVE_KEY);if(!raw)return null;return JSON.parse(raw)}catch(e){return null}}
+ function refreshSaveStatus(){const d=fantasySaveInfo();if(!d){saveStatus.textContent='중간 저장 데이터가 없습니다.';loadBtn.disabled=true;return}loadBtn.disabled=false;const when=d.savedAt?new Date(d.savedAt).toLocaleString('ko-KR'):'';saveStatus.textContent=`LV ${d.hero?.lv||1} · ${MAPS[d.zone||0]?.name||'중앙시장'} · 누적 ${Math.floor(d.score||0).toLocaleString('ko-KR')}점${when?' · '+when:''}`}
+ function syncLegendaryGearState(){if(run.opened&&run.opened.town_shield)run.shield=true;if(run.opened&&run.opened.town_radish)run.radish=true;if(run.shield||run.radish)run.legendUnlocked=true}
+ function renderFantasyStatus(){
+  syncLegendaryGearState();
+  const weapon=equippedWeapon(),armor=equippedArmor(),acc=accessory();
+  const maxed=hero.lv>=currentLevelCap()||!hero.next,expPct=maxed?100:clamp(Math.round((hero.xp/Math.max(1,hero.next))*100),0,100),remain=maxed?0:Math.max(0,hero.next-hero.xp);
+  const atkBase=hero.atk,defBase=hero.def,atkGear=weapon.atk+acc.atk,defGear=armor.def+acc.def;
+  statusBody.innerHTML=`<div class="fantasyStatusIdentity"><b>${heroHonor()} · LV ${hero.lv}${maxed?' MAX':''}</b><span>${map().name}</span></div>
+   <div class="fantasyStatusVitals"><div class="fantasyStatusCell"><small>HP</small><b>${hero.hp} / ${hero.maxHp}</b></div><div class="fantasyStatusCell"><small>MP</small><b>${hero.mp} / ${hero.maxMp}</b></div><div class="fantasyStatusCell"><small>TP</small><b>${hero.tp} / ${hero.maxTp}</b></div></div>
+   <div class="fantasyStatusExp"><div class="fantasyStatusExpHead"><span>경험치</span><b>${maxed?'MAX':`${hero.xp} / ${hero.next}`}</b></div><div class="fantasyStatusExpBar"><i style="width:${expPct}%"></i></div><div class="fantasyStatusExpFoot">${maxed?(hasLegendaryItem()?'한계돌파 최고 레벨 30 달성':'기본 최고 레벨 20 달성 · 전설 아이템 2종 모두 보유 시 LV30 한계돌파'):(hasLegendaryItem()?`한계돌파 · 다음 레벨까지 ${remain} EXP`:`다음 레벨까지 ${remain} EXP`)}</div></div>
+   <div class="fantasyStatusSection"><div class="fantasyStatusSectionTitle">전투 능력</div><div class="fantasyStatusCombat"><div class="fantasyStatusCombatBox"><strong>공격력 ${totalAtk()}</strong><span>기본 ${atkBase} + 무기 ${weapon.atk} + 장신구 ${acc.atk}</span></div><div class="fantasyStatusCombatBox"><strong>방어력 ${totalDef()}</strong><span>기본 ${defBase} + 방어구 ${armor.def} + 장신구 ${acc.def}</span></div></div></div>
+   <div class="fantasyStatusSection"><div class="fantasyStatusSectionTitle">장비</div><div class="fantasyStatusGear"><div class="fantasyStatusGearRow
+usGearRow"><em>장신구</em><b>${acc.name}</b><span>공격 +${acc.atk} · 방어 +${acc.def}</span></div></div></div>
+   <div class="fantasyStatusSection"><div class="fantasyStatusSectionTitle">소지품 · 특별 장비</div><div class="fantasyStatusExtras"><div class="fantasyStatusExtra"><b>🪙 ${(state.coins||0).toLocaleString('ko-KR')}</b><br>포션 ${run.inventory.포션||0} · 에테르 ${run.inventory.에테르||0} · 성수 ${run.inventory.성수||0}</div><div class="fantasyStatusExtra"><b>황금장바구니방패</b> ${run.shield?'보유 · 장착중 · 방어 +40':run.legendUnlocked?'미보유 · 탐색 가능':'미보유 · 미해금'}<br><b>전설의 조선무</b> ${run.radish?'보유 · 장착중 · 공격 +40':run.legendUnlocked?'미보유 · 탐색 가능':'미보유 · 미해금'}</div></div></div>`;
+ }
+ function openFantasyStatus(){renderFantasyStatus();menuHome.classList.add('hide');statusPage.classList.add('show')}
+ function closeFantasyStatus(){statusPage.classList.remove('show');menuHome.classList.remove('hide')}
+ function openFantasyMenu(){if(battle)return;closeFantasyStatus();refreshSaveStatus();saveMenu.classList.add('show')}
+ function closeFantasyMenu(){closeFantasyStatus();saveMenu.classList.remove('show')}
+ function saveFantasy(){if(battle)return;const data={version:1,savedAt:Date.now(),zone,steps,score,bonusCoins:fantasyBonusCoins,hero:JSON.parse(JSON.stringify(hero)),run:JSON.parse(JSON.stringify(run))};localStorage.setItem(FANTASY_SAVE_KEY,JSON.stringify(data));refreshSaveStatus();tone('coin');buzz([12,7,18]);showDialog('모험을 중간 저장했다.')}
+ function loadFantasy(){
+  const d=fantasySaveInfo();if(!d)return;
+  zone=clamp(Number(d.zone)||0,0,MAPS.length-1);steps=Math.max(0,Number(d.steps)||0);score=Math.max(0,Number(d.score)||0);fantasyBonusCoins=Math.max(0,Math.floor(Number(d.bonusCoins)||0));
+  if(d.hero)Object.assign(hero,d.hero);
+  if(d.run){
+   run.shield=!!d.run.shield;run.radish=!!d.run.radish;run.legendUnlocked=!!d.run.legendUnlocked||run.shield||run.radish;run.shieldClue=!!d.run.shieldClue;run.radishClue=!!d.run.radishClue;run.elder=!!d.run.elder;run.opened=d.run.opened||{};
+   run.bossDefeated=Array.isArray(d.run.bossDefeated)?d.run.bossDefeated.slice():[true,false,false,false,false,false,false];run.zoneKills=Array.isArray(d.run.zoneKills)?d.run.zoneKills.slice():[0,0,0,0,0,0,0];run.inventory=d.run.inventory||{포션:2,에테르:0,성수:0};run.npcTalks=d.run.npcTalks||{};
+   run.lastWarp=clamp(Number(d.run.lastWarp)||0,0,MAPS.length-1);run.warpUnlocked=Array.isArray(d.run.warpUnlocked)?d.run.warpUnlocked.slice():[false,false,false,false,false,false,false];
+   run.weaponLv=clamp(Number(d.run.weaponLv)||((d.run.radish)?2:0),0,RPG_WEAPONS.length-1);run.armorLv=clamp(Number(d.run.armorLv)||((d.run.shield)?2:0),0,RPG_ARMORS.length-1);run.accessoryLv=clamp(Number(d.run.accessoryLv)||0,0,RPG_ACCESSORIES.length-1);
+   run.demonCleared=!!d.run.demonCleared;run.darkClue=!!d.run.darkClue;run.darkGeneralDefeated=!!d.run.darkGeneralDefeated;run.heavenClue=!!d.run.heavenClue;run.nongaDefeated=!!d.run.nongaDefeated;run.trueEnding=!!d.run.trueEnding
+  }
+  ensurePostgameState();syncLegendaryGearState();normalizeHeroProgress();
+  battle=null;battleEl.classList.remove('show');controls.style.display='';closeSub();closeDialog();closeFantasyMenu();startBGM(map().music,1);updateHud();draw();showDialog('저장한 곳에서 모험을 이어간다.')
+ }
+ function fullMapColor(ch,theme){if(ch==='#')return theme==='abyss'?'#17131f':theme==='heaven'?'#b8bfd0':theme==='demon'?'#3b2146':theme==='river'?'#456b67':theme==='castle'?'#777066':theme==='cellar'?'#4b3828':'#745137';if(ch==='~')return '#3699c4';if(ch==='=')return '#9a7449';if(ch==='S')return theme==='heaven'?'#e4d7a6':'#ad6a37';if(ch==='r')return '#d6af77';return theme==='abyss'?'#30263a':theme==='heaven'?'#e9edf7':theme==='demon'?'#61406c':theme==='river'?'#76bbb0':theme==='castle'?'#b5aa95':theme==='cellar'?'#98764f':'#e2bf89'}
+ function drawFullMap(){
+  const m=map(),cols=m.grid
+===== ownedSkins COUNT=9 =====
+state.unlock.spacefighter)return false;
+ if(BASE_GAME_CODES.every(c=>state.unlock&&state.unlock[c])){
+  state.unlock.spacefighter=true;save();return true
+ }
+ return false
+}
+function ensureScoreBonusUnlocks(){
+ const newly=[],n=Number(state.todayScore)||0;
+ if(n>=500000&&!state.unlock.racing){state.unlock.racing=true;newly.push('racing')}
+ if(n>=1000000&&!state.unlock.fantasy){state.unlock.fantasy=true;newly.push('fantasy')}
+ if(newly.length){
+  const q=Array.isArray(state.pendingBonusUnlocks)?state.pendingBonusUnlocks:[];
+  state.pendingBonusUnlocks=[...new Set([...q,...newly])];
+  save()
+ }
+ return newly
+}
+
+let mem=null,audioCtx=null;
+function localDateKey(){
+ const d=new Date(),y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,'0'),day=String(d.getDate()).padStart(2,'0');
+ return `${y}-${m}-${day}`
+}
+function load(){try{const x=localStorage.getItem(DEV_ALL_UNLOCKED?'jcm-v168-unlocked':'jcm-v168-locked');return x?JSON.parse(x):null}catch(e){return mem}}
+function save(){mem=state;try{localStorage.setItem(DEV_ALL_UNLOCKED?'jcm-v168-unlocked':'jcm-v168-locked',JSON.stringify(state))}catch(e){}}
+let state=load()||{unlock:{},best:{},coins:0,todayEarned:0,todayScore:0,scoreDate:localDateKey(),pdRecord:0,coinDate:localDateKey(),ranking:[],todaySubmittedBest:0,rankRegisteredBest:11,ownedSkins:['default'],selectedSkin:'default'};
+if(!state.best||typeof state.best!=='object')state.best={};
+if(!Array.isArray(state.ranking))state.ranking=[];
+if(!Array.isArray(state.ownedSkins))state.ownedSkins=['default'];
+if(!state.gpsCalibration)state.gpsCalibration={};
+if(!state.gpsUnlocked)state.gpsUnlocked={};
+if(!state.qrUnlocked)state.qrUnlocked={};
+if(!state.ownedSkins.includes('default'))state.ownedSkins.unshift('default');
+if(!state.selectedSkin||!state.ownedSkins.includes(state.selectedSkin))state.selectedSkin='default';
+if(state.todayEarned==null)state.todayEarned=0;
+if(state.todayScore==null)state.todayScore=0;
+if(!state.scoreDate)state.scoreDate=localDateKey();
+if(state.todaySubmittedBest==null)state.todaySubmittedBest=0;
+if(state.rankRegisteredBest==null){
+ state.rankRegisteredBest=Number.isFinite(state.dailyRankPromptedBestRank)?state.dailyRankPromptedBestRank:11;
+}
+if(state.scoreDate!==localDateKey()){
+ state.scoreDate=localDateKey();
+}
+if(!state.coinDate)state.coinDate=localDateKey();
+if(state.coinDate!==localDateKey())state.coinDate=localDateKey();
+if(DEV_ALL_UNLOCKED)GAMES.forEach(g=>state.unlock[g.code]=true);
+
+function ensureDailyScoreDate(){
+ const today=localDateKey();
+ if(!state.scoreDate)state.scoreDate=today;
+ if(state.scoreDate!==today){
+  state.scoreDate=today;
+  save();
+ }
+}
+
+const DEFAULT_RANKING_SEED=[
+ {initials:'중앙시장',score:1000000,date:'기준',ts:1,seed:true},
+ {initials:'오소',score:500000,date:'기준',ts:2,seed:true},
+ {initials:'또오소',score:300000,date:'기준',ts:3,seed:true},
+ {initials:'다시오소',score:100000,date:'기준',ts:4,seed:true},
+ {initials:'매일오소',score:80000,date:'기준',ts:5,seed:true},
+ {initials:'잘가소',score:50000,date:'기준',ts:6,seed:true},
+ {initials:'반갑소',score:30000,date:'기준',ts:7,seed:true},
+ {initials:'어서오소',score:20000,date:'기준',ts:8,seed:true},
+ {initials:'잘하소',score:15000,date:'기준',ts:9,seed:true},
+ {initials:'힘내소',score:10000,date:'기준',ts:10,seed:true}
+];
+const RANK_SCORE_THRESHOLDS=DEFAULT_RANKING_SEED.map((r,i)=>({rank:i+1,score:Number(r.score)||0}));
+function rankReachedByDailyScore(score){
+ const n=Number(score)||0;
+ for(const t of RANK_SCORE_THRESHOLDS){if(n>t.score)return t.rank}
+ return 11;
+}
+
+function ensureRankRegistrationState(){
+ if(state.rankRegistrationVersion==='threshold-record-v2')return;
+ const userRows=(Array.isArray(state.ranking)?state.ranking:[]).filter(r=>!r.seed);
+ let inferredBestRank=11;
+ for(const row of userRows){
+  const rr=Number.isFinite(row.rankReached)?row.rankReached:rankReachedByDai
+nsureScoreBonusUnlocks(){
+ const newly=[],n=Number(state.todayScore)||0;
+ if(n>=500000&&!state.unlock.racing){state.unlock.racing=true;newly.push('racing')}
+ if(n>=1000000&&!state.unlock.fantasy){state.unlock.fantasy=true;newly.push('fantasy')}
+ if(newly.length){
+  const q=Array.isArray(state.pendingBonusUnlocks)?state.pendingBonusUnlocks:[];
+  state.pendingBonusUnlocks=[...new Set([...q,...newly])];
+  save()
+ }
+ return newly
+}
+
+let mem=null,audioCtx=null;
+function localDateKey(){
+ const d=new Date(),y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,'0'),day=String(d.getDate()).padStart(2,'0');
+ return `${y}-${m}-${day}`
+}
+function load(){try{const x=localStorage.getItem(DEV_ALL_UNLOCKED?'jcm-v168-unlocked':'jcm-v168-locked');return x?JSON.parse(x):null}catch(e){return mem}}
+function save(){mem=state;try{localStorage.setItem(DEV_ALL_UNLOCKED?'jcm-v168-unlocked':'jcm-v168-locked',JSON.stringify(state))}catch(e){}}
+let state=load()||{unlock:{},best:{},coins:0,todayEarned:0,todayScore:0,scoreDate:localDateKey(),pdRecord:0,coinDate:localDateKey(),ranking:[],todaySubmittedBest:0,rankRegisteredBest:11,ownedSkins:['default'],selectedSkin:'default'};
+if(!state.best||typeof state.best!=='object')state.best={};
+if(!Array.isArray(state.ranking))state.ranking=[];
+if(!Array.isArray(state.ownedSkins))state.ownedSkins=['default'];
+if(!state.gpsCalibration)state.gpsCalibration={};
+if(!state.gpsUnlocked)state.gpsUnlocked={};
+if(!state.qrUnlocked)state.qrUnlocked={};
+if(!state.ownedSkins.includes('default'))state.ownedSkins.unshift('default');
+if(!state.selectedSkin||!state.ownedSkins.includes(state.selectedSkin))state.selectedSkin='default';
+if(state.todayEarned==null)state.todayEarned=0;
+if(state.todayScore==null)state.todayScore=0;
+if(!state.scoreDate)state.scoreDate=localDateKey();
+if(state.todaySubmittedBest==null)state.todaySubmittedBest=0;
+if(state.rankRegisteredBest==null){
+ state.rankRegisteredBest=Number.isFinite(state.dailyRankPromptedBestRank)?state.dailyRankPromptedBestRank:11;
+}
+if(state.scoreDate!==localDateKey()){
+ state.scoreDate=localDateKey();
+}
+if(!state.coinDate)state.coinDate=localDateKey();
+if(state.coinDate!==localDateKey())state.coinDate=localDateKey();
+if(DEV_ALL_UNLOCKED)GAMES.forEach(g=>state.unlock[g.code]=true);
+
+function ensureDailyScoreDate(){
+ const today=localDateKey();
+ if(!state.scoreDate)state.scoreDate=today;
+ if(state.scoreDate!==today){
+  state.scoreDate=today;
+  save();
+ }
+}
+
+const DEFAULT_RANKING_SEED=[
+ {initials:'중앙시장',score:1000000,date:'기준',ts:1,seed:true},
+ {initials:'오소',score:500000,date:'기준',ts:2,seed:true},
+ {initials:'또오소',score:300000,date:'기준',ts:3,seed:true},
+ {initials:'다시오소',score:100000,date:'기준',ts:4,seed:true},
+ {initials:'매일오소',score:80000,date:'기준',ts:5,seed:true},
+ {initials:'잘가소',score:50000,date:'기준',ts:6,seed:true},
+ {initials:'반갑소',score:30000,date:'기준',ts:7,seed:true},
+ {initials:'어서오소',score:20000,date:'기준',ts:8,seed:true},
+ {initials:'잘하소',score:15000,date:'기준',ts:9,seed:true},
+ {initials:'힘내소',score:10000,date:'기준',ts:10,seed:true}
+];
+const RANK_SCORE_THRESHOLDS=DEFAULT_RANKING_SEED.map((r,i)=>({rank:i+1,score:Number(r.score)||0}));
+function rankReachedByDailyScore(score){
+ const n=Number(score)||0;
+ for(const t of RANK_SCORE_THRESHOLDS){if(n>t.score)return t.rank}
+ return 11;
+}
+
+function ensureRankRegistrationState(){
+ if(state.rankRegistrationVersion==='threshold-record-v2')return;
+ const userRows=(Array.isArray(state.ranking)?state.ranking:[]).filter(r=>!r.seed);
+ let inferredBestRank=11;
+ for(const row of userRows){
+  const rr=Number.isFinite(row.rankReached)?row.rankReached:rankReachedByDailyScore(row.score);
+  inferredBestRank=Math.min(inferredBestRank,rr);
+ }
+ state.rankRegisteredBest=inferredBestRank;
+ state.rankRegistrationVersion='threshold-record-v2';
+ save();
+}
+f
+ocks(){
+ const newly=[],n=Number(state.todayScore)||0;
+ if(n>=500000&&!state.unlock.racing){state.unlock.racing=true;newly.push('racing')}
+ if(n>=1000000&&!state.unlock.fantasy){state.unlock.fantasy=true;newly.push('fantasy')}
+ if(newly.length){
+  const q=Array.isArray(state.pendingBonusUnlocks)?state.pendingBonusUnlocks:[];
+  state.pendingBonusUnlocks=[...new Set([...q,...newly])];
+  save()
+ }
+ return newly
+}
+
+let mem=null,audioCtx=null;
+function localDateKey(){
+ const d=new Date(),y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,'0'),day=String(d.getDate()).padStart(2,'0');
+ return `${y}-${m}-${day}`
+}
+function load(){try{const x=localStorage.getItem(DEV_ALL_UNLOCKED?'jcm-v168-unlocked':'jcm-v168-locked');return x?JSON.parse(x):null}catch(e){return mem}}
+function save(){mem=state;try{localStorage.setItem(DEV_ALL_UNLOCKED?'jcm-v168-unlocked':'jcm-v168-locked',JSON.stringify(state))}catch(e){}}
+let state=load()||{unlock:{},best:{},coins:0,todayEarned:0,todayScore:0,scoreDate:localDateKey(),pdRecord:0,coinDate:localDateKey(),ranking:[],todaySubmittedBest:0,rankRegisteredBest:11,ownedSkins:['default'],selectedSkin:'default'};
+if(!state.best||typeof state.best!=='object')state.best={};
+if(!Array.isArray(state.ranking))state.ranking=[];
+if(!Array.isArray(state.ownedSkins))state.ownedSkins=['default'];
+if(!state.gpsCalibration)state.gpsCalibration={};
+if(!state.gpsUnlocked)state.gpsUnlocked={};
+if(!state.qrUnlocked)state.qrUnlocked={};
+if(!state.ownedSkins.includes('default'))state.ownedSkins.unshift('default');
+if(!state.selectedSkin||!state.ownedSkins.includes(state.selectedSkin))state.selectedSkin='default';
+if(state.todayEarned==null)state.todayEarned=0;
+if(state.todayScore==null)state.todayScore=0;
+if(!state.scoreDate)state.scoreDate=localDateKey();
+if(state.todaySubmittedBest==null)state.todaySubmittedBest=0;
+if(state.rankRegisteredBest==null){
+ state.rankRegisteredBest=Number.isFinite(state.dailyRankPromptedBestRank)?state.dailyRankPromptedBestRank:11;
+}
+if(state.scoreDate!==localDateKey()){
+ state.scoreDate=localDateKey();
+}
+if(!state.coinDate)state.coinDate=localDateKey();
+if(state.coinDate!==localDateKey())state.coinDate=localDateKey();
+if(DEV_ALL_UNLOCKED)GAMES.forEach(g=>state.unlock[g.code]=true);
+
+function ensureDailyScoreDate(){
+ const today=localDateKey();
+ if(!state.scoreDate)state.scoreDate=today;
+ if(state.scoreDate!==today){
+  state.scoreDate=today;
+  save();
+ }
+}
+
+const DEFAULT_RANKING_SEED=[
+ {initials:'중앙시장',score:1000000,date:'기준',ts:1,seed:true},
+ {initials:'오소',score:500000,date:'기준',ts:2,seed:true},
+ {initials:'또오소',score:300000,date:'기준',ts:3,seed:true},
+ {initials:'다시오소',score:100000,date:'기준',ts:4,seed:true},
+ {initials:'매일오소',score:80000,date:'기준',ts:5,seed:true},
+ {initials:'잘가소',score:50000,date:'기준',ts:6,seed:true},
+ {initials:'반갑소',score:30000,date:'기준',ts:7,seed:true},
+ {initials:'어서오소',score:20000,date:'기준',ts:8,seed:true},
+ {initials:'잘하소',score:15000,date:'기준',ts:9,seed:true},
+ {initials:'힘내소',score:10000,date:'기준',ts:10,seed:true}
+];
+const RANK_SCORE_THRESHOLDS=DEFAULT_RANKING_SEED.map((r,i)=>({rank:i+1,score:Number(r.score)||0}));
+function rankReachedByDailyScore(score){
+ const n=Number(score)||0;
+ for(const t of RANK_SCORE_THRESHOLDS){if(n>t.score)return t.rank}
+ return 11;
+}
+
+function ensureRankRegistrationState(){
+ if(state.rankRegistrationVersion==='threshold-record-v2')return;
+ const userRows=(Array.isArray(state.ranking)?state.ranking:[]).filter(r=>!r.seed);
+ let inferredBestRank=11;
+ for(const row of userRows){
+  const rr=Number.isFinite(row.rankReached)?row.rankReached:rankReachedByDailyScore(row.score);
+  inferredBestRank=Math.min(inferredBestRank,rr);
+ }
+ state.rankRegisteredBest=inferredBestRank;
+ state.rankRegistrationVersion='threshold-record-v2';
+ save();
+}
+function ensureDefa
+antasy){state.unlock.fantasy=true;newly.push('fantasy')}
+ if(newly.length){
+  const q=Array.isArray(state.pendingBonusUnlocks)?state.pendingBonusUnlocks:[];
+  state.pendingBonusUnlocks=[...new Set([...q,...newly])];
+  save()
+ }
+ return newly
+}
+
+let mem=null,audioCtx=null;
+function localDateKey(){
+ const d=new Date(),y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,'0'),day=String(d.getDate()).padStart(2,'0');
+ return `${y}-${m}-${day}`
+}
+function load(){try{const x=localStorage.getItem(DEV_ALL_UNLOCKED?'jcm-v168-unlocked':'jcm-v168-locked');return x?JSON.parse(x):null}catch(e){return mem}}
+function save(){mem=state;try{localStorage.setItem(DEV_ALL_UNLOCKED?'jcm-v168-unlocked':'jcm-v168-locked',JSON.stringify(state))}catch(e){}}
+let state=load()||{unlock:{},best:{},coins:0,todayEarned:0,todayScore:0,scoreDate:localDateKey(),pdRecord:0,coinDate:localDateKey(),ranking:[],todaySubmittedBest:0,rankRegisteredBest:11,ownedSkins:['default'],selectedSkin:'default'};
+if(!state.best||typeof state.best!=='object')state.best={};
+if(!Array.isArray(state.ranking))state.ranking=[];
+if(!Array.isArray(state.ownedSkins))state.ownedSkins=['default'];
+if(!state.gpsCalibration)state.gpsCalibration={};
+if(!state.gpsUnlocked)state.gpsUnlocked={};
+if(!state.qrUnlocked)state.qrUnlocked={};
+if(!state.ownedSkins.includes('default'))state.ownedSkins.unshift('default');
+if(!state.selectedSkin||!state.ownedSkins.includes(state.selectedSkin))state.selectedSkin='default';
+if(state.todayEarned==null)state.todayEarned=0;
+if(state.todayScore==null)state.todayScore=0;
+if(!state.scoreDate)state.scoreDate=localDateKey();
+if(state.todaySubmittedBest==null)state.todaySubmittedBest=0;
+if(state.rankRegisteredBest==null){
+ state.rankRegisteredBest=Number.isFinite(state.dailyRankPromptedBestRank)?state.dailyRankPromptedBestRank:11;
+}
+if(state.scoreDate!==localDateKey()){
+ state.scoreDate=localDateKey();
+}
+if(!state.coinDate)state.coinDate=localDateKey();
+if(state.coinDate!==localDateKey())state.coinDate=localDateKey();
+if(DEV_ALL_UNLOCKED)GAMES.forEach(g=>state.unlock[g.code]=true);
+
+function ensureDailyScoreDate(){
+ const today=localDateKey();
+ if(!state.scoreDate)state.scoreDate=today;
+ if(state.scoreDate!==today){
+  state.scoreDate=today;
+  save();
+ }
+}
+
+const DEFAULT_RANKING_SEED=[
+ {initials:'중앙시장',score:1000000,date:'기준',ts:1,seed:true},
+ {initials:'오소',score:500000,date:'기준',ts:2,seed:true},
+ {initials:'또오소',score:300000,date:'기준',ts:3,seed:true},
+ {initials:'다시오소',score:100000,date:'기준',ts:4,seed:true},
+ {initials:'매일오소',score:80000,date:'기준',ts:5,seed:true},
+ {initials:'잘가소',score:50000,date:'기준',ts:6,seed:true},
+ {initials:'반갑소',score:30000,date:'기준',ts:7,seed:true},
+ {initials:'어서오소',score:20000,date:'기준',ts:8,seed:true},
+ {initials:'잘하소',score:15000,date:'기준',ts:9,seed:true},
+ {initials:'힘내소',score:10000,date:'기준',ts:10,seed:true}
+];
+const RANK_SCORE_THRESHOLDS=DEFAULT_RANKING_SEED.map((r,i)=>({rank:i+1,score:Number(r.score)||0}));
+function rankReachedByDailyScore(score){
+ const n=Number(score)||0;
+ for(const t of RANK_SCORE_THRESHOLDS){if(n>t.score)return t.rank}
+ return 11;
+}
+
+function ensureRankRegistrationState(){
+ if(state.rankRegistrationVersion==='threshold-record-v2')return;
+ const userRows=(Array.isArray(state.ranking)?state.ranking:[]).filter(r=>!r.seed);
+ let inferredBestRank=11;
+ for(const row of userRows){
+  const rr=Number.isFinite(row.rankReached)?row.rankReached:rankReachedByDailyScore(row.score);
+  inferredBestRank=Math.min(inferredBestRank,rr);
+ }
+ state.rankRegisteredBest=inferredBestRank;
+ state.rankRegistrationVersion='threshold-record-v2';
+ save();
+}
+function ensureDefaultRanking(){
+ const mode=state.rankingModeVersion;
+ if(mode==='daily-score-v1'||mode==='daily-score-v2'){
+  state.rankingModeVersion='daily-score-v2';
+  return;
+ }
+ stat
+ly.push('fantasy')}
+ if(newly.length){
+  const q=Array.isArray(state.pendingBonusUnlocks)?state.pendingBonusUnlocks:[];
+  state.pendingBonusUnlocks=[...new Set([...q,...newly])];
+  save()
+ }
+ return newly
+}
+
+let mem=null,audioCtx=null;
+function localDateKey(){
+ const d=new Date(),y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,'0'),day=String(d.getDate()).padStart(2,'0');
+ return `${y}-${m}-${day}`
+}
+function load(){try{const x=localStorage.getItem(DEV_ALL_UNLOCKED?'jcm-v168-unlocked':'jcm-v168-locked');return x?JSON.parse(x):null}catch(e){return mem}}
+function save(){mem=state;try{localStorage.setItem(DEV_ALL_UNLOCKED?'jcm-v168-unlocked':'jcm-v168-locked',JSON.stringify(state))}catch(e){}}
+let state=load()||{unlock:{},best:{},coins:0,todayEarned:0,todayScore:0,scoreDate:localDateKey(),pdRecord:0,coinDate:localDateKey(),ranking:[],todaySubmittedBest:0,rankRegisteredBest:11,ownedSkins:['default'],selectedSkin:'default'};
+if(!state.best||typeof state.best!=='object')state.best={};
+if(!Array.isArray(state.ranking))state.ranking=[];
+if(!Array.isArray(state.ownedSkins))state.ownedSkins=['default'];
+if(!state.gpsCalibration)state.gpsCalibration={};
+if(!state.gpsUnlocked)state.gpsUnlocked={};
+if(!state.qrUnlocked)state.qrUnlocked={};
+if(!state.ownedSkins.includes('default'))state.ownedSkins.unshift('default');
+if(!state.selectedSkin||!state.ownedSkins.includes(state.selectedSkin))state.selectedSkin='default';
+if(state.todayEarned==null)state.todayEarned=0;
+if(state.todayScore==null)state.todayScore=0;
+if(!state.scoreDate)state.scoreDate=localDateKey();
+if(state.todaySubmittedBest==null)state.todaySubmittedBest=0;
+if(state.rankRegisteredBest==null){
+ state.rankRegisteredBest=Number.isFinite(state.dailyRankPromptedBestRank)?state.dailyRankPromptedBestRank:11;
+}
+if(state.scoreDate!==localDateKey()){
+ state.scoreDate=localDateKey();
+}
+if(!state.coinDate)state.coinDate=localDateKey();
+if(state.coinDate!==localDateKey())state.coinDate=localDateKey();
+if(DEV_ALL_UNLOCKED)GAMES.forEach(g=>state.unlock[g.code]=true);
+
+function ensureDailyScoreDate(){
+ const today=localDateKey();
+ if(!state.scoreDate)state.scoreDate=today;
+ if(state.scoreDate!==today){
+  state.scoreDate=today;
+  save();
+ }
+}
+
+const DEFAULT_RANKING_SEED=[
+ {initials:'중앙시장',score:1000000,date:'기준',ts:1,seed:true},
+ {initials:'오소',score:500000,date:'기준',ts:2,seed:true},
+ {initials:'또오소',score:300000,date:'기준',ts:3,seed:true},
+ {initials:'다시오소',score:100000,date:'기준',ts:4,seed:true},
+ {initials:'매일오소',score:80000,date:'기준',ts:5,seed:true},
+ {initials:'잘가소',score:50000,date:'기준',ts:6,seed:true},
+ {initials:'반갑소',score:30000,date:'기준',ts:7,seed:true},
+ {initials:'어서오소',score:20000,date:'기준',ts:8,seed:true},
+ {initials:'잘하소',score:15000,date:'기준',ts:9,seed:true},
+ {initials:'힘내소',score:10000,date:'기준',ts:10,seed:true}
+];
+const RANK_SCORE_THRESHOLDS=DEFAULT_RANKING_SEED.map((r,i)=>({rank:i+1,score:Number(r.score)||0}));
+function rankReachedByDailyScore(score){
+ const n=Number(score)||0;
+ for(const t of RANK_SCORE_THRESHOLDS){if(n>t.score)return t.rank}
+ return 11;
+}
+
+function ensureRankRegistrationState(){
+ if(state.rankRegistrationVersion==='threshold-record-v2')return;
+ const userRows=(Array.isArray(state.ranking)?state.ranking:[]).filter(r=>!r.seed);
+ let inferredBestRank=11;
+ for(const row of userRows){
+  const rr=Number.isFinite(row.rankReached)?row.rankReached:rankReachedByDailyScore(row.score);
+  inferredBestRank=Math.min(inferredBestRank,rr);
+ }
+ state.rankRegisteredBest=inferredBestRank;
+ state.rankRegistrationVersion='threshold-record-v2';
+ save();
+}
+function ensureDefaultRanking(){
+ const mode=state.rankingModeVersion;
+ if(mode==='daily-score-v1'||mode==='daily-score-v2'){
+  state.rankingModeVersion='daily-score-v2';
+  return;
+ }
+ state.ranking=DEFAULT_RANKING_SEED.map(r=
+(state.pendingBonusUnlocks)?state.pendingBonusUnlocks:[];
+  state.pendingBonusUnlocks=[...new Set([...q,...newly])];
+  save()
+ }
+ return newly
+}
+
+let mem=null,audioCtx=null;
+function localDateKey(){
+ const d=new Date(),y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,'0'),day=String(d.getDate()).padStart(2,'0');
+ return `${y}-${m}-${day}`
+}
+function load(){try{const x=localStorage.getItem(DEV_ALL_UNLOCKED?'jcm-v168-unlocked':'jcm-v168-locked');return x?JSON.parse(x):null}catch(e){return mem}}
+function save(){mem=state;try{localStorage.setItem(DEV_ALL_UNLOCKED?'jcm-v168-unlocked':'jcm-v168-locked',JSON.stringify(state))}catch(e){}}
+let state=load()||{unlock:{},best:{},coins:0,todayEarned:0,todayScore:0,scoreDate:localDateKey(),pdRecord:0,coinDate:localDateKey(),ranking:[],todaySubmittedBest:0,rankRegisteredBest:11,ownedSkins:['default'],selectedSkin:'default'};
+if(!state.best||typeof state.best!=='object')state.best={};
+if(!Array.isArray(state.ranking))state.ranking=[];
+if(!Array.isArray(state.ownedSkins))state.ownedSkins=['default'];
+if(!state.gpsCalibration)state.gpsCalibration={};
+if(!state.gpsUnlocked)state.gpsUnlocked={};
+if(!state.qrUnlocked)state.qrUnlocked={};
+if(!state.ownedSkins.includes('default'))state.ownedSkins.unshift('default');
+if(!state.selectedSkin||!state.ownedSkins.includes(state.selectedSkin))state.selectedSkin='default';
+if(state.todayEarned==null)state.todayEarned=0;
+if(state.todayScore==null)state.todayScore=0;
+if(!state.scoreDate)state.scoreDate=localDateKey();
+if(state.todaySubmittedBest==null)state.todaySubmittedBest=0;
+if(state.rankRegisteredBest==null){
+ state.rankRegisteredBest=Number.isFinite(state.dailyRankPromptedBestRank)?state.dailyRankPromptedBestRank:11;
+}
+if(state.scoreDate!==localDateKey()){
+ state.scoreDate=localDateKey();
+}
+if(!state.coinDate)state.coinDate=localDateKey();
+if(state.coinDate!==localDateKey())state.coinDate=localDateKey();
+if(DEV_ALL_UNLOCKED)GAMES.forEach(g=>state.unlock[g.code]=true);
+
+function ensureDailyScoreDate(){
+ const today=localDateKey();
+ if(!state.scoreDate)state.scoreDate=today;
+ if(state.scoreDate!==today){
+  state.scoreDate=today;
+  save();
+ }
+}
+
+const DEFAULT_RANKING_SEED=[
+ {initials:'중앙시장',score:1000000,date:'기준',ts:1,seed:true},
+ {initials:'오소',score:500000,date:'기준',ts:2,seed:true},
+ {initials:'또오소',score:300000,date:'기준',ts:3,seed:true},
+ {initials:'다시오소',score:100000,date:'기준',ts:4,seed:true},
+ {initials:'매일오소',score:80000,date:'기준',ts:5,seed:true},
+ {initials:'잘가소',score:50000,date:'기준',ts:6,seed:true},
+ {initials:'반갑소',score:30000,date:'기준',ts:7,seed:true},
+ {initials:'어서오소',score:20000,date:'기준',ts:8,seed:true},
+ {initials:'잘하소',score:15000,date:'기준',ts:9,seed:true},
+ {initials:'힘내소',score:10000,date:'기준',ts:10,seed:true}
+];
+const RANK_SCORE_THRESHOLDS=DEFAULT_RANKING_SEED.map((r,i)=>({rank:i+1,score:Number(r.score)||0}));
+function rankReachedByDailyScore(score){
+ const n=Number(score)||0;
+ for(const t of RANK_SCORE_THRESHOLDS){if(n>t.score)return t.rank}
+ return 11;
+}
+
+function ensureRankRegistrationState(){
+ if(state.rankRegistrationVersion==='threshold-record-v2')return;
+ const userRows=(Array.isArray(state.ranking)?state.ranking:[]).filter(r=>!r.seed);
+ let inferredBestRank=11;
+ for(const row of userRows){
+  const rr=Number.isFinite(row.rankReached)?row.rankReached:rankReachedByDailyScore(row.score);
+  inferredBestRank=Math.min(inferredBestRank,rr);
+ }
+ state.rankRegisteredBest=inferredBestRank;
+ state.rankRegistrationVersion='threshold-record-v2';
+ save();
+}
+function ensureDefaultRanking(){
+ const mode=state.rankingModeVersion;
+ if(mode==='daily-score-v1'||mode==='daily-score-v2'){
+  state.rankingModeVersion='daily-score-v2';
+  return;
+ }
+ state.ranking=DEFAULT_RANKING_SEED.map(r=>({...r}));
+ state.rankingModeVersion='daily-score-v2';
+ state
+ibration[code].pending
+ }
+ save();
+ $('#calOutput').textContent=JSON.stringify(state.gpsCalibration,null,2);
+ renderGpsLocations(lastGps)
+}
+function initGpsUi(){
+ if(!DEV_ALL_UNLOCKED){const p=$('.gpsCalPanel');if(p)p.style.display='none'}
+ const sel=$('#calZoneSelect');if(sel){
+  sel.innerHTML=GAME_ACQUIRE.map(x=>`<option value="${x.code}">${game(x.code).name} — ${x.place}</option>`).join('');
+  $('#calOutput').textContent=JSON.stringify(state.gpsCalibration||{},null,2)
+ }
+ $('#gpsStartBtn').onclick=startGpsWatch;
+ $('#calStart').onclick=()=>saveCalPoint('a');$('#calEnd').onclick=()=>saveCalPoint('b');$('#calCenter').onclick=()=>saveCalPoint('center');
+ renderGpsLocations()
+}
+
+function renderOsoShop(){
+ const shop=$('#osoShop');if(!shop)return;
+ const skin=currentSkin(),preview=$('#selectedOsoPreview'),name=$('#selectedOsoName'),coin=$('#shopCoin');
+ if(preview)preview.src=skin.src;if(name)name.textContent=skin.name;if(coin)coin.textContent=state.coins||0;
+ const groups=[
+  {id:'oso',title:'🐂 오소',sub:'중앙시장의 주인공 · 기본~750 코인'},
+  {id:'ayo',title:'🐱 아요 컬렉션',sub:'표정과 동작이 다양한 친구 · 1,000~1,900 코인'},
+  {id:'hamo',title:'🦦 하모 컬렉션',sub:'특별한 친구 · 2,000~2,900 코인'}
+ ];
+ shop.innerHTML=groups.map(gr=>{
+  const cards=OSO_SKINS.filter(s=>(s.group||'oso')===gr.id).map(s=>{
+   const owned=state.ownedSkins.includes(s.id),selected=state.selectedSkin===s.id;
+   return `<div class="skinCard ${selected?'selected':''} group-${gr.id}" data-skin="${s.id}"><span class="charBadge ${gr.id}">${s.badge||gr.title}</span><img src="${s.src}" alt="${s.name}"><b>${s.name}</b><small>${s.note}</small><button class="${selected?'selectedBtn':owned?'owned':''}" data-buy="${s.id}">${selected?'사용 중':owned?'사용하기':`🪙 ${s.price.toLocaleString()} 구입`}</button></div>`
+  }).join('');
+  return `<div class="shopGroupHead ${gr.id}"><b>${gr.title}</b><small>${gr.sub}</small></div>${cards}`
+ }).join('');
+ $$('[data-buy]').forEach(btn=>btn.onclick=()=>{
+   const s=OSO_SKINS.find(x=>x.id===btn.dataset.buy);if(!s)return;
+   if(state.ownedSkins.includes(s.id)){state.selectedSkin=s.id;save();refresh();tone('good');return}
+   if((state.coins||0)<s.price){tone('bad');buzz(70);btn.textContent='코인이 부족하소!';setTimeout(renderOsoShop,700);return}
+   state.coins-=s.price;state.ownedSkins.push(s.id);state.selectedSkin=s.id;save();tone('clear');buzz([20,15,35]);refresh();try{if(window.__JCM_SP1_SYNC_UNLOCK__)window.__JCM_SP1_SYNC_UNLOCK__()}catch(_){}
+ })
+}
+
+function refresh(){
+ ensureDailyScoreDate();
+ if(state.coinDate!==localDateKey()){
+  state.coinDate=localDateKey();save()
+ }
+ if(DEV_ALL_UNLOCKED)GAMES.forEach(g=>state.unlock[g.code]=true);
+ const bonusNew=!DEV_ALL_UNLOCKED&&ensureSpacefighterUnlock();
+ if(!DEV_ALL_UNLOCKED)ensureScoreBonusUnlocks();
+ const pendingBonus=!DEV_ALL_UNLOCKED&&Array.isArray(state.pendingBonusUnlocks)?[...state.pendingBonusUnlocks]:[];
+ if(pendingBonus.length){state.pendingBonusUnlocks=[];save()}
+ $('#count').textContent=`🎮 ${GAMES.filter(g=>state.unlock[g.code]).length}/${GAMES.length}`;
+ $('#coin').textContent=state.coins||0;
+ $('#library').innerHTML=GAMES.map((g,i)=>{
+ const art={basket:'🍎 🥬 🧺',fish:'🐟 💦 🐠',stack:'🧵 🧶 ✨',run:'🛍️ 🏃 🪙',slice:'🍜 ✨ 🍗',tteok:'🔨 🍚 ✨',powerduck:'🎮 ⚡ 🌍',spacefighter:'🚀 🌍 👾',racing:'🏎️ 🐂 🏁',fantasy:'⚔️ 🛒 🌿'}[g.code]||g.icon;
+ const st=starsFor(g.code,state.best[g.code]||0),stars='⭐'.repeat(st)+'☆'.repeat(3-st);
+ return `<button class="gameCard theme-${g.code} ${state.unlock[g.code]?'':'lock'}" data-game="${g.code}"><div class="gameNo">${i+1}</div><div class="gameCardArt"><div class="artEmoji">${art}</div></div><b>${state.unlock[g.code]?g.name:'???'}</b><small>${g.desc}</small><div class="best">${state.unlock[g.code]?`🏆 최고 ${state.best[g.code]||0}<span class="miniStars">${stars}</span>`:(g.code==='spacefighter'?'<span class="spaceBonusLoc
+const shop=$('#osoShop');if(!shop)return;
+ const skin=currentSkin(),preview=$('#selectedOsoPreview'),name=$('#selectedOsoName'),coin=$('#shopCoin');
+ if(preview)preview.src=skin.src;if(name)name.textContent=skin.name;if(coin)coin.textContent=state.coins||0;
+ const groups=[
+  {id:'oso',title:'🐂 오소',sub:'중앙시장의 주인공 · 기본~750 코인'},
+  {id:'ayo',title:'🐱 아요 컬렉션',sub:'표정과 동작이 다양한 친구 · 1,000~1,900 코인'},
+  {id:'hamo',title:'🦦 하모 컬렉션',sub:'특별한 친구 · 2,000~2,900 코인'}
+ ];
+ shop.innerHTML=groups.map(gr=>{
+  const cards=OSO_SKINS.filter(s=>(s.group||'oso')===gr.id).map(s=>{
+   const owned=state.ownedSkins.includes(s.id),selected=state.selectedSkin===s.id;
+   return `<div class="skinCard ${selected?'selected':''} group-${gr.id}" data-skin="${s.id}"><span class="charBadge ${gr.id}">${s.badge||gr.title}</span><img src="${s.src}" alt="${s.name}"><b>${s.name}</b><small>${s.note}</small><button class="${selected?'selectedBtn':owned?'owned':''}" data-buy="${s.id}">${selected?'사용 중':owned?'사용하기':`🪙 ${s.price.toLocaleString()} 구입`}</button></div>`
+  }).join('');
+  return `<div class="shopGroupHead ${gr.id}"><b>${gr.title}</b><small>${gr.sub}</small></div>${cards}`
+ }).join('');
+ $$('[data-buy]').forEach(btn=>btn.onclick=()=>{
+   const s=OSO_SKINS.find(x=>x.id===btn.dataset.buy);if(!s)return;
+   if(state.ownedSkins.includes(s.id)){state.selectedSkin=s.id;save();refresh();tone('good');return}
+   if((state.coins||0)<s.price){tone('bad');buzz(70);btn.textContent='코인이 부족하소!';setTimeout(renderOsoShop,700);return}
+   state.coins-=s.price;state.ownedSkins.push(s.id);state.selectedSkin=s.id;save();tone('clear');buzz([20,15,35]);refresh();try{if(window.__JCM_SP1_SYNC_UNLOCK__)window.__JCM_SP1_SYNC_UNLOCK__()}catch(_){}
+ })
+}
+
+function refresh(){
+ ensureDailyScoreDate();
+ if(state.coinDate!==localDateKey()){
+  state.coinDate=localDateKey();save()
+ }
+ if(DEV_ALL_UNLOCKED)GAMES.forEach(g=>state.unlock[g.code]=true);
+ const bonusNew=!DEV_ALL_UNLOCKED&&ensureSpacefighterUnlock();
+ if(!DEV_ALL_UNLOCKED)ensureScoreBonusUnlocks();
+ const pendingBonus=!DEV_ALL_UNLOCKED&&Array.isArray(state.pendingBonusUnlocks)?[...state.pendingBonusUnlocks]:[];
+ if(pendingBonus.length){state.pendingBonusUnlocks=[];save()}
+ $('#count').textContent=`🎮 ${GAMES.filter(g=>state.unlock[g.code]).length}/${GAMES.length}`;
+ $('#coin').textContent=state.coins||0;
+ $('#library').innerHTML=GAMES.map((g,i)=>{
+ const art={basket:'🍎 🥬 🧺',fish:'🐟 💦 🐠',stack:'🧵 🧶 ✨',run:'🛍️ 🏃 🪙',slice:'🍜 ✨ 🍗',tteok:'🔨 🍚 ✨',powerduck:'🎮 ⚡ 🌍',spacefighter:'🚀 🌍 👾',racing:'🏎️ 🐂 🏁',fantasy:'⚔️ 🛒 🌿'}[g.code]||g.icon;
+ const st=starsFor(g.code,state.best[g.code]||0),stars='⭐'.repeat(st)+'☆'.repeat(3-st);
+ return `<button class="gameCard theme-${g.code} ${state.unlock[g.code]?'':'lock'}" data-game="${g.code}"><div class="gameNo">${i+1}</div><div class="gameCardArt"><div class="artEmoji">${art}</div></div><b>${state.unlock[g.code]?g.name:'???'}</b><small>${g.desc}</small><div class="best">${state.unlock[g.code]?`🏆 최고 ${state.best[g.code]||0}<span class="miniStars">${stars}</span>`:(g.code==='spacefighter'?'<span class="spaceBonusLock">🔒 7개 게임 획득 시 해금</span>':g.code==='racing'?'<span class="scoreBonusLock">🔒 누적 500,000점 달성 시 해금</span>':g.code==='fantasy'?'<span class="scoreBonusLock">🔒 누적 1,000,000점 달성 시 해금</span>':'🔒 GPS/QR로 획득')}</div></button>`
+ }).join('');
+ $$('[data-game]').forEach(b=>b.onclick=()=>openInfo(b.dataset.game));
+ renderGpsLocations(lastGps);renderOsoShop();renderRanking();
+ const ho=$('#headerOso');if(ho)ho.src=currentOsoSrc();save();
+ if(bonusNew)setTimeout(()=>flashyUnlock('spacefighter'),2100);
+ pendingBonus.forEach((c,i)=>setTimeout(()=>flashyUnlock(c),2100+i*2300))
+}
+function openInfo(code){selected=game(code);const unlocked=!!state.unlock[code];$('#mEm').textContent=selected.icon;$('#mName').textContent=unloc
+ent=state.coins||0;
+ const groups=[
+  {id:'oso',title:'🐂 오소',sub:'중앙시장의 주인공 · 기본~750 코인'},
+  {id:'ayo',title:'🐱 아요 컬렉션',sub:'표정과 동작이 다양한 친구 · 1,000~1,900 코인'},
+  {id:'hamo',title:'🦦 하모 컬렉션',sub:'특별한 친구 · 2,000~2,900 코인'}
+ ];
+ shop.innerHTML=groups.map(gr=>{
+  const cards=OSO_SKINS.filter(s=>(s.group||'oso')===gr.id).map(s=>{
+   const owned=state.ownedSkins.includes(s.id),selected=state.selectedSkin===s.id;
+   return `<div class="skinCard ${selected?'selected':''} group-${gr.id}" data-skin="${s.id}"><span class="charBadge ${gr.id}">${s.badge||gr.title}</span><img src="${s.src}" alt="${s.name}"><b>${s.name}</b><small>${s.note}</small><button class="${selected?'selectedBtn':owned?'owned':''}" data-buy="${s.id}">${selected?'사용 중':owned?'사용하기':`🪙 ${s.price.toLocaleString()} 구입`}</button></div>`
+  }).join('');
+  return `<div class="shopGroupHead ${gr.id}"><b>${gr.title}</b><small>${gr.sub}</small></div>${cards}`
+ }).join('');
+ $$('[data-buy]').forEach(btn=>btn.onclick=()=>{
+   const s=OSO_SKINS.find(x=>x.id===btn.dataset.buy);if(!s)return;
+   if(state.ownedSkins.includes(s.id)){state.selectedSkin=s.id;save();refresh();tone('good');return}
+   if((state.coins||0)<s.price){tone('bad');buzz(70);btn.textContent='코인이 부족하소!';setTimeout(renderOsoShop,700);return}
+   state.coins-=s.price;state.ownedSkins.push(s.id);state.selectedSkin=s.id;save();tone('clear');buzz([20,15,35]);refresh();try{if(window.__JCM_SP1_SYNC_UNLOCK__)window.__JCM_SP1_SYNC_UNLOCK__()}catch(_){}
+ })
+}
+
+function refresh(){
+ ensureDailyScoreDate();
+ if(state.coinDate!==localDateKey()){
+  state.coinDate=localDateKey();save()
+ }
+ if(DEV_ALL_UNLOCKED)GAMES.forEach(g=>state.unlock[g.code]=true);
+ const bonusNew=!DEV_ALL_UNLOCKED&&ensureSpacefighterUnlock();
+ if(!DEV_ALL_UNLOCKED)ensureScoreBonusUnlocks();
+ const pendingBonus=!DEV_ALL_UNLOCKED&&Array.isArray(state.pendingBonusUnlocks)?[...state.pendingBonusUnlocks]:[];
+ if(pendingBonus.length){state.pendingBonusUnlocks=[];save()}
+ $('#count').textContent=`🎮 ${GAMES.filter(g=>state.unlock[g.code]).length}/${GAMES.length}`;
+ $('#coin').textContent=state.coins||0;
+ $('#library').innerHTML=GAMES.map((g,i)=>{
+ const art={basket:'🍎 🥬 🧺',fish:'🐟 💦 🐠',stack:'🧵 🧶 ✨',run:'🛍️ 🏃 🪙',slice:'🍜 ✨ 🍗',tteok:'🔨 🍚 ✨',powerduck:'🎮 ⚡ 🌍',spacefighter:'🚀 🌍 👾',racing:'🏎️ 🐂 🏁',fantasy:'⚔️ 🛒 🌿'}[g.code]||g.icon;
+ const st=starsFor(g.code,state.best[g.code]||0),stars='⭐'.repeat(st)+'☆'.repeat(3-st);
+ return `<button class="gameCard theme-${g.code} ${state.unlock[g.code]?'':'lock'}" data-game="${g.code}"><div class="gameNo">${i+1}</div><div class="gameCardArt"><div class="artEmoji">${art}</div></div><b>${state.unlock[g.code]?g.name:'???'}</b><small>${g.desc}</small><div class="best">${state.unlock[g.code]?`🏆 최고 ${state.best[g.code]||0}<span class="miniStars">${stars}</span>`:(g.code==='spacefighter'?'<span class="spaceBonusLock">🔒 7개 게임 획득 시 해금</span>':g.code==='racing'?'<span class="scoreBonusLock">🔒 누적 500,000점 달성 시 해금</span>':g.code==='fantasy'?'<span class="scoreBonusLock">🔒 누적 1,000,000점 달성 시 해금</span>':'🔒 GPS/QR로 획득')}</div></button>`
+ }).join('');
+ $$('[data-game]').forEach(b=>b.onclick=()=>openInfo(b.dataset.game));
+ renderGpsLocations(lastGps);renderOsoShop();renderRanking();
+ const ho=$('#headerOso');if(ho)ho.src=currentOsoSrc();save();
+ if(bonusNew)setTimeout(()=>flashyUnlock('spacefighter'),2100);
+ pendingBonus.forEach((c,i)=>setTimeout(()=>flashyUnlock(c),2100+i*2300))
+}
+function openInfo(code){selected=game(code);const unlocked=!!state.unlock[code];$('#mEm').textContent=selected.icon;$('#mName').textContent=unlocked?selected.name:'잠긴 게임';$('#mDesc').textContent=selected.desc;$('#mArea').textContent='장소 힌트 · '+selected.area.replace(/^해금 위치:\s*/,'');$('#mPlay').disabled=!unlocked;$('#mPlay').textContent=unlocked?'플레이':(BONUS_GAME_CODES.includes(sel
+===== selectedSkin COUNT=8 =====
+ot(px-ax,py-ay);
+ let t=((px-ax)*dx+(py-ay)*dy)/l2;t=Math.max(0,Math.min(1,t));
+ return Math.hypot(px-(ax+t*dx),py-(ay+t*dy))
+}
+function zoneDistanceM(pos,z){
+ if(!z)return Infinity;
+ if(z.type==='circle')return Math.max(0,metersBetween(pos,{lat:z.lat,lng:z.lng})-(z.radius||0));
+ if(z.type==='corridor')return Math.max(0,pointSegmentDistanceM(pos,z.a,z.b)-(z.radius||22));
+ return Infinity
+}
+function gpsAccuracyMargin(pos){const a=Number(pos&&pos.accuracy)||0;return Math.max(0,Math.min(38,a*.62))}
+function effectiveZoneDistanceM(pos,z){return Math.max(0,zoneDistanceM(pos,z)-gpsAccuracyMargin(pos))}
+function zoneInside(pos,z){return !!z && effectiveZoneDistanceM(pos,z)<=0}
+function zoneTarget(z){
+ if(!z)return null;
+ if(z.type==='circle')return {lat:z.lat,lng:z.lng};
+ if(z.type==='corridor')return {lat:(z.a.lat+z.b.lat)/2,lng:(z.a.lng+z.b.lng)/2};
+ return null
+}
+function bearingDeg(a,b){
+ const y=Math.sin(rad(b.lng-a.lng))*Math.cos(rad(b.lat));
+ const x=Math.cos(rad(a.lat))*Math.sin(rad(b.lat))-Math.sin(rad(a.lat))*Math.cos(rad(b.lat))*Math.cos(rad(b.lng-a.lng));
+ return (Math.atan2(y,x)*180/Math.PI+360)%360
+}
+function arrowForBearing(d){
+ const arrows=['↑','↗','→','↘','↓','↙','←','↖'];return arrows[Math.round(d/45)%8]
+}
+
+function currentSkin(){return OSO_SKINS.find(x=>x.id===state.selectedSkin)||OSO_SKINS[0]}
+function currentOsoSrc(){return currentSkin().src}
+const BASE_GAME_CODES=['basket','fish','stack','run','slice','tteok','powerduck'];
+const BONUS_GAME_CODES=['spacefighter','racing','fantasy'];
+function ensureSpacefighterUnlock(){
+ if(state.unlock&&state.unlock.spacefighter)return false;
+ if(BASE_GAME_CODES.every(c=>state.unlock&&state.unlock[c])){
+  state.unlock.spacefighter=true;save();return true
+ }
+ return false
+}
+function ensureScoreBonusUnlocks(){
+ const newly=[],n=Number(state.todayScore)||0;
+ if(n>=500000&&!state.unlock.racing){state.unlock.racing=true;newly.push('racing')}
+ if(n>=1000000&&!state.unlock.fantasy){state.unlock.fantasy=true;newly.push('fantasy')}
+ if(newly.length){
+  const q=Array.isArray(state.pendingBonusUnlocks)?state.pendingBonusUnlocks:[];
+  state.pendingBonusUnlocks=[...new Set([...q,...newly])];
+  save()
+ }
+ return newly
+}
+
+let mem=null,audioCtx=null;
+function localDateKey(){
+ const d=new Date(),y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,'0'),day=String(d.getDate()).padStart(2,'0');
+ return `${y}-${m}-${day}`
+}
+function load(){try{const x=localStorage.getItem(DEV_ALL_UNLOCKED?'jcm-v168-unlocked':'jcm-v168-locked');return x?JSON.parse(x):null}catch(e){return mem}}
+function save(){mem=state;try{localStorage.setItem(DEV_ALL_UNLOCKED?'jcm-v168-unlocked':'jcm-v168-locked',JSON.stringify(state))}catch(e){}}
+let state=load()||{unlock:{},best:{},coins:0,todayEarned:0,todayScore:0,scoreDate:localDateKey(),pdRecord:0,coinDate:localDateKey(),ranking:[],todaySubmittedBest:0,rankRegisteredBest:11,ownedSkins:['default'],selectedSkin:'default'};
+if(!state.best||typeof state.best!=='object')state.best={};
+if(!Array.isArray(state.ranking))state.ranking=[];
+if(!Array.isArray(state.ownedSkins))state.ownedSkins=['default'];
+if(!state.gpsCalibration)state.gpsCalibration={};
+if(!state.gpsUnlocked)state.gpsUnlocked={};
+if(!state.qrUnlocked)state.qrUnlocked={};
+if(!state.ownedSkins.includes('default'))state.ownedSkins.unshift('default');
+if(!state.selectedSkin||!state.ownedSkins.includes(state.selectedSkin))state.selectedSkin='default';
+if(state.todayEarned==null)state.todayEarned=0;
+if(state.todayScore==null)state.todayScore=0;
+if(!state.scoreDate)state.scoreDate=localDateKey();
+if(state.todaySubmittedBest==null)state.todaySubmittedBest=0;
+if(state.rankRegisteredBest==null){
+ state.rankRegisteredBest=Number.isFinite(state.dailyRankPromptedBestRank)?state.dailyRankPromptedBestRank:11;
+}
+if(state.scoreDate!==loca
+er)return false;
+ if(BASE_GAME_CODES.every(c=>state.unlock&&state.unlock[c])){
+  state.unlock.spacefighter=true;save();return true
+ }
+ return false
+}
+function ensureScoreBonusUnlocks(){
+ const newly=[],n=Number(state.todayScore)||0;
+ if(n>=500000&&!state.unlock.racing){state.unlock.racing=true;newly.push('racing')}
+ if(n>=1000000&&!state.unlock.fantasy){state.unlock.fantasy=true;newly.push('fantasy')}
+ if(newly.length){
+  const q=Array.isArray(state.pendingBonusUnlocks)?state.pendingBonusUnlocks:[];
+  state.pendingBonusUnlocks=[...new Set([...q,...newly])];
+  save()
+ }
+ return newly
+}
+
+let mem=null,audioCtx=null;
+function localDateKey(){
+ const d=new Date(),y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,'0'),day=String(d.getDate()).padStart(2,'0');
+ return `${y}-${m}-${day}`
+}
+function load(){try{const x=localStorage.getItem(DEV_ALL_UNLOCKED?'jcm-v168-unlocked':'jcm-v168-locked');return x?JSON.parse(x):null}catch(e){return mem}}
+function save(){mem=state;try{localStorage.setItem(DEV_ALL_UNLOCKED?'jcm-v168-unlocked':'jcm-v168-locked',JSON.stringify(state))}catch(e){}}
+let state=load()||{unlock:{},best:{},coins:0,todayEarned:0,todayScore:0,scoreDate:localDateKey(),pdRecord:0,coinDate:localDateKey(),ranking:[],todaySubmittedBest:0,rankRegisteredBest:11,ownedSkins:['default'],selectedSkin:'default'};
+if(!state.best||typeof state.best!=='object')state.best={};
+if(!Array.isArray(state.ranking))state.ranking=[];
+if(!Array.isArray(state.ownedSkins))state.ownedSkins=['default'];
+if(!state.gpsCalibration)state.gpsCalibration={};
+if(!state.gpsUnlocked)state.gpsUnlocked={};
+if(!state.qrUnlocked)state.qrUnlocked={};
+if(!state.ownedSkins.includes('default'))state.ownedSkins.unshift('default');
+if(!state.selectedSkin||!state.ownedSkins.includes(state.selectedSkin))state.selectedSkin='default';
+if(state.todayEarned==null)state.todayEarned=0;
+if(state.todayScore==null)state.todayScore=0;
+if(!state.scoreDate)state.scoreDate=localDateKey();
+if(state.todaySubmittedBest==null)state.todaySubmittedBest=0;
+if(state.rankRegisteredBest==null){
+ state.rankRegisteredBest=Number.isFinite(state.dailyRankPromptedBestRank)?state.dailyRankPromptedBestRank:11;
+}
+if(state.scoreDate!==localDateKey()){
+ state.scoreDate=localDateKey();
+}
+if(!state.coinDate)state.coinDate=localDateKey();
+if(state.coinDate!==localDateKey())state.coinDate=localDateKey();
+if(DEV_ALL_UNLOCKED)GAMES.forEach(g=>state.unlock[g.code]=true);
+
+function ensureDailyScoreDate(){
+ const today=localDateKey();
+ if(!state.scoreDate)state.scoreDate=today;
+ if(state.scoreDate!==today){
+  state.scoreDate=today;
+  save();
+ }
+}
+
+const DEFAULT_RANKING_SEED=[
+ {initials:'중앙시장',score:1000000,date:'기준',ts:1,seed:true},
+ {initials:'오소',score:500000,date:'기준',ts:2,seed:true},
+ {initials:'또오소',score:300000,date:'기준',ts:3,seed:true},
+ {initials:'다시오소',score:100000,date:'기준',ts:4,seed:true},
+ {initials:'매일오소',score:80000,date:'기준',ts:5,seed:true},
+ {initials:'잘가소',score:50000,date:'기준',ts:6,seed:true},
+ {initials:'반갑소',score:30000,date:'기준',ts:7,seed:true},
+ {initials:'어서오소',score:20000,date:'기준',ts:8,seed:true},
+ {initials:'잘하소',score:15000,date:'기준',ts:9,seed:true},
+ {initials:'힘내소',score:10000,date:'기준',ts:10,seed:true}
+];
+const RANK_SCORE_THRESHOLDS=DEFAULT_RANKING_SEED.map((r,i)=>({rank:i+1,score:Number(r.score)||0}));
+function rankReachedByDailyScore(score){
+ const n=Number(score)||0;
+ for(const t of RANK_SCORE_THRESHOLDS){if(n>t.score)return t.rank}
+ return 11;
+}
+
+function ensureRankRegistrationState(){
+ if(state.rankRegistrationVersion==='threshold-record-v2')return;
+ const userRows=(Array.isArray(state.ranking)?state.ranking:[]).filter(r=>!r.seed);
+ let inferredBestRank=11;
+ for(const row of userRows){
+  const rr=Number.isFinite(row.rankReached)?row.rankReached:rankReachedByDailyScore(row.score);
+  i
+const q=Array.isArray(state.pendingBonusUnlocks)?state.pendingBonusUnlocks:[];
+  state.pendingBonusUnlocks=[...new Set([...q,...newly])];
+  save()
+ }
+ return newly
+}
+
+let mem=null,audioCtx=null;
+function localDateKey(){
+ const d=new Date(),y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,'0'),day=String(d.getDate()).padStart(2,'0');
+ return `${y}-${m}-${day}`
+}
+function load(){try{const x=localStorage.getItem(DEV_ALL_UNLOCKED?'jcm-v168-unlocked':'jcm-v168-locked');return x?JSON.parse(x):null}catch(e){return mem}}
+function save(){mem=state;try{localStorage.setItem(DEV_ALL_UNLOCKED?'jcm-v168-unlocked':'jcm-v168-locked',JSON.stringify(state))}catch(e){}}
+let state=load()||{unlock:{},best:{},coins:0,todayEarned:0,todayScore:0,scoreDate:localDateKey(),pdRecord:0,coinDate:localDateKey(),ranking:[],todaySubmittedBest:0,rankRegisteredBest:11,ownedSkins:['default'],selectedSkin:'default'};
+if(!state.best||typeof state.best!=='object')state.best={};
+if(!Array.isArray(state.ranking))state.ranking=[];
+if(!Array.isArray(state.ownedSkins))state.ownedSkins=['default'];
+if(!state.gpsCalibration)state.gpsCalibration={};
+if(!state.gpsUnlocked)state.gpsUnlocked={};
+if(!state.qrUnlocked)state.qrUnlocked={};
+if(!state.ownedSkins.includes('default'))state.ownedSkins.unshift('default');
+if(!state.selectedSkin||!state.ownedSkins.includes(state.selectedSkin))state.selectedSkin='default';
+if(state.todayEarned==null)state.todayEarned=0;
+if(state.todayScore==null)state.todayScore=0;
+if(!state.scoreDate)state.scoreDate=localDateKey();
+if(state.todaySubmittedBest==null)state.todaySubmittedBest=0;
+if(state.rankRegisteredBest==null){
+ state.rankRegisteredBest=Number.isFinite(state.dailyRankPromptedBestRank)?state.dailyRankPromptedBestRank:11;
+}
+if(state.scoreDate!==localDateKey()){
+ state.scoreDate=localDateKey();
+}
+if(!state.coinDate)state.coinDate=localDateKey();
+if(state.coinDate!==localDateKey())state.coinDate=localDateKey();
+if(DEV_ALL_UNLOCKED)GAMES.forEach(g=>state.unlock[g.code]=true);
+
+function ensureDailyScoreDate(){
+ const today=localDateKey();
+ if(!state.scoreDate)state.scoreDate=today;
+ if(state.scoreDate!==today){
+  state.scoreDate=today;
+  save();
+ }
+}
+
+const DEFAULT_RANKING_SEED=[
+ {initials:'중앙시장',score:1000000,date:'기준',ts:1,seed:true},
+ {initials:'오소',score:500000,date:'기준',ts:2,seed:true},
+ {initials:'또오소',score:300000,date:'기준',ts:3,seed:true},
+ {initials:'다시오소',score:100000,date:'기준',ts:4,seed:true},
+ {initials:'매일오소',score:80000,date:'기준',ts:5,seed:true},
+ {initials:'잘가소',score:50000,date:'기준',ts:6,seed:true},
+ {initials:'반갑소',score:30000,date:'기준',ts:7,seed:true},
+ {initials:'어서오소',score:20000,date:'기준',ts:8,seed:true},
+ {initials:'잘하소',score:15000,date:'기준',ts:9,seed:true},
+ {initials:'힘내소',score:10000,date:'기준',ts:10,seed:true}
+];
+const RANK_SCORE_THRESHOLDS=DEFAULT_RANKING_SEED.map((r,i)=>({rank:i+1,score:Number(r.score)||0}));
+function rankReachedByDailyScore(score){
+ const n=Number(score)||0;
+ for(const t of RANK_SCORE_THRESHOLDS){if(n>t.score)return t.rank}
+ return 11;
+}
+
+function ensureRankRegistrationState(){
+ if(state.rankRegistrationVersion==='threshold-record-v2')return;
+ const userRows=(Array.isArray(state.ranking)?state.ranking:[]).filter(r=>!r.seed);
+ let inferredBestRank=11;
+ for(const row of userRows){
+  const rr=Number.isFinite(row.rankReached)?row.rankReached:rankReachedByDailyScore(row.score);
+  inferredBestRank=Math.min(inferredBestRank,rr);
+ }
+ state.rankRegisteredBest=inferredBestRank;
+ state.rankRegistrationVersion='threshold-record-v2';
+ save();
+}
+function ensureDefaultRanking(){
+ const mode=state.rankingModeVersion;
+ if(mode==='daily-score-v1'||mode==='daily-score-v2'){
+  state.rankingModeVersion='daily-score-v2';
+  return;
+ }
+ state.ranking=DEFAULT_RANKING_SEED.map(r=>({...r}));
+ state.rankingModeVersion='da
+)?state.pendingBonusUnlocks:[];
+  state.pendingBonusUnlocks=[...new Set([...q,...newly])];
+  save()
+ }
+ return newly
+}
+
+let mem=null,audioCtx=null;
+function localDateKey(){
+ const d=new Date(),y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,'0'),day=String(d.getDate()).padStart(2,'0');
+ return `${y}-${m}-${day}`
+}
+function load(){try{const x=localStorage.getItem(DEV_ALL_UNLOCKED?'jcm-v168-unlocked':'jcm-v168-locked');return x?JSON.parse(x):null}catch(e){return mem}}
+function save(){mem=state;try{localStorage.setItem(DEV_ALL_UNLOCKED?'jcm-v168-unlocked':'jcm-v168-locked',JSON.stringify(state))}catch(e){}}
+let state=load()||{unlock:{},best:{},coins:0,todayEarned:0,todayScore:0,scoreDate:localDateKey(),pdRecord:0,coinDate:localDateKey(),ranking:[],todaySubmittedBest:0,rankRegisteredBest:11,ownedSkins:['default'],selectedSkin:'default'};
+if(!state.best||typeof state.best!=='object')state.best={};
+if(!Array.isArray(state.ranking))state.ranking=[];
+if(!Array.isArray(state.ownedSkins))state.ownedSkins=['default'];
+if(!state.gpsCalibration)state.gpsCalibration={};
+if(!state.gpsUnlocked)state.gpsUnlocked={};
+if(!state.qrUnlocked)state.qrUnlocked={};
+if(!state.ownedSkins.includes('default'))state.ownedSkins.unshift('default');
+if(!state.selectedSkin||!state.ownedSkins.includes(state.selectedSkin))state.selectedSkin='default';
+if(state.todayEarned==null)state.todayEarned=0;
+if(state.todayScore==null)state.todayScore=0;
+if(!state.scoreDate)state.scoreDate=localDateKey();
+if(state.todaySubmittedBest==null)state.todaySubmittedBest=0;
+if(state.rankRegisteredBest==null){
+ state.rankRegisteredBest=Number.isFinite(state.dailyRankPromptedBestRank)?state.dailyRankPromptedBestRank:11;
+}
+if(state.scoreDate!==localDateKey()){
+ state.scoreDate=localDateKey();
+}
+if(!state.coinDate)state.coinDate=localDateKey();
+if(state.coinDate!==localDateKey())state.coinDate=localDateKey();
+if(DEV_ALL_UNLOCKED)GAMES.forEach(g=>state.unlock[g.code]=true);
+
+function ensureDailyScoreDate(){
+ const today=localDateKey();
+ if(!state.scoreDate)state.scoreDate=today;
+ if(state.scoreDate!==today){
+  state.scoreDate=today;
+  save();
+ }
+}
+
+const DEFAULT_RANKING_SEED=[
+ {initials:'중앙시장',score:1000000,date:'기준',ts:1,seed:true},
+ {initials:'오소',score:500000,date:'기준',ts:2,seed:true},
+ {initials:'또오소',score:300000,date:'기준',ts:3,seed:true},
+ {initials:'다시오소',score:100000,date:'기준',ts:4,seed:true},
+ {initials:'매일오소',score:80000,date:'기준',ts:5,seed:true},
+ {initials:'잘가소',score:50000,date:'기준',ts:6,seed:true},
+ {initials:'반갑소',score:30000,date:'기준',ts:7,seed:true},
+ {initials:'어서오소',score:20000,date:'기준',ts:8,seed:true},
+ {initials:'잘하소',score:15000,date:'기준',ts:9,seed:true},
+ {initials:'힘내소',score:10000,date:'기준',ts:10,seed:true}
+];
+const RANK_SCORE_THRESHOLDS=DEFAULT_RANKING_SEED.map((r,i)=>({rank:i+1,score:Number(r.score)||0}));
+function rankReachedByDailyScore(score){
+ const n=Number(score)||0;
+ for(const t of RANK_SCORE_THRESHOLDS){if(n>t.score)return t.rank}
+ return 11;
+}
+
+function ensureRankRegistrationState(){
+ if(state.rankRegistrationVersion==='threshold-record-v2')return;
+ const userRows=(Array.isArray(state.ranking)?state.ranking:[]).filter(r=>!r.seed);
+ let inferredBestRank=11;
+ for(const row of userRows){
+  const rr=Number.isFinite(row.rankReached)?row.rankReached:rankReachedByDailyScore(row.score);
+  inferredBestRank=Math.min(inferredBestRank,rr);
+ }
+ state.rankRegisteredBest=inferredBestRank;
+ state.rankRegistrationVersion='threshold-record-v2';
+ save();
+}
+function ensureDefaultRanking(){
+ const mode=state.rankingModeVersion;
+ if(mode==='daily-score-v1'||mode==='daily-score-v2'){
+  state.rankingModeVersion='daily-score-v2';
+  return;
+ }
+ state.ranking=DEFAULT_RANKING_SEED.map(r=>({...r}));
+ state.rankingModeVersion='daily-score-v2';
+ state.todaySubmittedBest=0;
+ st
+Unlocks:[];
+  state.pendingBonusUnlocks=[...new Set([...q,...newly])];
+  save()
+ }
+ return newly
+}
+
+let mem=null,audioCtx=null;
+function localDateKey(){
+ const d=new Date(),y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,'0'),day=String(d.getDate()).padStart(2,'0');
+ return `${y}-${m}-${day}`
+}
+function load(){try{const x=localStorage.getItem(DEV_ALL_UNLOCKED?'jcm-v168-unlocked':'jcm-v168-locked');return x?JSON.parse(x):null}catch(e){return mem}}
+function save(){mem=state;try{localStorage.setItem(DEV_ALL_UNLOCKED?'jcm-v168-unlocked':'jcm-v168-locked',JSON.stringify(state))}catch(e){}}
+let state=load()||{unlock:{},best:{},coins:0,todayEarned:0,todayScore:0,scoreDate:localDateKey(),pdRecord:0,coinDate:localDateKey(),ranking:[],todaySubmittedBest:0,rankRegisteredBest:11,ownedSkins:['default'],selectedSkin:'default'};
+if(!state.best||typeof state.best!=='object')state.best={};
+if(!Array.isArray(state.ranking))state.ranking=[];
+if(!Array.isArray(state.ownedSkins))state.ownedSkins=['default'];
+if(!state.gpsCalibration)state.gpsCalibration={};
+if(!state.gpsUnlocked)state.gpsUnlocked={};
+if(!state.qrUnlocked)state.qrUnlocked={};
+if(!state.ownedSkins.includes('default'))state.ownedSkins.unshift('default');
+if(!state.selectedSkin||!state.ownedSkins.includes(state.selectedSkin))state.selectedSkin='default';
+if(state.todayEarned==null)state.todayEarned=0;
+if(state.todayScore==null)state.todayScore=0;
+if(!state.scoreDate)state.scoreDate=localDateKey();
+if(state.todaySubmittedBest==null)state.todaySubmittedBest=0;
+if(state.rankRegisteredBest==null){
+ state.rankRegisteredBest=Number.isFinite(state.dailyRankPromptedBestRank)?state.dailyRankPromptedBestRank:11;
+}
+if(state.scoreDate!==localDateKey()){
+ state.scoreDate=localDateKey();
+}
+if(!state.coinDate)state.coinDate=localDateKey();
+if(state.coinDate!==localDateKey())state.coinDate=localDateKey();
+if(DEV_ALL_UNLOCKED)GAMES.forEach(g=>state.unlock[g.code]=true);
+
+function ensureDailyScoreDate(){
+ const today=localDateKey();
+ if(!state.scoreDate)state.scoreDate=today;
+ if(state.scoreDate!==today){
+  state.scoreDate=today;
+  save();
+ }
+}
+
+const DEFAULT_RANKING_SEED=[
+ {initials:'중앙시장',score:1000000,date:'기준',ts:1,seed:true},
+ {initials:'오소',score:500000,date:'기준',ts:2,seed:true},
+ {initials:'또오소',score:300000,date:'기준',ts:3,seed:true},
+ {initials:'다시오소',score:100000,date:'기준',ts:4,seed:true},
+ {initials:'매일오소',score:80000,date:'기준',ts:5,seed:true},
+ {initials:'잘가소',score:50000,date:'기준',ts:6,seed:true},
+ {initials:'반갑소',score:30000,date:'기준',ts:7,seed:true},
+ {initials:'어서오소',score:20000,date:'기준',ts:8,seed:true},
+ {initials:'잘하소',score:15000,date:'기준',ts:9,seed:true},
+ {initials:'힘내소',score:10000,date:'기준',ts:10,seed:true}
+];
+const RANK_SCORE_THRESHOLDS=DEFAULT_RANKING_SEED.map((r,i)=>({rank:i+1,score:Number(r.score)||0}));
+function rankReachedByDailyScore(score){
+ const n=Number(score)||0;
+ for(const t of RANK_SCORE_THRESHOLDS){if(n>t.score)return t.rank}
+ return 11;
+}
+
+function ensureRankRegistrationState(){
+ if(state.rankRegistrationVersion==='threshold-record-v2')return;
+ const userRows=(Array.isArray(state.ranking)?state.ranking:[]).filter(r=>!r.seed);
+ let inferredBestRank=11;
+ for(const row of userRows){
+  const rr=Number.isFinite(row.rankReached)?row.rankReached:rankReachedByDailyScore(row.score);
+  inferredBestRank=Math.min(inferredBestRank,rr);
+ }
+ state.rankRegisteredBest=inferredBestRank;
+ state.rankRegistrationVersion='threshold-record-v2';
+ save();
+}
+function ensureDefaultRanking(){
+ const mode=state.rankingModeVersion;
+ if(mode==='daily-score-v1'||mode==='daily-score-v2'){
+  state.rankingModeVersion='daily-score-v2';
+  return;
+ }
+ state.ranking=DEFAULT_RANKING_SEED.map(r=>({...r}));
+ state.rankingModeVersion='daily-score-v2';
+ state.todaySubmittedBest=0;
+ state.rankRegisteredBe
+alOutput').textContent=JSON.stringify(state.gpsCalibration,null,2);
+ renderGpsLocations(lastGps)
+}
+function initGpsUi(){
+ if(!DEV_ALL_UNLOCKED){const p=$('.gpsCalPanel');if(p)p.style.display='none'}
+ const sel=$('#calZoneSelect');if(sel){
+  sel.innerHTML=GAME_ACQUIRE.map(x=>`<option value="${x.code}">${game(x.code).name} — ${x.place}</option>`).join('');
+  $('#calOutput').textContent=JSON.stringify(state.gpsCalibration||{},null,2)
+ }
+ $('#gpsStartBtn').onclick=startGpsWatch;
+ $('#calStart').onclick=()=>saveCalPoint('a');$('#calEnd').onclick=()=>saveCalPoint('b');$('#calCenter').onclick=()=>saveCalPoint('center');
+ renderGpsLocations()
+}
+
+function renderOsoShop(){
+ const shop=$('#osoShop');if(!shop)return;
+ const skin=currentSkin(),preview=$('#selectedOsoPreview'),name=$('#selectedOsoName'),coin=$('#shopCoin');
+ if(preview)preview.src=skin.src;if(name)name.textContent=skin.name;if(coin)coin.textContent=state.coins||0;
+ const groups=[
+  {id:'oso',title:'🐂 오소',sub:'중앙시장의 주인공 · 기본~750 코인'},
+  {id:'ayo',title:'🐱 아요 컬렉션',sub:'표정과 동작이 다양한 친구 · 1,000~1,900 코인'},
+  {id:'hamo',title:'🦦 하모 컬렉션',sub:'특별한 친구 · 2,000~2,900 코인'}
+ ];
+ shop.innerHTML=groups.map(gr=>{
+  const cards=OSO_SKINS.filter(s=>(s.group||'oso')===gr.id).map(s=>{
+   const owned=state.ownedSkins.includes(s.id),selected=state.selectedSkin===s.id;
+   return `<div class="skinCard ${selected?'selected':''} group-${gr.id}" data-skin="${s.id}"><span class="charBadge ${gr.id}">${s.badge||gr.title}</span><img src="${s.src}" alt="${s.name}"><b>${s.name}</b><small>${s.note}</small><button class="${selected?'selectedBtn':owned?'owned':''}" data-buy="${s.id}">${selected?'사용 중':owned?'사용하기':`🪙 ${s.price.toLocaleString()} 구입`}</button></div>`
+  }).join('');
+  return `<div class="shopGroupHead ${gr.id}"><b>${gr.title}</b><small>${gr.sub}</small></div>${cards}`
+ }).join('');
+ $$('[data-buy]').forEach(btn=>btn.onclick=()=>{
+   const s=OSO_SKINS.find(x=>x.id===btn.dataset.buy);if(!s)return;
+   if(state.ownedSkins.includes(s.id)){state.selectedSkin=s.id;save();refresh();tone('good');return}
+   if((state.coins||0)<s.price){tone('bad');buzz(70);btn.textContent='코인이 부족하소!';setTimeout(renderOsoShop,700);return}
+   state.coins-=s.price;state.ownedSkins.push(s.id);state.selectedSkin=s.id;save();tone('clear');buzz([20,15,35]);refresh();try{if(window.__JCM_SP1_SYNC_UNLOCK__)window.__JCM_SP1_SYNC_UNLOCK__()}catch(_){}
+ })
+}
+
+function refresh(){
+ ensureDailyScoreDate();
+ if(state.coinDate!==localDateKey()){
+  state.coinDate=localDateKey();save()
+ }
+ if(DEV_ALL_UNLOCKED)GAMES.forEach(g=>state.unlock[g.code]=true);
+ const bonusNew=!DEV_ALL_UNLOCKED&&ensureSpacefighterUnlock();
+ if(!DEV_ALL_UNLOCKED)ensureScoreBonusUnlocks();
+ const pendingBonus=!DEV_ALL_UNLOCKED&&Array.isArray(state.pendingBonusUnlocks)?[...state.pendingBonusUnlocks]:[];
+ if(pendingBonus.length){state.pendingBonusUnlocks=[];save()}
+ $('#count').textContent=`🎮 ${GAMES.filter(g=>state.unlock[g.code]).length}/${GAMES.length}`;
+ $('#coin').textContent=state.coins||0;
+ $('#library').innerHTML=GAMES.map((g,i)=>{
+ const art={basket:'🍎 🥬 🧺',fish:'🐟 💦 🐠',stack:'🧵 🧶 ✨',run:'🛍️ 🏃 🪙',slice:'🍜 ✨ 🍗',tteok:'🔨 🍚 ✨',powerduck:'🎮 ⚡ 🌍',spacefighter:'🚀 🌍 👾',racing:'🏎️ 🐂 🏁',fantasy:'⚔️ 🛒 🌿'}[g.code]||g.icon;
+ const st=starsFor(g.code,state.best[g.code]||0),stars='⭐'.repeat(st)+'☆'.repeat(3-st);
+ return `<button class="gameCard theme-${g.code} ${state.unlock[g.code]?'':'lock'}" data-game="${g.code}"><div class="gameNo">${i+1}</div><div class="gameCardArt"><div class="artEmoji">${art}</div></div><b>${state.unlock[g.code]?g.name:'???'}</b><small>${g.desc}</small><div class="best">${state.unlock[g.code]?`🏆 최고 ${state.best[g.code]||0}<span class="miniStars">${stars}</span>`:(g.code==='spacefighter'?'<span class="spaceBonusLock">🔒 7개 게임 획득 시 해금</span>':g.code==='raci
+)return;
+ const skin=currentSkin(),preview=$('#selectedOsoPreview'),name=$('#selectedOsoName'),coin=$('#shopCoin');
+ if(preview)preview.src=skin.src;if(name)name.textContent=skin.name;if(coin)coin.textContent=state.coins||0;
+ const groups=[
+  {id:'oso',title:'🐂 오소',sub:'중앙시장의 주인공 · 기본~750 코인'},
+  {id:'ayo',title:'🐱 아요 컬렉션',sub:'표정과 동작이 다양한 친구 · 1,000~1,900 코인'},
+  {id:'hamo',title:'🦦 하모 컬렉션',sub:'특별한 친구 · 2,000~2,900 코인'}
+ ];
+ shop.innerHTML=groups.map(gr=>{
+  const cards=OSO_SKINS.filter(s=>(s.group||'oso')===gr.id).map(s=>{
+   const owned=state.ownedSkins.includes(s.id),selected=state.selectedSkin===s.id;
+   return `<div class="skinCard ${selected?'selected':''} group-${gr.id}" data-skin="${s.id}"><span class="charBadge ${gr.id}">${s.badge||gr.title}</span><img src="${s.src}" alt="${s.name}"><b>${s.name}</b><small>${s.note}</small><button class="${selected?'selectedBtn':owned?'owned':''}" data-buy="${s.id}">${selected?'사용 중':owned?'사용하기':`🪙 ${s.price.toLocaleString()} 구입`}</button></div>`
+  }).join('');
+  return `<div class="shopGroupHead ${gr.id}"><b>${gr.title}</b><small>${gr.sub}</small></div>${cards}`
+ }).join('');
+ $$('[data-buy]').forEach(btn=>btn.onclick=()=>{
+   const s=OSO_SKINS.find(x=>x.id===btn.dataset.buy);if(!s)return;
+   if(state.ownedSkins.includes(s.id)){state.selectedSkin=s.id;save();refresh();tone('good');return}
+   if((state.coins||0)<s.price){tone('bad');buzz(70);btn.textContent='코인이 부족하소!';setTimeout(renderOsoShop,700);return}
+   state.coins-=s.price;state.ownedSkins.push(s.id);state.selectedSkin=s.id;save();tone('clear');buzz([20,15,35]);refresh();try{if(window.__JCM_SP1_SYNC_UNLOCK__)window.__JCM_SP1_SYNC_UNLOCK__()}catch(_){}
+ })
+}
+
+function refresh(){
+ ensureDailyScoreDate();
+ if(state.coinDate!==localDateKey()){
+  state.coinDate=localDateKey();save()
+ }
+ if(DEV_ALL_UNLOCKED)GAMES.forEach(g=>state.unlock[g.code]=true);
+ const bonusNew=!DEV_ALL_UNLOCKED&&ensureSpacefighterUnlock();
+ if(!DEV_ALL_UNLOCKED)ensureScoreBonusUnlocks();
+ const pendingBonus=!DEV_ALL_UNLOCKED&&Array.isArray(state.pendingBonusUnlocks)?[...state.pendingBonusUnlocks]:[];
+ if(pendingBonus.length){state.pendingBonusUnlocks=[];save()}
+ $('#count').textContent=`🎮 ${GAMES.filter(g=>state.unlock[g.code]).length}/${GAMES.length}`;
+ $('#coin').textContent=state.coins||0;
+ $('#library').innerHTML=GAMES.map((g,i)=>{
+ const art={basket:'🍎 🥬 🧺',fish:'🐟 💦 🐠',stack:'🧵 🧶 ✨',run:'🛍️ 🏃 🪙',slice:'🍜 ✨ 🍗',tteok:'🔨 🍚 ✨',powerduck:'🎮 ⚡ 🌍',spacefighter:'🚀 🌍 👾',racing:'🏎️ 🐂 🏁',fantasy:'⚔️ 🛒 🌿'}[g.code]||g.icon;
+ const st=starsFor(g.code,state.best[g.code]||0),stars='⭐'.repeat(st)+'☆'.repeat(3-st);
+ return `<button class="gameCard theme-${g.code} ${state.unlock[g.code]?'':'lock'}" data-game="${g.code}"><div class="gameNo">${i+1}</div><div class="gameCardArt"><div class="artEmoji">${art}</div></div><b>${state.unlock[g.code]?g.name:'???'}</b><small>${g.desc}</small><div class="best">${state.unlock[g.code]?`🏆 최고 ${state.best[g.code]||0}<span class="miniStars">${stars}</span>`:(g.code==='spacefighter'?'<span class="spaceBonusLock">🔒 7개 게임 획득 시 해금</span>':g.code==='racing'?'<span class="scoreBonusLock">🔒 누적 500,000점 달성 시 해금</span>':g.code==='fantasy'?'<span class="scoreBonusLock">🔒 누적 1,000,000점 달성 시 해금</span>':'🔒 GPS/QR로 획득')}</div></button>`
+ }).join('');
+ $$('[data-game]').forEach(b=>b.onclick=()=>openInfo(b.dataset.game));
+ renderGpsLocations(lastGps);renderOsoShop();renderRanking();
+ const ho=$('#headerOso');if(ho)ho.src=currentOsoSrc();save();
+ if(bonusNew)setTimeout(()=>flashyUnlock('spacefighter'),2100);
+ pendingBonus.forEach((c,i)=>setTimeout(()=>flashyUnlock(c),2100+i*2300))
+}
+function openInfo(code){selected=game(code);const unlocked=!!state.unlock[code];$('#mEm').textContent=selected.icon;$('#mName').textContent=unlocked?selected.name:'잠긴 게임';$('#mDe
+roups=[
+  {id:'oso',title:'🐂 오소',sub:'중앙시장의 주인공 · 기본~750 코인'},
+  {id:'ayo',title:'🐱 아요 컬렉션',sub:'표정과 동작이 다양한 친구 · 1,000~1,900 코인'},
+  {id:'hamo',title:'🦦 하모 컬렉션',sub:'특별한 친구 · 2,000~2,900 코인'}
+ ];
+ shop.innerHTML=groups.map(gr=>{
+  const cards=OSO_SKINS.filter(s=>(s.group||'oso')===gr.id).map(s=>{
+   const owned=state.ownedSkins.includes(s.id),selected=state.selectedSkin===s.id;
+   return `<div class="skinCard ${selected?'selected':''} group-${gr.id}" data-skin="${s.id}"><span class="charBadge ${gr.id}">${s.badge||gr.title}</span><img src="${s.src}" alt="${s.name}"><b>${s.name}</b><small>${s.note}</small><button class="${selected?'selectedBtn':owned?'owned':''}" data-buy="${s.id}">${selected?'사용 중':owned?'사용하기':`🪙 ${s.price.toLocaleString()} 구입`}</button></div>`
+  }).join('');
+  return `<div class="shopGroupHead ${gr.id}"><b>${gr.title}</b><small>${gr.sub}</small></div>${cards}`
+ }).join('');
+ $$('[data-buy]').forEach(btn=>btn.onclick=()=>{
+   const s=OSO_SKINS.find(x=>x.id===btn.dataset.buy);if(!s)return;
+   if(state.ownedSkins.includes(s.id)){state.selectedSkin=s.id;save();refresh();tone('good');return}
+   if((state.coins||0)<s.price){tone('bad');buzz(70);btn.textContent='코인이 부족하소!';setTimeout(renderOsoShop,700);return}
+   state.coins-=s.price;state.ownedSkins.push(s.id);state.selectedSkin=s.id;save();tone('clear');buzz([20,15,35]);refresh();try{if(window.__JCM_SP1_SYNC_UNLOCK__)window.__JCM_SP1_SYNC_UNLOCK__()}catch(_){}
+ })
+}
+
+function refresh(){
+ ensureDailyScoreDate();
+ if(state.coinDate!==localDateKey()){
+  state.coinDate=localDateKey();save()
+ }
+ if(DEV_ALL_UNLOCKED)GAMES.forEach(g=>state.unlock[g.code]=true);
+ const bonusNew=!DEV_ALL_UNLOCKED&&ensureSpacefighterUnlock();
+ if(!DEV_ALL_UNLOCKED)ensureScoreBonusUnlocks();
+ const pendingBonus=!DEV_ALL_UNLOCKED&&Array.isArray(state.pendingBonusUnlocks)?[...state.pendingBonusUnlocks]:[];
+ if(pendingBonus.length){state.pendingBonusUnlocks=[];save()}
+ $('#count').textContent=`🎮 ${GAMES.filter(g=>state.unlock[g.code]).length}/${GAMES.length}`;
+ $('#coin').textContent=state.coins||0;
+ $('#library').innerHTML=GAMES.map((g,i)=>{
+ const art={basket:'🍎 🥬 🧺',fish:'🐟 💦 🐠',stack:'🧵 🧶 ✨',run:'🛍️ 🏃 🪙',slice:'🍜 ✨ 🍗',tteok:'🔨 🍚 ✨',powerduck:'🎮 ⚡ 🌍',spacefighter:'🚀 🌍 👾',racing:'🏎️ 🐂 🏁',fantasy:'⚔️ 🛒 🌿'}[g.code]||g.icon;
+ const st=starsFor(g.code,state.best[g.code]||0),stars='⭐'.repeat(st)+'☆'.repeat(3-st);
+ return `<button class="gameCard theme-${g.code} ${state.unlock[g.code]?'':'lock'}" data-game="${g.code}"><div class="gameNo">${i+1}</div><div class="gameCardArt"><div class="artEmoji">${art}</div></div><b>${state.unlock[g.code]?g.name:'???'}</b><small>${g.desc}</small><div class="best">${state.unlock[g.code]?`🏆 최고 ${state.best[g.code]||0}<span class="miniStars">${stars}</span>`:(g.code==='spacefighter'?'<span class="spaceBonusLock">🔒 7개 게임 획득 시 해금</span>':g.code==='racing'?'<span class="scoreBonusLock">🔒 누적 500,000점 달성 시 해금</span>':g.code==='fantasy'?'<span class="scoreBonusLock">🔒 누적 1,000,000점 달성 시 해금</span>':'🔒 GPS/QR로 획득')}</div></button>`
+ }).join('');
+ $$('[data-game]').forEach(b=>b.onclick=()=>openInfo(b.dataset.game));
+ renderGpsLocations(lastGps);renderOsoShop();renderRanking();
+ const ho=$('#headerOso');if(ho)ho.src=currentOsoSrc();save();
+ if(bonusNew)setTimeout(()=>flashyUnlock('spacefighter'),2100);
+ pendingBonus.forEach((c,i)=>setTimeout(()=>flashyUnlock(c),2100+i*2300))
+}
+function openInfo(code){selected=game(code);const unlocked=!!state.unlock[code];$('#mEm').textContent=selected.icon;$('#mName').textContent=unlocked?selected.name:'잠긴 게임';$('#mDesc').textContent=selected.desc;$('#mArea').textContent='장소 힌트 · '+selected.area.replace(/^해금 위치:\s*/,'');$('#mPlay').disabled=!unlocked;$('#mPlay').textContent=unlocked?'플레이':(BONUS_GAME_CODES.includes(selected.code)?'조건달성 필요':'GPS 획
+===== function save() COUNT=1 =====
+rentSkin(){return OSO_SKINS.find(x=>x.id===state.selectedSkin)||OSO_SKINS[0]}
+function currentOsoSrc(){return currentSkin().src}
+const BASE_GAME_CODES=['basket','fish','stack','run','slice','tteok','powerduck'];
+const BONUS_GAME_CODES=['spacefighter','racing','fantasy'];
+function ensureSpacefighterUnlock(){
+ if(state.unlock&&state.unlock.spacefighter)return false;
+ if(BASE_GAME_CODES.every(c=>state.unlock&&state.unlock[c])){
+  state.unlock.spacefighter=true;save();return true
+ }
+ return false
+}
+function ensureScoreBonusUnlocks(){
+ const newly=[],n=Number(state.todayScore)||0;
+ if(n>=500000&&!state.unlock.racing){state.unlock.racing=true;newly.push('racing')}
+ if(n>=1000000&&!state.unlock.fantasy){state.unlock.fantasy=true;newly.push('fantasy')}
+ if(newly.length){
+  const q=Array.isArray(state.pendingBonusUnlocks)?state.pendingBonusUnlocks:[];
+  state.pendingBonusUnlocks=[...new Set([...q,...newly])];
+  save()
+ }
+ return newly
+}
+
+let mem=null,audioCtx=null;
+function localDateKey(){
+ const d=new Date(),y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,'0'),day=String(d.getDate()).padStart(2,'0');
+ return `${y}-${m}-${day}`
+}
+function load(){try{const x=localStorage.getItem(DEV_ALL_UNLOCKED?'jcm-v168-unlocked':'jcm-v168-locked');return x?JSON.parse(x):null}catch(e){return mem}}
+function save(){mem=state;try{localStorage.setItem(DEV_ALL_UNLOCKED?'jcm-v168-unlocked':'jcm-v168-locked',JSON.stringify(state))}catch(e){}}
+let state=load()||{unlock:{},best:{},coins:0,todayEarned:0,todayScore:0,scoreDate:localDateKey(),pdRecord:0,coinDate:localDateKey(),ranking:[],todaySubmittedBest:0,rankRegisteredBest:11,ownedSkins:['default'],selectedSkin:'default'};
+if(!state.best||typeof state.best!=='object')state.best={};
+if(!Array.isArray(state.ranking))state.ranking=[];
+if(!Array.isArray(state.ownedSkins))state.ownedSkins=['default'];
+if(!state.gpsCalibration)state.gpsCalibration={};
+if(!state.gpsUnlocked)state.gpsUnlocked={};
+if(!state.qrUnlocked)state.qrUnlocked={};
+if(!state.ownedSkins.includes('default'))state.ownedSkins.unshift('default');
+if(!state.selectedSkin||!state.ownedSkins.includes(state.selectedSkin))state.selectedSkin='default';
+if(state.todayEarned==null)state.todayEarned=0;
+if(state.todayScore==null)state.todayScore=0;
+if(!state.scoreDate)state.scoreDate=localDateKey();
+if(state.todaySubmittedBest==null)state.todaySubmittedBest=0;
+if(state.rankRegisteredBest==null){
+ state.rankRegisteredBest=Number.isFinite(state.dailyRankPromptedBestRank)?state.dailyRankPromptedBestRank:11;
+}
+if(state.scoreDate!==localDateKey()){
+ state.scoreDate=localDateKey();
+}
+if(!state.coinDate)state.coinDate=localDateKey();
+if(state.coinDate!==localDateKey())state.coinDate=localDateKey();
+if(DEV_ALL_UNLOCKED)GAMES.forEach(g=>state.unlock[g.code]=true);
+
+function ensureDailyScoreDate(){
+ const today=localDateKey();
+ if(!state.scoreDate)state.scoreDate=today;
+ if(state.scoreDate!==today){
+  state.scoreDate=today;
+  save();
+ }
+}
+
+const DEFAULT_RANKING_SEED=[
+ {initials:'중앙시장',score:1000000,date:'기준',ts:1,seed:true},
+ {initials:'오소',score:500000,date:'기준',ts:2,seed:true},
+ {initials:'또오소',score:300000,date:'기준',ts:3,seed:true},
+ {initials:'다시오소',score:100000,date:'기준',ts:4,seed:true},
+ {initials:'매일오소',score:80000,date:'기준',ts:5,seed:true},
+ {initials:'잘가소',score:50000,date:'기준',ts:6,seed:true},
+ {initials:'반갑소',score:30000,date:'기준',ts:7,seed:true},
+ {initials:'어서오소',score:20000,date:'기준',ts:8,seed:true},
+ {initials:'잘하소',score:15000,date:'기준',ts:9,seed:true},
+ {initials:'힘내소',score:10000,date:'기준',ts:10,seed:true}
+];
+const RANK_SCORE_THRESHOLDS=DEFAULT_RANKING_SEED.map((r,i)=>({rank:i+1,score:Number(r.score)||0}));
+function rankReachedByDailyScore(score){
+ const n=Number(score)||0;
+ for(const t of RANK_SCORE_THRESHOLDS){if(n>t.score)return t.rank}
+ return 1
+===== function loadState COUNT=0 =====
+===== localStorage.getItem(KEY COUNT=1 =====
+ut(attractTimer);clearTimeout(rankTimer);
+  show(c);renderRanking();
+  attractTimer=setTimeout(()=>{if(!attractOn)return;show(r);renderRanking();rankTimer=setTimeout(scheduleTitle,5000)},8000)
+ }
+ function stopAttract(){attractOn=false;clearTimeout(attractTimer);clearTimeout(rankTimer)}
+ b1=setTimeout(()=>show(b),1150);
+ b2=setTimeout(()=>{scheduleTitle()},2300);
+ const wakeTitle=()=>{try{audio();startBGM('title',1)}catch(e){}};
+ const enterApp=page=>{stopAttract();try{audio();startBGM('hub',1)}catch(e){};endBoot(page)};
+ const skip=()=>{clearTimeout(b1);clearTimeout(b2);wakeTitle();scheduleTitle()};
+ $('#skip1').onclick=skip;$('#skip2').onclick=skip;
+ $('#startBtn').onclick=()=>enterApp('gamesPage');
+ $('#titleRecords').onclick=()=>{stopAttract();wakeTitle();show(r);renderRanking();setTimeout(()=>{show(c);attractOn=true;scheduleTitle()},5000)};
+ $('#titleCollection').onclick=()=>enterApp('bookPage');
+ $('#titleExplore').onclick=()=>enterApp('mapPage');
+ r.onclick=()=>{if(attractOn)scheduleTitle()}
+}
+refresh();renderRanking();initGpsUi();initQrUi();boot();
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/* OSO_PRIVATE_VISIT_COUNTER_V1 */
+(function(){
+  try{
+    if(!location.pathname.includes('/OSO-2026/play/')) return;
+    const KEY='oso-private-visitor-id-v1';
+    let visitorId=localStorage.getItem(KEY);
+    if(!visitorId){
+      visitorId=(crypto.randomUUID ? crypto.randomUUID() : (Date.now().toString(36)+'_'+Math.random().toString(36).slice(2)+Math.random().toString(36).slice(2)));
+      localStorage.setItem(KEY,visitorId);
+    }
+    fetch('https://kfxagkjaczfwxebfvfav.supabase.co/functions/v1/record-oso-visit',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({visitorId}),
+      keepalive:true,
+      cache:'no-store',
+      credentials:'omit'
+    }).catch(()=>{});
+  }catch(_e){}
+})();
+</script>
+
+<!-- SP1 SOTRIS LIVE INTEGRATION -->
+<script src="sp1/sotris-integration.js?v=20260903-hard300-progress19"></script>
+</body></html>
+
+===== const KEY= COUNT=1 =====
+nction scheduleTitle(){
+  if(!attractOn)return;clearTimeout(attractTimer);clearTimeout(rankTimer);
+  show(c);renderRanking();
+  attractTimer=setTimeout(()=>{if(!attractOn)return;show(r);renderRanking();rankTimer=setTimeout(scheduleTitle,5000)},8000)
+ }
+ function stopAttract(){attractOn=false;clearTimeout(attractTimer);clearTimeout(rankTimer)}
+ b1=setTimeout(()=>show(b),1150);
+ b2=setTimeout(()=>{scheduleTitle()},2300);
+ const wakeTitle=()=>{try{audio();startBGM('title',1)}catch(e){}};
+ const enterApp=page=>{stopAttract();try{audio();startBGM('hub',1)}catch(e){};endBoot(page)};
+ const skip=()=>{clearTimeout(b1);clearTimeout(b2);wakeTitle();scheduleTitle()};
+ $('#skip1').onclick=skip;$('#skip2').onclick=skip;
+ $('#startBtn').onclick=()=>enterApp('gamesPage');
+ $('#titleRecords').onclick=()=>{stopAttract();wakeTitle();show(r);renderRanking();setTimeout(()=>{show(c);attractOn=true;scheduleTitle()},5000)};
+ $('#titleCollection').onclick=()=>enterApp('bookPage');
+ $('#titleExplore').onclick=()=>enterApp('mapPage');
+ r.onclick=()=>{if(attractOn)scheduleTitle()}
+}
+refresh();renderRanking();initGpsUi();initQrUi();boot();
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/* OSO_PRIVATE_VISIT_COUNTER_V1 */
+(function(){
+  try{
+    if(!location.pathname.includes('/OSO-2026/play/')) return;
+    const KEY='oso-private-visitor-id-v1';
+    let visitorId=localStorage.getItem(KEY);
+    if(!visitorId){
+      visitorId=(crypto.randomUUID ? crypto.randomUUID() : (Date.now().toString(36)+'_'+Math.random().toString(36).slice(2)+Math.random().toString(36).slice(2)));
+      localStorage.setItem(KEY,visitorId);
+    }
+    fetch('https://kfxagkjaczfwxebfvfav.supabase.co/functions/v1/record-oso-visit',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({visitorId}),
+      keepalive:true,
+      cache:'no-store',
+      credentials:'omit'
+    }).catch(()=>{});
+  }catch(_e){}
+})();
+</script>
+
+<!-- SP1 SOTRIS LIVE INTEGRATION -->
+<script src="sp1/sotris-integration.js?v=20260903-hard300-progress19"></script>
+</body></html>
+
+===== let state= COUNT=1 =====
+AME_CODES=['basket','fish','stack','run','slice','tteok','powerduck'];
+const BONUS_GAME_CODES=['spacefighter','racing','fantasy'];
+function ensureSpacefighterUnlock(){
+ if(state.unlock&&state.unlock.spacefighter)return false;
+ if(BASE_GAME_CODES.every(c=>state.unlock&&state.unlock[c])){
+  state.unlock.spacefighter=true;save();return true
+ }
+ return false
+}
+function ensureScoreBonusUnlocks(){
+ const newly=[],n=Number(state.todayScore)||0;
+ if(n>=500000&&!state.unlock.racing){state.unlock.racing=true;newly.push('racing')}
+ if(n>=1000000&&!state.unlock.fantasy){state.unlock.fantasy=true;newly.push('fantasy')}
+ if(newly.length){
+  const q=Array.isArray(state.pendingBonusUnlocks)?state.pendingBonusUnlocks:[];
+  state.pendingBonusUnlocks=[...new Set([...q,...newly])];
+  save()
+ }
+ return newly
+}
+
+let mem=null,audioCtx=null;
+function localDateKey(){
+ const d=new Date(),y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,'0'),day=String(d.getDate()).padStart(2,'0');
+ return `${y}-${m}-${day}`
+}
+function load(){try{const x=localStorage.getItem(DEV_ALL_UNLOCKED?'jcm-v168-unlocked':'jcm-v168-locked');return x?JSON.parse(x):null}catch(e){return mem}}
+function save(){mem=state;try{localStorage.setItem(DEV_ALL_UNLOCKED?'jcm-v168-unlocked':'jcm-v168-locked',JSON.stringify(state))}catch(e){}}
+let state=load()||{unlock:{},best:{},coins:0,todayEarned:0,todayScore:0,scoreDate:localDateKey(),pdRecord:0,coinDate:localDateKey(),ranking:[],todaySubmittedBest:0,rankRegisteredBest:11,ownedSkins:['default'],selectedSkin:'default'};
+if(!state.best||typeof state.best!=='object')state.best={};
+if(!Array.isArray(state.ranking))state.ranking=[];
+if(!Array.isArray(state.ownedSkins))state.ownedSkins=['default'];
+if(!state.gpsCalibration)state.gpsCalibration={};
+if(!state.gpsUnlocked)state.gpsUnlocked={};
+if(!state.qrUnlocked)state.qrUnlocked={};
+if(!state.ownedSkins.includes('default'))state.ownedSkins.unshift('default');
+if(!state.selectedSkin||!state.ownedSkins.includes(state.selectedSkin))state.selectedSkin='default';
+if(state.todayEarned==null)state.todayEarned=0;
+if(state.todayScore==null)state.todayScore=0;
+if(!state.scoreDate)state.scoreDate=localDateKey();
+if(state.todaySubmittedBest==null)state.todaySubmittedBest=0;
+if(state.rankRegisteredBest==null){
+ state.rankRegisteredBest=Number.isFinite(state.dailyRankPromptedBestRank)?state.dailyRankPromptedBestRank:11;
+}
+if(state.scoreDate!==localDateKey()){
+ state.scoreDate=localDateKey();
+}
+if(!state.coinDate)state.coinDate=localDateKey();
+if(state.coinDate!==localDateKey())state.coinDate=localDateKey();
+if(DEV_ALL_UNLOCKED)GAMES.forEach(g=>state.unlock[g.code]=true);
+
+function ensureDailyScoreDate(){
+ const today=localDateKey();
+ if(!state.scoreDate)state.scoreDate=today;
+ if(state.scoreDate!==today){
+  state.scoreDate=today;
+  save();
+ }
+}
+
+const DEFAULT_RANKING_SEED=[
+ {initials:'중앙시장',score:1000000,date:'기준',ts:1,seed:true},
+ {initials:'오소',score:500000,date:'기준',ts:2,seed:true},
+ {initials:'또오소',score:300000,date:'기준',ts:3,seed:true},
+ {initials:'다시오소',score:100000,date:'기준',ts:4,seed:true},
+ {initials:'매일오소',score:80000,date:'기준',ts:5,seed:true},
+ {initials:'잘가소',score:50000,date:'기준',ts:6,seed:true},
+ {initials:'반갑소',score:30000,date:'기준',ts:7,seed:true},
+ {initials:'어서오소',score:20000,date:'기준',ts:8,seed:true},
+ {initials:'잘하소',score:15000,date:'기준',ts:9,seed:true},
+ {initials:'힘내소',score:10000,date:'기준',ts:10,seed:true}
+];
+const RANK_SCORE_THRESHOLDS=DEFAULT_RANKING_SEED.map((r,i)=>({rank:i+1,score:Number(r.score)||0}));
+function rankReachedByDailyScore(score){
+ const n=Number(score)||0;
+ for(const t of RANK_SCORE_THRESHOLDS){if(n>t.score)return t.rank}
+ return 11;
+}
+
+function ensureRankRegistrationState(){
+ if(state.rankRegistrationVersion==='threshold-record-v2')return;
+ const userRows=(Array.isArra
+===== const state= COUNT=0 =====
