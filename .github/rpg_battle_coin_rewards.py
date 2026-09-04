@@ -7,10 +7,10 @@ s=play.read_text(encoding='utf-8')
 before=hashlib.sha256(s.encode()).hexdigest()
 sotris_before=hashlib.sha256(sotris.read_bytes()).hexdigest()
 
-pat=r"function fantasyCoinDrop\(e\)\{.*?return amount \} function win\(\)\{"
-m=re.search(pat,s,re.S)
-if not m:
-    raise SystemExit('fantasyCoinDrop/win block not found')
+start=s.find('function fantasyCoinDrop(e){')
+end=s.find('function win(){',start)
+if start<0 or end<0 or end<=start:
+    raise SystemExit(f'RPG coin markers missing start={start} end={end}')
 
 new="""function fantasyBattleCoinReward(e){
  const name=String((e&&e.name)||'');
@@ -28,8 +28,8 @@ function fantasyCoinDrop(e){
  const fx=document.createElement('div');fx.className='fantasyCoinDropFx';fx.textContent=`🪙 +${amount.toLocaleString('ko-KR')}`;battleFx.appendChild(fx);setTimeout(()=>fx.remove(),1300);
  tone('coin');buzz(amount>=3000?[28,10,45,10,70]:amount>=1000?[20,8,34]:[12,6,22]);
  log(`${e.name} 격파 보상! 🪙 +${amount.toLocaleString('ko-KR')}`);updateHud();return amount
-} function win(){"""
-s=s[:m.start()]+new+s[m.end():]
+} """
+s=s[:start]+new+s[end:]
 
 checks=[
     "name.includes('논개'))return 5000",
@@ -44,6 +44,8 @@ if s.count('function fantasyBattleCoinReward(e)')!=1:
     raise SystemExit('reward function count mismatch')
 if 'if(e.boss){if(Math.random()<.62)' in s:
     raise SystemExit('old probabilistic RPG coin reward remains')
+if s.count('function win(){')<1:
+    raise SystemExit('win function lost')
 
 play.write_text(s,encoding='utf-8')
 scripts=re.findall(r'<script[^>]*>(.*?)</script>',s,re.S)
