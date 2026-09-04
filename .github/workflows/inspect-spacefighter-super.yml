@@ -1,0 +1,39 @@
+name: Inspect Spacefighter super hooks
+on:
+  push:
+    paths:
+      - '.github/workflows/inspect-spacefighter-super.yml'
+permissions:
+  contents: write
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Capture super snippets
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          s=Path('play/index.html').read_text(encoding='utf-8')
+          pats=['superName','function drawSuper','sfSuper','superActive','superBtn','triggerSuper','useSuper','function super','superFx']
+          out=[]
+          for p in pats:
+              out.append('===== '+p+' =====')
+              start=0; found=0
+              while True:
+                  i=s.find(p,start)
+                  if i<0: break
+                  found+=1
+                  out.append(s[max(0,i-700):min(len(s),i+1800)])
+                  out.append('\n---\n')
+                  start=i+len(p)
+                  if found>=6: break
+              out.append('COUNT_SHOWN='+str(found))
+          Path('.github/spacefighter-super-snippets.txt').write_text('\n'.join(out),encoding='utf-8')
+          PY
+          git config user.name 'PWDJ Spacefighter Inspect'
+          git config user.email '34460283+haveanair@users.noreply.github.com'
+          git add .github/spacefighter-super-snippets.txt
+          git commit -m 'Record Spacefighter super hooks'
+          git push
