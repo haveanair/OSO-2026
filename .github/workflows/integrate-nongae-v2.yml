@@ -12,27 +12,6 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Restore final Nongae assets
-        shell: bash
-        run: |
-          set -euo pipefail
-          python3 - <<'PY'
-          from pathlib import Path
-          import base64, hashlib
-          pairs=[
-            ('.github/nongae01_final.b64','play/assets/nongae-01.webp','be7a984bf0359ed4cc0b877652c4055f4d127614e6e108ba68d7ad13581c80d1'),
-            ('.github/nongae02_final.b64','play/assets/nongae-02.webp','8400bd0b49965a46f2300f69e93bf82bbc3cba60ff9860abdc5afbe568e38337'),
-          ]
-          for src,dst,expected in pairs:
-              data=base64.b64decode(Path(src).read_text(encoding='utf-8').strip(),validate=True)
-              got=hashlib.sha256(data).hexdigest()
-              if got!=expected:
-                  raise SystemExit(f'{src} hash mismatch {got}')
-              if data[:4]!=b'RIFF' or data[8:12]!=b'WEBP':
-                  raise SystemExit(f'{src} is not WEBP')
-              Path(dst).write_bytes(data)
-              print(dst, len(data), got)
-          PY
       - name: Apply and verify Nongae integration
         shell: bash
         run: |
@@ -53,6 +32,6 @@ jobs:
           git diff --check
           git config user.name 'PWDJ Nongae Integration'
           git config user.email '34460283+haveanair@users.noreply.github.com'
-          git add play/index.html play/assets/nongae-01.webp play/assets/nongae-02.webp .github/nongae-integration-report.txt
+          git add play/index.html .github/nongae-integration-report.txt
           git commit -m 'Add Nongae unlock and Heavenly Jade Ring Attack'
           git push
