@@ -3,6 +3,7 @@ on:
   push:
     paths:
       - '.github/workflows/cleanup-nongae-catalog-copy.yml'
+      - '.github/nongae_catalog_copy_cleanup.py'
 permissions:
   contents: write
 jobs:
