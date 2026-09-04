@@ -1,0 +1,8 @@
+Traceback (most recent call last):
+  File "/home/runner/work/OSO-2026/OSO-2026/.github/nongae_patch.py", line 14, in <module>
+    a2=base64.b64decode(b2,validate=True)
+       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/base64.py", line 88, in b64decode
+    return binascii.a2b_base64(s, strict_mode=validate)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+binascii.Error: Excess data after padding
