@@ -1,0 +1,71 @@
+name: Inspect Nongae focused hooks
+on:
+  push:
+    paths:
+      - '.github/workflows/inspect-nongae-focused.yml'
+permissions:
+  contents: write
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build focused report
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import re,json
+          s=Path('play/index.html').read_text(encoding='utf-8')
+          out=[]
+
+          # Parse OSO_SKINS safely without printing embedded image payloads.
+          m=re.search(r'const OSO_SKINS=(\[.*?\]);\s*const ',s,re.S)
+          if not m:
+              m=re.search(r'const OSO_SKINS=(\[.*?\]);\s*let ',s,re.S)
+          if m:
+              try:
+                  arr=json.loads(m.group(1))
+                  out.append('===== SKINS =====')
+                  for x in arr:
+                      out.append(json.dumps({k:x.get(k) for k in ['id','name','price','group','src'] if k in x},ensure_ascii=False)[:500])
+              except Exception as e: out.append('SKIN_PARSE_ERR='+repr(e))
+          else: out.append('SKINS_NOT_FOUND')
+
+          def func(name,next_markers=()):
+              i=s.find('function '+name)
+              if i<0: return 'NOT_FOUND '+name
+              ends=[s.find('\nfunction '+x,i+1) for x in next_markers]
+              ends=[x for x in ends if x>i]
+              j=min(ends) if ends else min(len(s),i+14000)
+              return s[i:j]
+
+          out.append('\n===== renderOsoShop =====\n'+func('renderOsoShop',('renderRanking','refresh','openInfo'))[:14000])
+
+          # fantasy final clear snippets around finish calls and ending markers
+          out.append('\n===== FANTASY FINISH/ENDING =====')
+          for pat in ["finish('fantasy'",'fantasyBonusCoins','진엔딩','엔딩','finalBoss','bossId']:
+              pos=0
+              while True:
+                  i=s.find(pat,pos)
+                  if i<0: break
+                  out.append(f'--- {pat} @{i} ---\n'+s[max(0,i-1800):min(len(s),i+3500)])
+                  pos=i+len(pat)
+
+          out.append('\n===== SPACEFIGHTER PROJECTILES =====')
+          for pat in ['const shotIcon','function firePattern','shots.push','shots.forEach','shotIcon','fillText(shotIcon','arc(sh.x','isKf21']:
+              pos=0; n=0
+              while True:
+                  i=s.find(pat,pos)
+                  if i<0 or n>=8: break
+                  out.append(f'--- {pat} @{i} ---\n'+s[max(0,i-1200):min(len(s),i+2800)])
+                  pos=i+len(pat); n+=1
+
+          Path('.github/nongae-focused-report.txt').write_text('\n'.join(out),encoding='utf-8')
+          PY
+          git config user.name 'PWDJ Inspector'
+          git config user.email '34460283+haveanair@users.noreply.github.com'
+          git add .github/nongae-focused-report.txt
+          git commit -m 'Inspect focused Nongae hooks' || exit 0
+          git push
