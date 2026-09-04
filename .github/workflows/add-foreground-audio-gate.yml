@@ -1,0 +1,201 @@
+name: Add foreground-only audio gate
+on:
+  push:
+    paths:
+      - '.github/workflows/add-foreground-audio-gate.yml'
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Stop game audio while browser is backgrounded
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib, re, subprocess
+
+          play=Path('play/index.html')
+          sotris=Path('play/sp1/sotris/index.html')
+          s=play.read_text(encoding='utf-8')
+          before=hashlib.sha256(s.encode()).hexdigest()
+          sotris_before=hashlib.sha256(sotris.read_bytes()).hexdigest()
+          marker='OSO FOREGROUND AUDIO GATE v1'
+
+          gate=r'''<script>
+          /* OSO FOREGROUND AUDIO GATE v1 */
+          (()=>{
+            if(window.__osoForegroundAudioGateInstalled)return;
+            window.__osoForegroundAudioGateInstalled=true;
+
+            const contexts=new Set();
+            const resumeContexts=new Set();
+            const resumeMedia=new Set();
+            const nativeResumes=new WeakMap();
+            const isVisible=()=>document.visibilityState==='visible';
+
+            const guardSource=(src)=>{
+              if(!src||src.__osoForegroundGuarded)return src;
+              src.__osoForegroundGuarded=true;
+              const nativeStart=typeof src.start==='function'?src.start.bind(src):null;
+              const nativeStop=typeof src.stop==='function'?src.stop.bind(src):null;
+              if(nativeStart){
+                src.start=(...args)=>{
+                  if(isVisible())return nativeStart(...args);
+                  try{
+                    const now=src.context&&Number.isFinite(src.context.currentTime)?src.context.currentTime:0;
+                    nativeStart(now);
+                    if(nativeStop)nativeStop(now);
+                    src.__osoSuppressed=true;
+                  }catch(_){ }
+                };
+              }
+              if(nativeStop){
+                src.stop=(...args)=>{
+                  if(src.__osoSuppressed)return;
+                  return nativeStop(...args);
+                };
+              }
+              return src;
+            };
+
+            const NativeAC=window.AudioContext||window.webkitAudioContext;
+            if(NativeAC){
+              function ForegroundAudioContext(...args){
+                const ctx=new NativeAC(...args);
+                contexts.add(ctx);
+                const nativeResume=typeof ctx.resume==='function'?ctx.resume.bind(ctx):null;
+                if(nativeResume){
+                  nativeResumes.set(ctx,nativeResume);
+                  try{
+                    ctx.resume=(...rargs)=>isVisible()?nativeResume(...rargs):Promise.resolve();
+                  }catch(_){ }
+                }
+                if(typeof ctx.createOscillator==='function'){
+                  const makeOsc=ctx.createOscillator.bind(ctx);
+                  try{ctx.createOscillator=(...a)=>guardSource(makeOsc(...a));}catch(_){ }
+                }
+                if(typeof ctx.createBufferSource==='function'){
+                  const makeBuf=ctx.createBufferSource.bind(ctx);
+                  try{ctx.createBufferSource=(...a)=>guardSource(makeBuf(...a));}catch(_){ }
+                }
+                if(!isVisible()&&ctx.state==='running'){
+                  Promise.resolve(ctx.suspend()).catch(()=>{});
+                }
+                return ctx;
+              }
+              ForegroundAudioContext.prototype=NativeAC.prototype;
+              try{Object.setPrototypeOf(ForegroundAudioContext,NativeAC);}catch(_){ }
+              try{window.AudioContext=ForegroundAudioContext;}catch(_){ }
+              if(window.webkitAudioContext){
+                try{window.webkitAudioContext=ForegroundAudioContext;}catch(_){ }
+              }
+            }
+
+            const mediaProto=window.HTMLMediaElement&&window.HTMLMediaElement.prototype;
+            const nativePlay=mediaProto&&mediaProto.play;
+            if(nativePlay){
+              mediaProto.play=function(...args){
+                if(!isVisible())return Promise.resolve();
+                return nativePlay.apply(this,args);
+              };
+            }
+
+            const suspendForBackground=()=>{
+              document.querySelectorAll('audio,video').forEach(m=>{
+                if(!m.paused&&!m.ended){
+                  resumeMedia.add(m);
+                  try{m.pause();}catch(_){ }
+                }
+              });
+              contexts.forEach(ctx=>{
+                if(ctx.state==='running'){
+                  resumeContexts.add(ctx);
+                  Promise.resolve(ctx.suspend()).catch(()=>{});
+                }
+              });
+            };
+
+            const resumeForForeground=()=>{
+              if(!isVisible())return;
+              const media=[...resumeMedia];
+              resumeMedia.clear();
+              media.forEach(m=>{
+                if(!m.ended&&m.isConnected&&nativePlay){
+                  Promise.resolve(nativePlay.call(m)).catch(()=>{});
+                }
+              });
+              const ctxs=[...resumeContexts];
+              resumeContexts.clear();
+              ctxs.forEach(ctx=>{
+                if(ctx.state==='suspended'){
+                  const resume=nativeResumes.get(ctx);
+                  if(resume)Promise.resolve(resume()).catch(()=>{});
+                }
+              });
+            };
+
+            document.addEventListener('visibilitychange',()=>{
+              if(isVisible())resumeForForeground();
+              else suspendForBackground();
+            },{passive:true});
+            window.addEventListener('pagehide',suspendForBackground,{passive:true});
+            window.addEventListener('pageshow',resumeForForeground,{passive:true});
+            document.addEventListener('freeze',suspendForBackground,{passive:true});
+            document.addEventListener('resume',resumeForForeground,{passive:true});
+            if(!isVisible())suspendForBackground();
+          })();
+          </script>'''
+
+          # Validate only the inserted JavaScript before touching the game.
+          js=gate[gate.find('<script>')+8:gate.rfind('</script>')]
+          Path('/tmp/foreground-audio-gate.js').write_text(js,encoding='utf-8')
+          subprocess.run(['node','--check','/tmp/foreground-audio-gate.js'],check=True)
+
+          if marker not in s:
+              m=re.search(r'<head(?:\s[^>]*)?>',s,re.I)
+              if not m:
+                  raise SystemExit('head tag missing')
+              s=s[:m.end()]+'\n'+gate+'\n'+s[m.end():]
+              play.write_text(s,encoding='utf-8')
+
+          if s.count(marker)!=1:
+              raise SystemExit(f'foreground audio gate count={s.count(marker)}')
+          if "visibilitychange" not in s or "pagehide" not in s:
+              raise SystemExit('page visibility hooks missing')
+          if "ForegroundAudioContext" not in s or "HTMLMediaElement" not in s:
+              raise SystemExit('audio guards missing')
+
+          sotris_after=hashlib.sha256(sotris.read_bytes()).hexdigest()
+          if sotris_after!=sotris_before:
+              raise SystemExit('Sotris changed unexpectedly')
+
+          after=hashlib.sha256(s.encode()).hexdigest()
+          report='\n'.join([
+            'FOREGROUND AUDIO GATE VERIFIED',
+            'BACKGROUND_POLICY=MUTE/SUSPEND',
+            'FOREGROUND_POLICY=RESUME_PREVIOUSLY_PLAYING_AUDIO',
+            'PAGE_VISIBILITY_API=ENABLED',
+            'WEB_AUDIO_CONTEXT_GUARD=ENABLED',
+            'HTML_MEDIA_PLAY_GUARD=ENABLED',
+            'HIDDEN_NEW_SFX_SUPPRESSION=ENABLED',
+            'INSERTED_JS_NODE_CHECK=PASS',
+            'SOTRIS_CHANGED=NO',
+            'PLAY_SHA256_BEFORE='+before,
+            'PLAY_SHA256_AFTER='+after,
+          ])+'\n'
+          Path('.github/foreground-audio-gate-report.txt').write_text(report,encoding='utf-8')
+          print(report,end='')
+          PY
+          git diff --check
+          git config user.name 'PWDJ Foreground Audio Gate'
+          git config user.email '34460283+haveanair@users.noreply.github.com'
+          git add play/index.html .github/foreground-audio-gate-report.txt
+          git diff --cached --quiet && exit 0
+          git commit -m 'Pause game audio when browser is backgrounded'
+          git push
