@@ -1,0 +1,25 @@
+name: Fix Nongae card spacing
+on:
+  push:
+    paths:
+      - '.github/workflows/fix-nongae-card-spacing.yml'
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Match Nongae card spacing
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 .github/nongae_card_spacing_fix.py
+          git diff --check
+          git config user.name 'PWDJ Nongae Spacing Fix'
+          git config user.email '34460283+haveanair@users.noreply.github.com'
+          git add play/index.html .github/nongae-card-spacing-fix-report.txt
+          git commit -m 'Match Nongae card spacing with catalog'
+          git push
