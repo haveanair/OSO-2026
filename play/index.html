@@ -6920,7 +6920,7 @@ function fantasyCoinDrop(e){
  },46800)}
 
 
- $('#fantasyMapBtn').onclick=openFantasyMap;$('#fantasyMapClose').onclick=closeFantasyMap;mapOverlay.onclick=e=>{if(e.target===mapOverlay)closeFantasyMap()};$('#fantasyMenuBtn').onclick=openFantasyMenu;$('#fantasyMenuClose').onclick=closeFantasyMenu;$('#fantasyStatusBtn').onclick=openFantasyStatus;$('#fantasyStatusBack').onclick=closeFantasyStatus;$('#fantasySaveBtn').onclick=()=>{saveFantasy();closeFantasyMenu()};$('#fantasyLoadBtn').onclick=loadFantasy;saveMenu.onclick=e=>{if(e.target===saveMenu)closeFantasyMenu()};
+ window.OsoRpgFieldActions?.init({hero,run,spells,updateHud,tone,buzz,menuHome,statusPage,saveMenu}); $('#fantasyMapBtn').onclick=openFantasyMap;$('#fantasyMapClose').onclick=closeFantasyMap;mapOverlay.onclick=e=>{if(e.target===mapOverlay)closeFantasyMap()};$('#fantasyMenuBtn').onclick=openFantasyMenu;$('#fantasyMenuClose').onclick=closeFantasyMenu;$('#fantasyStatusBtn').onclick=openFantasyStatus;$('#fantasyStatusBack').onclick=closeFantasyStatus;$('#fantasySaveBtn').onclick=()=>{saveFantasy();closeFantasyMenu()};$('#fantasyLoadBtn').onclick=loadFantasy;saveMenu.onclick=e=>{if(e.target===saveMenu)closeFantasyMenu()};
  let moveHoldDelay=null,moveHoldRepeat=null,moveHoldBtn=null;
  function stopMoveHold(){
   if(moveHoldDelay){clearTimeout(moveHoldDelay);moveHoldDelay=null}
@@ -7144,4 +7144,5 @@ refresh();renderRanking();initGpsUi();initQrUi();boot();
 
 <!-- SP1 SOTRIS LIVE INTEGRATION -->
 <script src="sp1/sotris-integration.js?v=20260903-hard300-progress19"></script>
+<script src="./rpg-field-actions.js?v=20260905-field1"></script>
 </body></html>
