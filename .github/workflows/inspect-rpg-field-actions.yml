@@ -22,6 +22,6 @@ jobs:
           git config user.email '34460283+haveanair@users.noreply.github.com'
           git add .github/rpg-field-action-inspect.txt
           git diff --cached --quiet && exit 0
-          git commit -m 'Record RPG field action structure'
+          git commit -m 'Record expanded RPG field action structure'
           git push
-# one-shot inspection
+# one-shot inspection v2
