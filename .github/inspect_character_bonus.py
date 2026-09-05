@@ -2,40 +2,51 @@ from pathlib import Path
 import re
 
 s=Path('play/index.html').read_text(encoding='utf-8')
-out=['CHARACTER BONUS COMPACT INSPECTION',f'INDEX_LEN={len(s)}']
+out=['CHARACTER BONUS EXACT INSPECTION',f'INDEX_LEN={len(s)}']
 
-def one_line(x,limit=900):
-    x=re.sub(r'\s+',' ',x).strip()
-    return x[:limit]
+# Extract compact catalog records without embedded image/base64 payloads.
+records=[]
+for m in re.finditer(r'\{["\']id["\']\s*:\s*["\']([^"\']+)["\'][^{}]{0,160}?["\']name["\']\s*:\s*["\']([^"\']+)["\'][^{}]{0,220}?["\']price["\']\s*:\s*(\d+)',s):
+    sid,name,price=m.group(1),m.group(2),int(m.group(3))
+    if sid not in {r[0] for r in records}: records.append((sid,name,price))
+# Also catch unquoted keys, if any.
+for m in re.finditer(r'\{\s*id\s*:\s*["\']([^"\']+)["\'][^{}]{0,160}?name\s*:\s*["\']([^"\']+)["\'][^{}]{0,220}?price\s*:\s*(\d+)',s):
+    sid,name,price=m.group(1),m.group(2),int(m.group(3))
+    if sid not in {r[0] for r in records}: records.append((sid,name,price))
+out.append('')
+out.append('## CHARACTER_CATALOG')
+out.append(f'COUNT={len(records)}')
+for sid,name,price in sorted(records,key=lambda r:(r[2],r[0])):
+    out.append(f'{sid}|{name}|{price}')
 
-def contexts(label,pattern,max_hits=12,radius=260):
+# Exact current-skin helpers.
+for needle in ['function currentSkin()','function currentOsoSrc()']:
+    p=s.find(needle)
+    if p>=0: out += ['', '## '+needle, re.sub(r'\s+',' ',s[p:p+500]).strip()]
+
+# Central finish logic, split into short lines so connector can return it reliably.
+p=s.find('function finish(')
+out.append('')
+out.append('## FINISH_EXACT')
+out.append(f'POS={p}')
+if p>=0:
+    txt=re.sub(r'\s+',' ',s[p:p+4200]).strip()
+    for i in range(0,len(txt),240): out.append(f'F{i//240:02d}={txt[i:i+240]}')
+
+# RPG battle reward functions.
+for needle in ['function fantasyBattleCoinReward(','function fantasyCoinDrop(']:
+    p=s.find(needle)
     out.append('')
-    out.append('## '+label)
-    hits=list(re.finditer(pattern,s,re.I|re.S))[:max_hits]
-    out.append(f'HITS={len(hits)}')
-    for i,m in enumerate(hits,1):
-        a=max(0,m.start()-radius);b=min(len(s),m.end()+radius)
-        out.append(f'{i}='+one_line(s[a:b],650))
+    out.append('## '+needle)
+    out.append(f'POS={p}')
+    if p>=0:
+        txt=re.sub(r'\s+',' ',s[p:p+1800]).strip()
+        for i in range(0,len(txt),240): out.append(f'R{i//240:02d}={txt[i:i+240]}')
 
-# Compact character/shop evidence around prices.
-contexts('PRICE_CONTEXT',r'\b(?:price|cost)\s*:\s*\d+',24,240)
-contexts('NONGAE_CONTEXT',r'nongae_(?:jade|resolve)',8,360)
-contexts('SKIN_WORD_CONTEXT',r'\b(?:SKINS|skins|skinList|skinCatalog|CHARACTERS|characters|charList|catalog)\b',18,320)
-contexts('SELECTED_CONTEXT',r'\b(?:selectedSkin|skinId|currentSkin|activeSkin|selectedChar|characterId|equippedSkin|state\.(?:skin|character|char|selectedSkin))\b',24,320)
-contexts('OWNED_CONTEXT',r'\b(?:ownedSkins|skinsOwned|unlockedSkins|purchasedSkins|ownedCharacters|unlockedCharacters)\b',16,260)
-contexts('FINISH_DEF',r'function\s+finish\s*\(',2,900)
-contexts('FANTASY_REWARD',r'function\s+fantasy(?:BattleCoinReward|CoinDrop)\s*\(',4,700)
-
+# State and game IDs.
 ids=sorted(set(re.findall(r"finish\(\s*['\"]([A-Za-z0-9_-]+)['\"]",s)))
-out.append('')
-out.append('## FINISH_GAME_IDS')
-out.append('IDS='+','.join(ids))
-
-# Short list of state keys mentioning skin/char.
-keys=sorted(set(re.findall(r'\bstate\.([A-Za-z_$][\w$]*(?:skin|Skin|char|Char)[A-Za-z_$\w]*)',s)))
-out.append('')
-out.append('## CHARACTER_STATE_KEYS')
-out.append('KEYS='+','.join(keys))
+out += ['', '## FINISH_GAME_IDS', 'IDS='+','.join(ids)]
+out += ['', '## STATE', 'SELECTED=state.selectedSkin', 'OWNED=state.ownedSkins']
 
 Path('.github/character-bonus-inspection.txt').write_text('\n'.join(out)+'\n',encoding='utf-8')
-print('compact inspection report written')
+print('exact inspection report written')
