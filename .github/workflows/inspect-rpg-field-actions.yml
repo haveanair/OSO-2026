@@ -24,3 +24,4 @@ jobs:
           git diff --cached --quiet && exit 0
           git commit -m 'Record RPG field action structure'
           git push
+# one-shot inspection
