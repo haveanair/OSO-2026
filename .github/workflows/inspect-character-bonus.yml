@@ -23,5 +23,6 @@ jobs:
           git config user.email '34460283+haveanair@users.noreply.github.com'
           git add .github/character-bonus-inspection.txt
           git diff --cached --quiet && exit 0
-          git commit -m 'Record character bonus economy structure'
+          git commit -m 'Record compact character bonus structure'
           git push
+# compact inspection rerun
