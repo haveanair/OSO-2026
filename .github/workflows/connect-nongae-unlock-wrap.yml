@@ -1,0 +1,28 @@
+name: Connect Nongae unlock wrap
+on:
+  push:
+    paths:
+      - '.github/workflows/connect-nongae-unlock-wrap.yml'
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Connect Nongae unlock title wrap
+        run: python3 .github/connect_nongae_unlock_wrap.py
+      - name: Verify and publish
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check play/nongae-unlock-wrap.js
+          git diff --check
+          git config user.name 'PWDJ Nongae Wrap'
+          git config user.email '34460283+haveanair@users.noreply.github.com'
+          git add play/index.html .github/nongae-unlock-wrap-report.txt
+          git diff --cached --quiet && exit 0
+          git commit -m 'Fix Nongae unlock title line break'
+          git push
