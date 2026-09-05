@@ -1,0 +1,31 @@
+name: Connect character performance bonus
+on:
+  push:
+    paths:
+      - '.github/workflows/connect-character-performance-bonus.yml'
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Connect separate character bonus module
+        run: python3 .github/connect_character_performance_bonus.py
+      - name: Verify module syntax and behavior
+        run: |
+          node --check play/character-performance-bonus.js
+          node .github/test_character_performance_bonus.js
+      - name: Publish verified integration
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --check
+          git config user.name 'PWDJ Character Performance Bonus'
+          git config user.email '34460283+haveanair@users.noreply.github.com'
+          git add play/index.html .github/character-performance-bonus-report.txt
+          git diff --cached --quiet && exit 0
+          git commit -m 'Scale game rewards with selected character'
+          git push
