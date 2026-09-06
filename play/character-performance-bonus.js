@@ -141,14 +141,21 @@
     }catch(_){ }
   }
 
-  function observeShop(){
-    decorateShop();
-    const shop=document&&document.getElementById('osoShop');
-    if(shop&&typeof MutationObserver!=='undefined')new MutationObserver(()=>decorateShop()).observe(shop,{childList:true,subtree:true})
+  function scheduleShopDecoration(){
+    setTimeout(()=>{try{decorateShop()}catch(_){}},0)
+  }
+  function bindShopDecoration(){
+    if(!document||document.documentElement.dataset.characterBonusShopBound==='1')return;
+    document.documentElement.dataset.characterBonusShopBound='1';
+    document.addEventListener('click',e=>{
+      const t=e&&e.target;
+      if(!t||!t.closest)return;
+      if(t.closest('#titleCollection,[data-page="bookPage"],[data-buy]'))scheduleShopDecoration()
+    },true)
   }
 
   function boot(){
-    ensureStyle();wrapFinish();wrapFantasyBattleReward();observeShop();
+    ensureStyle();wrapFinish();wrapFantasyBattleReward();bindShopDecoration();
     if(window&&window.addEventListener)window.addEventListener('message',handleSp1Result)
   }
 
