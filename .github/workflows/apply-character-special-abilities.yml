@@ -1,0 +1,33 @@
+name: Apply character special abilities once
+
+'on':
+  push:
+    paths:
+      - '.github/workflows/apply-character-special-abilities.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply patch
+        run: python .github/add_character_special_abilities.py
+      - name: Check special module syntax
+        run: node --check play/character-special-abilities.js
+      - name: Check diff
+        run: git diff --check
+      - name: Configure git name
+        run: git config user.name "PWDJ Character Ability"
+      - name: Configure git email
+        run: git config user.email "34460283+haveanair@users.noreply.github.com"
+      - name: Stage verified files
+        run: git add play/index.html .github/character-special-abilities-report.txt
+      - name: Check staged diff
+        run: git diff --cached --check
+      - name: Commit patch
+        run: git commit -m "Apply character-specific gameplay abilities"
+      - name: Push patch
+        run: git push
