@@ -4846,7 +4846,7 @@ function playSpacefighter(craftMode='character'){
   else{add(-18);add(-9);add(0);add(9);add(18);add(-11,-125,.82);add(11,125,.82)}
  }
  function firePlayer(ts){
-  const baseDelay=Math.max(70,98-power*5),delay=sfAbility?sfAbility.shootingDelayMs(skin,baseDelay):baseDelay;
+  const delay=Math.max(70,98-power*5);
   if(ts-lastShot<delay)return;lastShot=ts;
   firePattern(player.x,player.y,false);
   clonePositions().forEach(c=>firePattern(c.x,c.y,true));
@@ -4894,15 +4894,21 @@ function playSpacefighter(craftMode='character'){
  }
  superBtn.onclick=e=>{e.preventDefault();e.stopPropagation();useSuper()};
 
- function pointerPos(e){
-  const r=canvas.getBoundingClientRect();
-  player.x=clamp(e.clientX-r.left,22,W-22);
-  player.y=clamp(e.clientY-r.top,205,H-38)
+ let sfPointerX=null,sfPointerY=null;
+ function pointerPos(e,initial=false){
+  const r=canvas.getBoundingClientRect(),px=clamp(e.clientX-r.left,22,W-22),py=clamp(e.clientY-r.top,205,H-38);
+  const moveMult=(!isKf21&&sfAbility&&typeof sfAbility.shootingMoveMultiplier==='function')?sfAbility.shootingMoveMultiplier(skin):1;
+  if(initial||sfPointerX===null||sfPointerY===null){player.x=px;player.y=py}
+  else{
+   player.x=clamp(player.x+(px-sfPointerX)*moveMult,22,W-22);
+   player.y=clamp(player.y+(py-sfPointerY)*moveMult,205,H-38)
+  }
+  sfPointerX=px;sfPointerY=py
  }
- canvas.addEventListener('pointerdown',e=>{drag=true;canvas.setPointerCapture?.(e.pointerId);pointerPos(e)});
- canvas.addEventListener('pointermove',e=>{if(drag)pointerPos(e)});
- canvas.addEventListener('pointerup',()=>drag=false);
- canvas.addEventListener('pointercancel',()=>drag=false);
+ canvas.addEventListener('pointerdown',e=>{drag=true;canvas.setPointerCapture?.(e.pointerId);pointerPos(e,true)});
+ canvas.addEventListener('pointermove',e=>{if(drag)pointerPos(e,false)});
+ canvas.addEventListener('pointerup',()=>{drag=false;sfPointerX=sfPointerY=null});
+ canvas.addEventListener('pointercancel',()=>{drag=false;sfPointerX=sfPointerY=null});
 
  function drawBackground(st,dt){
   const g=ctx.createLinearGradient(0,0,0,H);
@@ -7159,6 +7165,6 @@ refresh();renderRanking();initGpsUi();initQrUi();boot();
 <script src="./rpg-field-actions.js?v=20260905-field1"></script>
 <script src="./rpg-save-confirm.js?v=20260906-saveconfirm1"></script>
 <script src="./nongae-unlock-wrap.js?v=20260906-wrap1"></script>
-<script src="./character-special-abilities.js?v=20260907-charability1"></script>
+<script src="./character-special-abilities.js?v=20260907-charability2"></script>
 <script src="./character-performance-bonus.js?v=20260906-charbonus2"></script>
 </body></html>

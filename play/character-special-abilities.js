@@ -21,9 +21,8 @@
     return traits(skin).aya?{normal:260,boost:300}:{normal:normalMax,boost:boostMax};
   }
 
-  function shootingDelayMs(skin,baseMs){
-    const base=Math.max(1,Number(baseMs)||1);
-    return traits(skin).aya?Math.max(48,Math.round(base*.72)):base;
+  function shootingMoveMultiplier(skin){
+    return traits(skin).aya?1.28:1;
   }
 
   function runBaseJumpCap(skin,baseCap=2){
@@ -71,7 +70,7 @@
   }
 
   window.OsoCharacterSpecialAbilities={
-    VERSION:'1.0.0',traits,racingLimits,shootingDelayMs,
+    VERSION:'1.0.1',traits,racingLimits,shootingMoveMultiplier,
     runBaseJumpCap,runJumpVelocity,runNeedsTripleTicket,runGreatAddsTripleTicket,
     fishDwellMs,sliceRadius,sliceMinSwipeSpeed,tteokWindow,powerduckNeed
   };
