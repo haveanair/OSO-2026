@@ -9,8 +9,8 @@ new="""  function scheduleShopDecoration(){\n    setTimeout(()=>{try{decorateSho
 if old not in s:
     raise SystemExit('expected observer block not found')
 s=s.replace(old,new,1)
-if 'MutationObserver' in s:
-    raise SystemExit('MutationObserver still present in character bonus module')
+if 'new MutationObserver' in s or '.observe(shop' in s:
+    raise SystemExit('active shop observer still present in character bonus module')
 mod.write_text(s,encoding='utf-8')
 
 h=idx.read_text(encoding='utf-8')
