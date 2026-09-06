@@ -81,7 +81,9 @@
       let tag=card.querySelector('.characterRewardBonus');
       if(!tag){tag=document.createElement('span');tag.className='characterRewardBonus';const btn=card.querySelector('button[data-buy]');btn?card.insertBefore(tag,btn):card.appendChild(tag)}
       tag.classList.toggle('base',pct<=0);
-      tag.textContent=pct>0?`⭐ 점수·코인 +${pct}%`:'점수·코인 기본 보상'
+      const label=pct>0?`⭐ 점수·코인 +${pct}%`:'점수·코인 기본 보상';
+      /* MutationObserver가 이 함수 자신의 textContent 변경을 다시 감지해 무한 반복하지 않도록 실제 변경이 있을 때만 갱신한다. */
+      if(tag.textContent!==label)tag.textContent=label
     })
   }
 
