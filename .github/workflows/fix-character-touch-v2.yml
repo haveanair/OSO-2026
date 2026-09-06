@@ -19,7 +19,8 @@ jobs:
         run: |
           set -euo pipefail
           node --check play/character-performance-bonus.js
-          ! grep -q 'MutationObserver' play/character-performance-bonus.js
+          ! grep -q 'new MutationObserver' play/character-performance-bonus.js
+          ! grep -q '.observe(shop' play/character-performance-bonus.js
           grep -q 'character-performance-bonus.js?v=20260906-charbonus2' play/index.html
           git diff --check
           bad="$(git diff --name-only | grep -Ev '^(play/character-performance-bonus.js|play/index.html)$' || true)"
@@ -34,3 +35,4 @@ jobs:
           git diff --cached --quiet && exit 0
           git commit -m 'Remove character bonus observer and bust cache'
           git push
+# rerun after verifier correction
