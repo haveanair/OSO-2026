@@ -3933,7 +3933,8 @@ function playFish(){
  s.innerHTML=`<div class="scene fishScene"><div class="marketAwning"></div><div class="marketSign">팔딱팔딱 수산시장</div><div class="waterLayer"><div class="waterGlow"></div><div class="waterBand w1"></div><div class="waterBand w2"></div><div class="waterBand w3"></div></div><div class="fishCounter"></div></div><div class="counter" id="tm">35</div><div class="comboHud" id="combo">COMBO ×0</div><div class="levelHud" id="levelHud">LEVEL 1</div><div class="playCoinHud" id="playCoinHud">🪙 +0</div><div class="gameTip">생선 사이에 간헐적으로 동전 등장 · 잡으면 실제 코인 보너스!</div><div class="grid9 fishGrid">${Array.from({length:9},(_,i)=>`<button class="hole" data-i="${i}"></button>`).join('')}</div>`;
  let score=0,t=35,combo=0,level=1,sp=null,ended=false,wave=0,bonusCoins=0;
  const holes=$$('.hole'),stopWater=waterAmbience(),expireTimers=new Map();
- const DWELL=1250;
+ const fishAbility=window.OsoCharacterSpecialAbilities,fishAbilitySkin=currentSkin();
+ const DWELL=fishAbility?fishAbility.fishDwellMs(fishAbilitySkin,1250):1250;
  function hud(){$('#combo').textContent=`COMBO ×${combo}`;const c=$('#playCoinHud');if(c)c.textContent=`🪙 +${bonusCoins}`} 
  function friend(){return `<img class="friendChar" src="${Math.random()>.5?HAMO_SRC:AYO_SRC}">`}
  function droplets(h){
@@ -4180,26 +4181,30 @@ function playStack(){
 /* run - stable dt + 2 jumps */
 function playRun(){
  const s=$('#stage');s.innerHTML='<div class="runFrame"><canvas class="runner" id="rc"></canvas><div class="runVignette"></div><div class="runHitFlash" id="runFlash"></div></div><div class="counter" id="runLife">❤️❤️❤️❤️❤️</div><div class="jumpHud" id="jumpHud">점프 2/2</div><div class="runHud" id="runDist">0m · 🪙 +0</div><div class="levelHud" id="levelHud">LEVEL 1</div><div class="gameTip">동전 한 패턴 완주 = GREAT! · GREAT 1회=3단점프권 · GREAT 3회마다 ❤️ +1</div>';
- const c=$('#rc'),ctx=c.getContext('2d'),flash=$('#runFlash');let alive=true,py=0,vy=0,jumps=0,jumpCap=2,lives=5,inv=0,world=0,score=0,coins=0,obs=[],coinList=[],raf,prev=performance.now(),obsT=.8,coinT=.45,land=0,img=new Image(),level=1,greatTotal=0,tripleCharges=0,patternSeq=0;img.src=currentOsoSrc();
+ const runnerAbility=window.OsoCharacterSpecialAbilities,runnerAbilitySkin=currentSkin();
+ const c=$('#rc'),ctx=c.getContext('2d'),flash=$('#runFlash');let alive=true,py=0,vy=0,jumps=0,jumpCap=runnerAbility?runnerAbility.runBaseJumpCap(runnerAbilitySkin,2):2,lives=5,inv=0,world=0,score=0,coins=0,obs=[],coinList=[],raf,prev=performance.now(),obsT=.8,coinT=.45,land=0,img=new Image(),level=1,greatTotal=0,tripleCharges=0,patternSeq=0;img.src=currentOsoSrc();
  const coinPatterns=new Map();let cw=1,ch=1,dpr=1;
  function lifeHud(){
   const red=Math.max(0,Math.floor(lives)),empty=Math.max(0,5-red);
   $('#runLife').textContent='❤️'.repeat(red)+'🖤'.repeat(empty)
  }
  function jumpHud(){
-  const left=Math.max(0,jumpCap-jumps),ticket=tripleCharges>0?` · 3단권 ×${tripleCharges}`:'';
+  const left=Math.max(0,jumpCap-jumps),showTicket=runnerAbility?runnerAbility.runGreatAddsTripleTicket(runnerAbilitySkin):true,ticket=showTicket&&tripleCharges>0?` · 3단권 ×${tripleCharges}`:'';
   $('#jumpHud').textContent=`점프 ${left}/${jumpCap}${ticket}`
  }
  function resize(){let r=c.getBoundingClientRect();cw=Math.max(1,r.width);ch=Math.max(1,r.height);dpr=Math.min(2,devicePixelRatio||1);c.width=Math.round(cw*dpr);c.height=Math.round(ch*dpr);ctx.setTransform(dpr,0,0,dpr,0,0)}
  resize();window.addEventListener('resize',resize);
  c.onpointerdown=()=>{
   if(jumps>=jumpCap)return;
-  const next=jumps+1;
-  if(next===3&&tripleCharges<=0){jumpCap=2;jumpHud();return}
+  const next=jumps+1,ticketNeeded=runnerAbility?runnerAbility.runNeedsTripleTicket(runnerAbilitySkin,next):next===3;
+  if(ticketNeeded&&tripleCharges<=0){jumpCap=runnerAbility?runnerAbility.runBaseJumpCap(runnerAbilitySkin,2):2;jumpHud();return}
   jumps=next;
-  if(jumps===1){vy=-530;tone('good');buzz(9)}
-  else if(jumps===2){vy=-470;tone('perfect');buzz([10,10,18])}
-  else{tripleCharges--;vy=-445;tone('clear');buzz([12,7,24,7,34]);showComboBurst('3단 점프!',Math.max(2,greatTotal),'great')}
+  const baseJumpVy=jumps===1?-530:jumps===2?-470:-445;
+  vy=runnerAbility?runnerAbility.runJumpVelocity(runnerAbilitySkin,jumps,baseJumpVy):baseJumpVy;
+  if(jumps===1){tone('good');buzz(9)}
+  else if(jumps===2){tone('perfect');buzz([10,10,18])}
+  else if(ticketNeeded){tripleCharges--;tone('clear');buzz([12,7,24,7,34]);showComboBurst('3단 점프!',Math.max(2,greatTotal),'great')}
+  else{tone('clear');buzz(jumps>=4?[14,7,28,7,40]:[10,7,22]);if(jumps>=4)showComboBurst('4단 점프!',Math.max(4,greatTotal),'great')}
   jumpHud()
  };
  function cloud(x,y,scl){ctx.fillStyle='#ffffffc8';ctx.beginPath();ctx.ellipse(x,y,45*scl,20*scl,0,0,6.28);ctx.ellipse(x+34*scl,y+2*scl,34*scl,16*scl,0,0,6.28);ctx.ellipse(x-28*scl,y+3*scl,30*scl,15*scl,0,0,6.28);ctx.fill()}
@@ -4209,12 +4214,12 @@ function playRun(){
  function spawnCoins(){let n=3+Math.floor(Math.random()*4),base=cw+70,y=ch-175-Math.random()*100,id=++patternSeq;coinPatterns.set(id,{total:n,collected:0,failed:false,done:false});for(let i=0;i<n;i++)coinList.push({x:base+i*43,y:y-Math.sin(i/(n-1||1)*3.14)*48,g:false,spin:Math.random()*6,pattern:id})}
  function completePattern(id){
   const p=coinPatterns.get(id);if(!p||p.done||p.failed||p.collected<p.total)return;
-  p.done=true;greatTotal++;tripleCharges++;jumpCap=3;score+=80+greatTotal*10;
+  p.done=true;greatTotal++;const addsTripleTicket=runnerAbility?runnerAbility.runGreatAddsTripleTicket(runnerAbilitySkin):true;if(addsTripleTicket){tripleCharges++;jumpCap=3}else jumpCap=runnerAbility?runnerAbility.runBaseJumpCap(runnerAbilitySkin,2):2;score+=80+greatTotal*10;
   const heartBonus=greatTotal%3===0;
   if(heartBonus)lives++;
   tone('clear');buzz(heartBonus?[24,8,38,8,58,10,82]:[18,8,30,8,45]);
   const sr=s.getBoundingClientRect();
-  showComboBurst(heartBonus?'GREAT ×3! · ❤️ +1':'GREAT! · 3단점프 +1',greatTotal,'great');
+  showComboBurst(heartBonus?'GREAT ×3! · ❤️ +1':(addsTripleTicket?'GREAT! · 3단점프 +1':'GREAT!'),greatTotal,'great');
   particles(sr.left+sr.width/2,sr.top+sr.height*.40,heartBonus?'❤️':'⭐',heartBonus?14:10);
   if(heartBonus){lifeHud();setTimeout(()=>tone('perfect'),120)}
   jumpHud();setTimeout(()=>coinPatterns.delete(id),500)
@@ -4225,7 +4230,7 @@ function playRun(){
   let old=level;level=updateLevel('run',Math.floor(score+coins*30),level);if(level!==old)obsT=.25;obsT-=dt;coinT-=dt;
   if(obsT<=0){spawnObs();obsT=Math.max(.62,1.65-level*.16)+Math.random()*.5;if(level===5&&Math.random()<.3)obs.push({x:cw+190,type:'crate'})}
   if(coinT<=0){spawnCoins();coinT=1.35+Math.random()*1.2}
-  vy+=1300*dt;py+=vy*dt;if(py>0){if(vy>180)land=.16;py=0;vy=0;jumps=0;jumpCap=tripleCharges>0?3:2;jumpHud()}if(land>0)land-=dt;if(inv>0)inv-=dt;
+  vy+=1300*dt;py+=vy*dt;if(py>0){if(vy>180)land=.16;py=0;vy=0;jumps=0;const baseCap=tripleCharges>0?3:2;jumpCap=runnerAbility?runnerAbility.runBaseJumpCap(runnerAbilitySkin,baseCap):baseCap;jumpHud()}if(land>0)land-=dt;if(inv>0)inv-=dt;
   ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,cw,ch);
   let g=ctx.createLinearGradient(0,0,0,ch*.66);g.addColorStop(0,'#68c9f4');g.addColorStop(1,'#e0f6ff');ctx.fillStyle=g;ctx.fillRect(0,0,cw,ch);
   let co=(world*.08)%230;for(let i=-1;i<4;i++)cloud(i*230-co,70+(i%2)*43,.75+(i%3)*.1);
@@ -4291,6 +4296,7 @@ function splitFoodV14(e,x,y){
 function playSlice(){
  const s=$('#stage');s.innerHTML='<div class="scene sliceScene"><div class="awningMini"></div><div class="marketSign">중앙시장 먹거리 싹쓸이!</div><div class="foodBanner">비빔밥 · 국수 · 호떡 · 김밥 · 떡볶이 · 주스 · 통닭</div><div class="sliceWind"></div><div class="cutTable"></div></div><div class="counter" id="tm">35</div><div class="comboHud" id="combo">COMBO ×0</div><div class="lifeHud" id="life">❤️❤️❤️</div><div class="levelHud" id="levelHud">LEVEL 1</div><div class="playCoinHud" id="playCoinHud">🪙 +0</div><div class="gameTip">음식 사이에 간헐적으로 동전 등장 · 베면 실제 코인 보너스!</div>';
  let score=0,t=35,alive=true,down=false,lastPt=null,items=[],raf,last=0,combo=0,lives=3,level=1,bonusCoins=0,prev=performance.now();
+ const sliceAbility=window.OsoCharacterSpecialAbilities,sliceAbilitySkin=currentSkin();
  const foods=[['bibimbap','비빔밥'],['noodle','국수'],['hotteok','호떡'],['gimbap','김밥'],['tteokbokki','떡볶이'],['juice','주스'],['chicken','통닭']];
  function hud(){$('#combo').textContent=`COMBO ×${combo}`;$('#life').textContent='❤️'.repeat(lives)+'🖤'.repeat(3-lives);const c=$('#playCoinHud');if(c)c.textContent=`🪙 +${bonusCoins}`} 
  function comboScale(){return 1+Math.min(.48,Math.floor(combo/3)*.06)}
@@ -4333,7 +4339,8 @@ function playSlice(){
   const hits=[];
   items.slice().forEach(e=>{
    if(!e.isConnected||e.dataset.cut==='1')return;const r=e.getBoundingClientRect(),cx=r.left+r.width/2,cy=r.top+r.height/2;
-   if(pointSegDistV14(cx,cy,x1,y1,x2,y2)<Math.max(38,r.width*.43))hits.push([e,cx,cy])
+   const baseRadius=Math.max(38,r.width*.43),hitRadius=sliceAbility?sliceAbility.sliceRadius(sliceAbilitySkin,baseRadius):baseRadius;
+   if(pointSegDistV14(cx,cy,x1,y1,x2,y2)<hitRadius)hits.push([e,cx,cy])
   });
   let foodHits=0;hits.forEach(([e,cx,cy])=>{foodHits+=cut(e,cx,cy,speed,hits.length>1)});
   if(foodHits>=2)multiCombo(Math.min(3,foodHits))
@@ -4341,7 +4348,7 @@ function playSlice(){
  s.onpointerdown=e=>{down=true;lastPt=[e.clientX,e.clientY,performance.now()];try{s.setPointerCapture(e.pointerId)}catch(_){} };
  s.onpointermove=e=>{
   if(!down||!lastPt)return;const now=performance.now(),dx=e.clientX-lastPt[0],dy=e.clientY-lastPt[1],len=Math.hypot(dx,dy),dt=Math.max(1,now-lastPt[2]),speed=len/dt*1000;
-  if(len>=7){slashTrailV14(lastPt[0],lastPt[1],e.clientX,e.clientY);if(speed>=105)sweep(lastPt[0],lastPt[1],e.clientX,e.clientY,speed);lastPt=[e.clientX,e.clientY,now]}
+  if(len>=7){slashTrailV14(lastPt[0],lastPt[1],e.clientX,e.clientY);const minSwipe=sliceAbility?sliceAbility.sliceMinSwipeSpeed(sliceAbilitySkin,105):105;if(speed>=minSwipe)sweep(lastPt[0],lastPt[1],e.clientX,e.clientY,speed);lastPt=[e.clientX,e.clientY,now]}
  };
  s.onpointerup=s.onpointercancel=()=>{down=false;lastPt=null};
  function spawnDelay(){return [0,1180,980,800,650,520][level]||520}
@@ -4368,15 +4375,16 @@ function playTteok(){
 
  let score=0,t=35,alive=true,raf,prev=performance.now();
  let phase=0,combo=0,fever=0,feverTime=0,level=1;
+ const tteokAbility=window.OsoCharacterSpecialAbilities,tteokAbilitySkin=currentSkin();
 
  const ring=$('#ring'),mallet=$('#mallet'),dough=$('#dough'),
        grade=$('#grade'),impact=$('#impact'),scene=$('.tteokSceneV9'),
        target=$('#target');
 
  // 판정 구간은 레벨/콤보와 무관하게 끝까지 동일.
- const PERFECT_WINDOW=.10;
- const GREAT_WINDOW=.25;
- const GOOD_WINDOW=.46;
+ const PERFECT_WINDOW=tteokAbility?tteokAbility.tteokWindow(tteokAbilitySkin,'perfect',.10):.10;
+ const GREAT_WINDOW=tteokAbility?tteokAbility.tteokWindow(tteokAbilitySkin,'great',.25):.25;
+ const GOOD_WINDOW=tteokAbility?tteokAbility.tteokWindow(tteokAbilitySkin,'good',.46):.46;
 
  // 난이도 상승은 오직 수축 속도만 변화.
  // LEVEL + COMBO가 오르면 같은 바깥→안쪽 패턴이 점점 빨라진다.
@@ -4528,6 +4536,8 @@ function playPowerduck(){
   {name:'큰 오락기',icon:'🕹️',need:13},
   {name:'지구',icon:'🌍',need:16}
  ];
+ const powerduckAbility=window.OsoCharacterSpecialAbilities,powerduckAbilitySkin=currentSkin();
+ if(powerduckAbility)targets.forEach(o=>o.need=powerduckAbility.powerduckNeed(powerduckAbilitySkin,o.need));
  s.innerHTML=`<div class="powerduckScene"><div class="pdGrid"></div><div class="pdTitle">POWER DUCK<br>1초 연타 파괴 챌린지</div><div class="pdRecord" id="pdRecord">BEST ${state.pdRecord||0}/s</div><div class="pdLevel" id="pdLevel">LEVEL 1</div><div class="pdNeed" id="pdNeed"></div><div class="pdTimer"><div class="pdTimerFill" id="pdFill"></div></div><button class="pdTarget" id="pdTarget"></button><div class="pdStageText" id="pdText"></div><div class="pdCount" id="pdCount">0 연타</div></div>`;
  const PD_SCORE_MULT=[0,1,4,12,40,160];
  const PD_CLEAR_BONUS=[0,0,30,120,500,2000];
@@ -4595,6 +4605,7 @@ function beginSpacefighter(){
 function playSpacefighter(craftMode='character'){
  const isKf21=craftMode==='kf21';
  const s=$('#stage'),skin=currentSkin(),group=skin.group||'oso';
+ const sfAbility=window.OsoCharacterSpecialAbilities;
  const isNongae=group==='nongae';
  const shotIcon=group==='oso'?'📦':'●';
  const superName=isKf21?'스카이 블레이즈!':(isNongae?'천상의 옥가락지 어택!':(group==='oso'?'만물상 폭격!':'진주 폭풍!'));
@@ -4835,7 +4846,7 @@ function playSpacefighter(craftMode='character'){
   else{add(-18);add(-9);add(0);add(9);add(18);add(-11,-125,.82);add(11,125,.82)}
  }
  function firePlayer(ts){
-  const delay=Math.max(70,98-power*5);
+  const baseDelay=Math.max(70,98-power*5),delay=sfAbility?sfAbility.shootingDelayMs(skin,baseDelay):baseDelay;
   if(ts-lastShot<delay)return;lastShot=ts;
   firePattern(player.x,player.y,false);
   clonePositions().forEach(c=>firePattern(c.x,c.y,true));
@@ -5385,9 +5396,10 @@ function playOsoRacing(){
  let accelHeld=false,accelPointer=null,brakeHeld=false,brakePointer=null,driftHeld=false,driftPointer=null,steering=false,steerDir=0,steerPointer=null;
  let lastBrakeSfx=0,lastLoadBuzz=0,lastTyreSfx=0,lastDriftSfx=0,lastForceBuzz=0,cars=[],raceCoinsOnRoad=[],sparks=[],lastCarSpawn=0,engineNodes=null,cornerSlip=0,raceCoinCount=0,nextCoinLineAt=7000,raceLineSeq=0;
 
- /* 표시 속도는 현실적인 220/260 km/h.
+ /* 기본 표시 속도는 220/260 km/h. 아요/논개는 외부 캐릭터 특성 모듈에서 260/300 km/h로 확장한다.
     화면 이동은 속도 비례 가속 스크롤이며 최고속도에서 v2.0.3의 9배율 대비 4배 이상. */
- const FINISH=420000,DRAW=118,NORMAL_MAX=220,BOOST_MAX=260,WORLD_PER_SEG=28;
+ const raceAbility=window.OsoCharacterSpecialAbilities,raceLimits=raceAbility?raceAbility.racingLimits(currentSkin(),220,260):{normal:220,boost:260};
+ const FINISH=420000,DRAW=118,NORMAL_MAX=raceLimits.normal,BOOST_MAX=raceLimits.boost,WORLD_PER_SEG=28;
  const SEC=[
   {name:'중앙시장',sky1:'#84cff6',sky2:'#eef9ff',grass:'#e6b96f',kind:'market'},
   {name:'진주성',sky1:'#9ecbf0',sky2:'#e8f2ff',grass:'#8ca16b',kind:'castle'},
@@ -5478,7 +5490,7 @@ function playOsoRacing(){
 
  function useBoost(){
   if(boost<100||!alive)return;
-  boost=0;boostUntil=performance.now()+2050;tone('clear');buzz([20,10,35]);banner('TURBO!','260 km/h!')
+  boost=0;boostUntil=performance.now()+2050;tone('clear');buzz([20,10,35]);banner('TURBO!',`${BOOST_MAX} km/h!`)
  }
  function boostDown(e){if(e){e.preventDefault();e.stopPropagation()}useBoost()}
  boostBtn.onclick=null;
@@ -7147,5 +7159,6 @@ refresh();renderRanking();initGpsUi();initQrUi();boot();
 <script src="./rpg-field-actions.js?v=20260905-field1"></script>
 <script src="./rpg-save-confirm.js?v=20260906-saveconfirm1"></script>
 <script src="./nongae-unlock-wrap.js?v=20260906-wrap1"></script>
+<script src="./character-special-abilities.js?v=20260907-charability1"></script>
 <script src="./character-performance-bonus.js?v=20260906-charbonus2"></script>
 </body></html>
