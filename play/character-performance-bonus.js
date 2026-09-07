@@ -238,8 +238,9 @@
       const wrapped=function(message){
         let msg=String(message==null?'':message);const stack=!!document.querySelector('#stage #sseScene');
         if(stack&&/^GREAT!/.test(msg)){
-          const gain=expandLatestStackPiece(.04,5,8);msg=rewriteGrowMessage(msg,gain);
-          msg=msg.replace(/^GREAT!\s*/, 'GREAT!\n');arguments[0]=msg
+          const gain=expandLatestStackPiece(.04,5,8),pts=(msg.match(/\+(\d+)\s*$/)||[])[1];
+          const line2=[gain>0?`비단 +${Math.round(gain)}`:'',pts?`+${pts}`:''].filter(Boolean).join(' · ');
+          msg=`GREAT!\n${line2}`;arguments[0]=msg
         }
         if(stack&&/^PERFECT/.test(msg)){
           const gain=expandLatestStackPiece(.06,9,14);msg=rewriteGrowMessage(msg,gain);arguments[0]=msg
