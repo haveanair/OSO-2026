@@ -47,8 +47,10 @@
   return {nongae,hamo:nongae||group==='hamo'||id==='hamo'}
  }
  function assistProfile(){
-  const t=skinTraits(),assisted=!!(t.hamo||t.nongae);
-  return {assisted,minOverlap:assisted?20:28,centerScale:assisted?1.30:1}
+  const t=skinTraits();
+  if(t.nongae)return {assisted:true,minOverlap:23,centerScale:1.18};
+  if(t.hamo)return {assisted:true,minOverlap:24,centerScale:1.15};
+  return {assisted:false,minOverlap:28,centerScale:1}
  }
 
  function ensureStyle(){
@@ -61,10 +63,10 @@
   .sseModeBtns button:last-child{background:linear-gradient(#8be0ff,#8178ff);color:#fff;border-color:#31477a;box-shadow:0 5px #35456e}
   .sseUnlockProgress{font-size:10px!important;color:#7b5b42}.sseModeBtns button:disabled{background:#c8c8c8;color:#707070;border-color:#8a8a8a;box-shadow:0 5px #888;opacity:.76}
 
-  .sseScene{position:absolute;inset:0;overflow:hidden;transition:background .35s}.sseScene .silkLane{z-index:4}.sseScene .silkGround{z-index:3}.sseBackdrop{position:absolute;inset:0;overflow:hidden;pointer-events:none;z-index:1;--skyScale:1;--skyDrop:0px;--skyFade:1}
+  .sseScene{position:absolute;inset:0;overflow:hidden;transition:background .35s}.sseScene .silkLane{z-index:4}.sseScene .silkGround{z-index:3}.sseBackdrop{position:absolute;inset:0;overflow:hidden;pointer-events:none;z-index:1;--skyScale:1;--skyDrop:0px;--skyFade:1;--spaceBlend:0;--atmoFade:1}
   .sseScene.sse-house{background:linear-gradient(#f4e7c7 0 56%,#d7b57e 56% 100%)}.sseScene.sse-building{background:linear-gradient(#b9dded 0 25%,#d7d5cf 25% 100%)}.sseScene.sse-sky{background:linear-gradient(#42b8f0 0%,#9ee5ff 62%,#e7f8ff 100%)}.sseScene.sse-space{background:radial-gradient(circle at 75% 18%,#33306c 0 3%,#101333 32%,#050817 72%,#01030b 100%)}
   .sseScene.sse-building .silkBackStall,.sseScene.sse-building .silkShelf,.sseScene.sse-sky .silkBackStall,.sseScene.sse-sky .silkShelf,.sseScene.sse-space .silkBackStall,.sseScene.sse-space .silkShelf{display:none}
-  .sseScene.sse-sky .silkGround{background:linear-gradient(#d8f3ff,#8fd2ee);box-shadow:inset 0 8px #fff8;opacity:var(--skyFade);transition:opacity .35s}.sseScene.sse-space .silkGround{background:linear-gradient(#25284f,#10152f);box-shadow:inset 0 8px #7682bd}
+  .sseScene.sse-sky .silkGround{background:linear-gradient(#d8f3ff,#8fd2ee);box-shadow:inset 0 8px #fff8;opacity:var(--skyFade);transition:opacity .35s}.sseScene.sse-space .silkGround{background:linear-gradient(#25284f,#10152f);box-shadow:inset 0 8px #7682bd}.sseSkySpaceVeil{position:absolute;inset:0;z-index:7;background:linear-gradient(#050817 0%,#101333 44%,#25395d 72%,#557b98 100%);opacity:var(--spaceBlend);transition:opacity .32s;pointer-events:none}.sseSkyStars{position:absolute;inset:0;z-index:8;background-image:radial-gradient(#fff 1.1px,transparent 1.3px),radial-gradient(#9edcff 1px,transparent 1.2px),radial-gradient(#ffe6a0 1px,transparent 1.2px);background-size:43px 43px,67px 67px,91px 91px;background-position:0 0,19px 11px,37px 29px;opacity:var(--spaceBlend);transition:opacity .32s;pointer-events:none}
 
   .sseTopHud{position:absolute;left:10px;right:10px;top:10px;z-index:22;display:grid;grid-template-columns:minmax(94px,1fr) auto 46px auto;grid-template-areas:'floor life pause level' 'perfect perfect perfect perfect' 'title title title title';gap:7px 7px;align-items:center;pointer-events:none}
   .sseTopHud>*{box-sizing:border-box;min-width:0}
@@ -87,10 +89,10 @@
 
   .sseHouseWall{position:absolute;left:5%;right:5%;bottom:70px;height:70%;border:7px solid #75462e;background:repeating-linear-gradient(90deg,#f2dfb6 0 64px,#e6cda0 64px 68px);box-shadow:inset 0 0 0 5px #fff4;opacity:.72}.sseHouseWindow{position:absolute;top:24%;width:70px;height:88px;border:7px solid #71482f;background:linear-gradient(#86d4f7 0 48%,#d6f4ff 48%);box-shadow:inset 0 0 0 4px #fff5}.sseHouseWindow.l{left:9%}.sseHouseWindow.r{right:9%}.sseCeiling{position:absolute;left:-3%;right:-3%;top:18%;height:24px;background:#6f432d;box-shadow:0 9px #b57a42,0 -5px #4b2c20}
   .sseBuildingWall{position:absolute;left:3%;right:3%;top:7%;bottom:65px;border:7px solid #555c67;background:repeating-linear-gradient(0deg,#c7c9c9 0 58px,#858d96 58px 64px);box-shadow:inset 0 0 0 4px #e8ecef}.sseWindowGrid{position:absolute;inset:11% 8% 17%;background:repeating-linear-gradient(90deg,#0000 0 10%,#4b7d9b 10% 20%,#bcecff 20% 27%,#0000 27% 32%),repeating-linear-gradient(0deg,#0000 0 14%,#fff7 14% 18%,#0000 18% 30%);opacity:.78}.sseFloorBand{position:absolute;left:0;right:0;top:20%;height:18px;background:#4f5660;box-shadow:0 5px #9ba1a8}
-  .sseCloud{position:absolute;width:100px;height:30px;border-radius:999px;background:#fffde8;filter:drop-shadow(0 3px 2px #5b9dbb55);animation:sseFly 10s linear infinite}.sseCloud:before,.sseCloud:after{content:'';position:absolute;border-radius:50%;background:inherit}.sseCloud:before{width:46px;height:46px;left:16px;top:-23px}.sseCloud:after{width:54px;height:54px;right:10px;top:-29px}.sseCloud.c1{top:18%;left:-130px}.sseCloud.c2{top:43%;left:-190px;animation-duration:14s;animation-delay:-7s;transform:scale(.75)}.sseBird{position:absolute;left:-60px;font-size:24px;animation:sseFly 8s linear infinite}.sseBird.b1{top:35%;animation-delay:-2s}.sseBird.b2{top:22%;animation-duration:11s;animation-delay:-7s}.ssePlane{position:absolute;left:-120px;top:16%;font-size:42px;animation:sseFly 7s linear infinite;opacity:0;transition:opacity .6s}.sseScene.sse-sky.sse-high .ssePlane{opacity:1}@keyframes sseFly{to{left:calc(100% + 140px)}}
+  .sseCloud{position:absolute;width:100px;height:30px;border-radius:999px;background:#fffde8;filter:drop-shadow(0 3px 2px #5b9dbb55);animation:sseFly 10s linear infinite;opacity:var(--atmoFade)}.sseCloud:before,.sseCloud:after{content:'';position:absolute;border-radius:50%;background:inherit}.sseCloud:before{width:46px;height:46px;left:16px;top:-23px}.sseCloud:after{width:54px;height:54px;right:10px;top:-29px}.sseCloud.c1{top:18%;left:-130px}.sseCloud.c2{top:43%;left:-190px;animation-duration:14s;animation-delay:-7s;transform:scale(.75)}.sseBird{position:absolute;left:-60px;font-size:24px;animation:sseFly 8s linear infinite;transform:scaleX(-1);opacity:var(--atmoFade);transition:opacity .3s}.sseBird.b1{top:35%;animation-delay:-2s}.sseBird.b2{top:22%;animation-duration:11s;animation-delay:-7s}.ssePlane{position:absolute;left:-120px;top:16%;font-size:42px;animation:sseFly 7s linear infinite;transform:rotate(45deg);transform-origin:center;opacity:0;transition:opacity .6s}.sseScene.sse-sky.sse-high .ssePlane{opacity:var(--atmoFade)}@keyframes sseFly{to{left:calc(100% + 140px)}}
   .sseMountainFar,.sseMountainNear{position:absolute;left:-8%;right:-8%;bottom:56px;transform-origin:50% 100%;pointer-events:none}.sseMountainFar{height:34%;background:#84a9b6;clip-path:polygon(0 100%,0 71%,10% 46%,19% 70%,31% 31%,42% 68%,52% 41%,65% 72%,76% 34%,88% 66%,100% 44%,100% 100%);opacity:calc(.72 * var(--skyFade));transform:translateY(var(--skyDrop)) scale(var(--skyScale))}.sseMountainNear{height:25%;background:#537c69;clip-path:polygon(0 100%,0 66%,15% 38%,29% 72%,46% 32%,61% 74%,78% 45%,100% 69%,100% 100%);opacity:calc(.85 * var(--skyFade));transform:translateY(var(--skyDrop)) scale(var(--skyScale))}
   .sseBrokenBuilding{position:absolute;left:50%;bottom:54px;width:116px;height:210px;margin-left:-58px;background:repeating-linear-gradient(0deg,#7d8790 0 32px,#59636d 32px 37px);border:5px solid #454d54;clip-path:polygon(0 10%,12% 2%,25% 12%,40% 0,55% 13%,71% 4%,84% 12%,100% 3%,100% 100%,0 100%);transform-origin:50% 100%;transform:translateY(var(--skyDrop)) scale(var(--skyScale));opacity:var(--skyFade)}.sseBrokenBuilding:after{content:'';position:absolute;inset:22px 15px;background:repeating-linear-gradient(0deg,#90d0ef 0 17px,#40515c 17px 24px);opacity:.75}
-  .sseStars{position:absolute;inset:0;background-image:radial-gradient(#fff 1.2px,transparent 1.3px),radial-gradient(#8fd8ff 1px,transparent 1.1px),radial-gradient(#ffe9a1 1px,transparent 1.1px);background-size:37px 37px,53px 53px,79px 79px;background-position:0 0,17px 11px,31px 29px;animation:sseStars 7s linear infinite}@keyframes sseStars{to{background-position:37px 74px,70px 117px,110px 187px}}.sseRocket{position:absolute;left:-80px;top:20%;font-size:42px;transform:rotate(35deg);animation:sseRocket 9s linear infinite}@keyframes sseRocket{0%{left:-80px;top:55%}100%{left:110%;top:5%}}.sseMeteor{position:absolute;width:95px;height:3px;background:linear-gradient(90deg,#fff0,#fff);transform:rotate(-28deg);animation:sseMeteor 3.8s linear infinite}.sseMeteor.m1{left:15%;top:-20%;animation-delay:-1s}.sseMeteor.m2{left:65%;top:-10%;animation-delay:-2.6s}@keyframes sseMeteor{to{transform:translate(-260px,420px) rotate(-28deg);opacity:0}}.sseStation{position:absolute;right:6%;top:14%;width:112px;height:28px;border-radius:8px;background:#d6dce9}.sseStation:before,.sseStation:after{content:'';position:absolute;top:6px;width:64px;height:16px;background:repeating-linear-gradient(90deg,#28508c 0 9px,#78a8df 9px 14px)}.sseStation:before{right:100%}.sseStation:after{left:100%}.sseStation i{position:absolute;left:46px;top:-14px;width:20px;height:56px;border-radius:10px;background:#f2f5fb}.sseAstronaut{position:absolute;left:-80px;top:38%;font-size:38px;animation:sseAstronaut 13s ease-in-out infinite;animation-delay:var(--d,0s);opacity:0}@keyframes sseAstronaut{0%,18%{opacity:0;transform:translate(0,0) rotate(-18deg)}28%,72%{opacity:1}82%,100%{opacity:0;transform:translate(calc(100vw + 150px),-90px) rotate(32deg)}}
+  .sseStars{position:absolute;inset:0;background-image:radial-gradient(#fff 1.2px,transparent 1.3px),radial-gradient(#8fd8ff 1px,transparent 1.1px),radial-gradient(#ffe9a1 1px,transparent 1.1px);background-size:37px 37px,53px 53px,79px 79px;background-position:0 0,17px 11px,31px 29px;animation:sseStars 7s linear infinite}@keyframes sseStars{to{background-position:37px 74px,70px 117px,110px 187px}}.sseRocket{position:absolute;left:-80px;top:20%;font-size:42px;transform:rotate(35deg);animation:sseRocket 9s linear infinite}@keyframes sseRocket{0%{left:-80px;top:55%}100%{left:110%;top:5%}}.sseMeteor{position:absolute;width:95px;height:3px;background:linear-gradient(90deg,#fff0,#fff);transform:rotate(-28deg);animation:sseMeteor 3.8s linear infinite}.sseMeteor.m1{left:15%;top:-20%;animation-delay:-1s}.sseMeteor.m2{left:65%;top:-10%;animation-delay:-2.6s}@keyframes sseMeteor{to{transform:translate(-260px,420px) rotate(-28deg);opacity:0}}.sseStation{position:absolute;right:6%;top:14%;width:112px;height:28px;border-radius:8px;background:#d6dce9}.sseStation:before,.sseStation:after{content:'';position:absolute;top:6px;width:64px;height:16px;background:repeating-linear-gradient(90deg,#28508c 0 9px,#78a8df 9px 14px)}.sseStation:before{right:100%}.sseStation:after{left:100%}.sseStation i{position:absolute;left:46px;top:-14px;width:20px;height:56px;border-radius:10px;background:#f2f5fb}.sseAstronaut{position:absolute;left:-80px;top:38%;font-size:38px;animation:sseAstronaut 13s ease-in-out infinite;animation-delay:var(--d,0s);opacity:0}@keyframes sseAstronaut{0%,18%{opacity:0;transform:translate(0,0) rotate(-18deg)}28%,72%{opacity:1}82%,100%{opacity:0;transform:translate(calc(100vw + 150px),-90px) rotate(32deg)}}.sseUfo{position:absolute;z-index:12;font-size:48px;filter:drop-shadow(0 0 10px #8cf);pointer-events:none}.sseUfo.u1{left:-110px;top:27%;animation:sseUfoFly 8.5s linear infinite}.sseUfo.u2{right:-120px;top:61%;font-size:39px;animation:sseUfoBack 11s linear infinite;animation-delay:-4s}@keyframes sseUfoFly{0%{transform:translateX(0) translateY(0) rotate(-8deg)}45%{transform:translateX(55vw) translateY(35px) rotate(6deg)}100%{transform:translateX(calc(100vw + 240px)) translateY(-45px) rotate(-4deg)}}@keyframes sseUfoBack{0%{transform:translateX(0) translateY(0) rotate(7deg)}50%{transform:translateX(-58vw) translateY(-42px) rotate(-5deg)}100%{transform:translateX(calc(-100vw - 250px)) translateY(34px) rotate(5deg)}}
 
   .sseBreakFlash{position:absolute;inset:0;z-index:30;background:#fff;animation:sseFlash .82s ease-out forwards;pointer-events:none}@keyframes sseFlash{0%{opacity:.95}35%{opacity:.55}100%{opacity:0}}
   .sseImpactShake{animation:sseImpactShake 1.55s cubic-bezier(.2,.7,.2,1)}@keyframes sseImpactShake{0%,100%{transform:translate(0)}4%{transform:translate(-9px,5px)}9%{transform:translate(10px,-7px)}15%{transform:translate(-12px,-3px)}23%{transform:translate(11px,7px)}34%{transform:translate(-9px,4px)}47%{transform:translate(7px,-5px)}63%{transform:translate(-5px,3px)}80%{transform:translate(3px,-2px)}}
@@ -99,7 +101,7 @@
   .sseRoofChunk,.sseDebris,.sseDust{position:absolute;left:var(--x);top:var(--y);pointer-events:none;will-change:transform,opacity}.sseRoofChunk{z-index:var(--z,34);width:var(--w);height:var(--h,26px);border:3px solid #623a26;background:linear-gradient(#e1a260,#8f5937);clip-path:polygon(0 0,100% 8%,86% 100%,8% 88%);animation:sseChunkFly var(--dur,1.7s) cubic-bezier(.12,.72,.18,1) var(--delay,0s) forwards}.sseDebris{z-index:var(--z,33);width:var(--w,15px);height:var(--h,11px);border:2px solid #583721;background:var(--c,#a96e42);clip-path:polygon(8% 0,100% 12%,88% 100%,0 76%);animation:sseChunkFly var(--dur,1.55s) cubic-bezier(.12,.72,.18,1) var(--delay,0s) forwards}@keyframes sseChunkFly{0%{transform:translate(0,0) rotate(0) scale(1);opacity:1}16%{opacity:1}100%{transform:translate(var(--dx),var(--dy)) rotate(var(--r)) scale(var(--s,1));opacity:0}}.sseDust{z-index:29;width:var(--w,34px);height:var(--w,34px);border-radius:50%;background:#d8bb8b99;filter:blur(2px);animation:sseDust 1.35s ease-out var(--delay,0s) forwards}@keyframes sseDust{0%{transform:scale(.3);opacity:.8}100%{transform:translate(var(--dx),var(--dy)) scale(2.8);opacity:0}}
   .sseFlagBurst{animation:sseFlagBurst .85s ease-out}@keyframes sseFlagBurst{0%{transform:scale(.18) rotate(-9deg)}55%{transform:scale(1.22) rotate(2deg)}100%{transform:scale(1)}}
   .sseAltitudePulse{position:absolute;inset:0;z-index:19;pointer-events:none;border:10px solid #fff9;animation:sseAltitudePulse .58s ease-out forwards}@keyframes sseAltitudePulse{0%{opacity:1;transform:scale(.94)}100%{opacity:0;transform:scale(1.08)}}
-  .ssePerfectGrow{animation:ssePerfectGrow .42s ease-out}@keyframes ssePerfectGrow{0%{filter:brightness(1.5);transform:scaleX(1.03)}100%{filter:none;transform:scaleX(1)}}
+  .ssePerfectGrow{animation:ssePerfectGrow .42s ease-out}@keyframes ssePerfectGrow{0%{filter:brightness(1.5);transform:scaleX(1.03)}100%{filter:none;transform:scaleX(1)}}.sseGrandFinale{position:absolute;left:50%;top:43%;z-index:72;transform:translate(-50%,-50%);width:min(360px,calc(100% - 28px));padding:18px 16px;border:5px solid #fff4a5;border-radius:24px;background:#141631e8;color:#fff;text-align:center;font-size:clamp(24px,7vw,38px);font-weight:1000;line-height:1.05;text-shadow:0 0 12px #fff,0 0 25px #ffd54b,0 4px #7f2d78;box-shadow:0 0 30px #fff8,0 0 70px #ffcf4f99;pointer-events:none;animation:sseGrandFinale 2.35s ease-out forwards}.sseGrandFinale.space{background:#080b24ed;border-color:#aee9ff;box-shadow:0 0 30px #bff,0 0 80px #806cffaa}.sseGrandFinale small{display:block;margin-top:8px;font-size:12px;line-height:1.3;color:#fff6c8;text-shadow:none}@keyframes sseGrandFinale{0%{opacity:0;transform:translate(-50%,-50%) scale(.35)}15%{opacity:1;transform:translate(-50%,-50%) scale(1.18)}35%,78%{opacity:1;transform:translate(-50%,-50%) scale(1)}100%{opacity:0;transform:translate(-50%,-70%) scale(1.08)}}
 
   @media(max-width:390px){
    .sseTopHud{left:7px;right:7px;top:7px;grid-template-columns:minmax(88px,1fr) auto 42px auto;gap:5px}
@@ -129,8 +131,9 @@
  function backdropHTML(st){
   if(st.zone==='house')return `<div class="sseHouseWall"></div><div class="sseHouseWindow l"></div><div class="sseHouseWindow r"></div><div class="sseCeiling"></div>`;
   if(st.zone==='building')return `<div class="sseBuildingWall"></div><div class="sseWindowGrid"></div><div class="sseFloorBand"></div>`;
-  if(st.zone==='sky')return `<div class="sseMountainFar"></div><div class="sseMountainNear"></div><div class="sseBrokenBuilding"></div><div class="sseCloud c1"></div><div class="sseCloud c2"></div><div class="sseBird b1">🐦</div><div class="sseBird b2">🐦</div><div class="ssePlane">✈️</div>`;
-  return `<div class="sseStars"></div><div class="sseRocket">🚀</div><div class="sseMeteor m1"></div><div class="sseMeteor m2"></div><div class="sseStation"><i></i></div><div class="sseAstronaut" style="--d:-2s">🧑‍🚀</div><div class="sseAstronaut" style="--d:-9s;top:58%;font-size:31px">🧑‍🚀</div>`
+  if(st.zone==='sky')return `<div class="sseMountainFar"></div><div class="sseMountainNear"></div><div class="sseBrokenBuilding"></div><div class="sseCloud c1"></div><div class="sseCloud c2"></div><div class="sseBird b1">🐦</div><div class="sseBird b2">🐦</div><div class="ssePlane">✈️</div><div class="sseSkySpaceVeil"></div><div class="sseSkyStars"></div>`;
+  const deep=st.floor>=4;
+  return `<div class="sseStars"></div><div class="sseRocket">🚀</div><div class="sseMeteor m1"></div><div class="sseMeteor m2"></div><div class="sseStation"><i></i></div>${deep?`<div class="sseAstronaut" style="--d:-2s">🧑‍🚀</div><div class="sseAstronaut" style="--d:-9s;top:58%;font-size:31px">🧑‍🚀</div><div class="sseAstronaut" style="--d:-5s;top:73%;font-size:27px">🧑‍🚀</div><div class="sseUfo u1">🛸</div><div class="sseUfo u2">🛸</div>`:''}`
  }
 
  function showModeSelect(){
@@ -189,11 +192,14 @@
   function silkHTML(idx){const c=patterns[idx%patterns.length];return `<div class="silkFold" style="--c1:${c[0]};--c2:${c[1]};--c3:${c[2]};"><i></i><i></i><i></i><span></span></div>`}
 
   function setScene(force=false){
-   const step=normal?NORMAL_FLOORS:ENDLESS_BREAK,st=stageFor(total,step),continuous=st.zone==='sky'||st.zone==='space',key=continuous?st.zone:st.zone+':'+st.floor,high=st.zone==='sky'&&st.floor>=5;
+   const step=normal?NORMAL_FLOORS:ENDLESS_BREAK,st=stageFor(total,step),continuous=st.zone==='sky'||st.zone==='space',deepSpace=st.zone==='space'&&st.floor>=4,key=st.zone==='space'?st.zone+':'+(deepSpace?'deep':'near'):continuous?st.zone:st.zone+':'+st.floor,high=st.zone==='sky'&&st.floor>=5;
    scene.className=`silkScene sseScene sse-${st.zone}${high?' sse-high':''}`;
    if(force||key!==lastStageKey){back.innerHTML=backdropHTML(st);lastStageKey=key}
-   if(st.zone==='sky'){const p=clamp((total-step*5)/(step*10),0,1);back.style.setProperty('--skyScale',(1-p*.58).toFixed(3));back.style.setProperty('--skyDrop',Math.round(p*88)+'px');back.style.setProperty('--skyFade',Math.max(.08,1-p*.88).toFixed(3))}
-   else{back.style.setProperty('--skyScale','1');back.style.setProperty('--skyDrop','0px');back.style.setProperty('--skyFade','1')}
+   if(st.zone==='sky'){
+    const p=clamp((total-step*5)/(step*10),0,1),blend=clamp((p-.45)/.55,0,1),atmo=1-blend;
+    back.style.setProperty('--skyScale',(1-p*.58).toFixed(3));back.style.setProperty('--skyDrop',Math.round(p*88)+'px');back.style.setProperty('--skyFade',Math.max(.05,1-p*.92).toFixed(3));back.style.setProperty('--spaceBlend',blend.toFixed(3));back.style.setProperty('--atmoFade',atmo.toFixed(3))
+   }
+   else{back.style.setProperty('--skyScale','1');back.style.setProperty('--skyDrop','0px');back.style.setProperty('--skyFade','1');back.style.setProperty('--spaceBlend','0');back.style.setProperty('--atmoFade','1')}
    const h=s.querySelector('#sseFloorHud');if(!h)return;
    h.classList.toggle('space',st.zone==='space');
    h.innerHTML=normal?`${total} / 15 단`:`<span class="sseEndlessTag">ENDLESS</span>${st.label} · ${total}단`
@@ -201,7 +207,7 @@
   function hud(skipScene=false){
    const gs=document.querySelector('#gScore');if(gs)gs.textContent=score;
    const acc=total?Math.round(accuracyTotal/total):0,ph=s.querySelector('#perfectHud');if(ph)ph.textContent=`정확도 ${acc}% · PERFECT ${perfectCount}/3`;
-   const lh=s.querySelector('#stackLife');if(lh)lh.textContent='❤️'.repeat(lives)+'🖤'.repeat(Math.max(0,3-lives));
+   const lh=s.querySelector('#stackLife');if(lh)lh.textContent=lives>=6?`❤️ ×${Math.min(lives,10)}`:'❤️'.repeat(lives)+'🖤'.repeat(Math.max(0,3-lives));
    const lev=s.querySelector('#levelHud');if(lev)lev.textContent=`LEVEL ${level}`;if(!skipScene)setScene()
   }
 
@@ -289,8 +295,26 @@
    setTimeout(()=>{if(!alive)return;showFinalFlag();try{tone('clear');buzz([24,10,40,10,65])}catch(_){}},1550);
    setTimeout(()=>{if(!alive)return;alive=false;cancelAnimationFrame(raf);recordNormalClear();finish('stack',score+400,showModeSelect,true)},2550)
   }
+  function grandFinale(zone){
+   const isSpace=zone==='space',fx=document.createElement('div');
+   fx.className='sseGrandFinale'+(isSpace?' space':'');
+   fx.innerHTML=isSpace?'🌌 우주 대기록!<small>별 너머까지 도달했습니다!</small>':'🎆 하늘 대기록!<small>구름 위까지 쌓아 올렸습니다!</small>';
+   scene.appendChild(fx);setTimeout(()=>fx.remove(),2450);
+   try{
+    const r=scene.getBoundingClientRect(),emoji=isSpace?'🌠':'🎆';
+    [[.22,.42],[.5,.34],[.78,.45],[.36,.58],[.66,.6]].forEach(([px,py],i)=>setTimeout(()=>particles(r.left+r.width*px,r.top+r.height*py,emoji,isSpace?18:15),i*130));
+    const notes=[523,659,784,1047,784,1047,1319,1568];
+    notes.forEach((hz,i)=>setTimeout(()=>beep(hz,.12,.032,i%2?'triangle':'square',hz*1.015),i*125));
+    setTimeout(()=>{beep(1047,.5,.045,'square',1047);beep(1319,.52,.036,'triangle',1319);beep(1568,.55,.03,'sine',1568)},1080);
+    setTimeout(()=>{beep(1319,.22,.028,'square',1319);beep(1760,.32,.024,'triangle',1760)},1700);
+    tone('clear');buzz([45,20,70,20,95,25,130,30,180,35,260])
+   }catch(_){}
+  }
   function gameOver(){
-   alive=false;paused=false;cancelAnimationFrame(raf);showFinalFlag();try{showComboBurst('GAME OVER',3,'multi');tone('clear');buzz([20,8,34,8,52])}catch(_){}
+   alive=false;paused=false;cancelAnimationFrame(raf);showFinalFlag();
+   const st=stageFor(total,ENDLESS_BREAK),grand=!normal&&(st.zone==='sky'||st.zone==='space');
+   if(grand){grandFinale(st.zone);setTimeout(()=>finish('stack',score,showModeSelect,false),2700);return}
+   try{showComboBurst('GAME OVER',3,'multi');tone('clear');buzz([20,8,34,8,52])}catch(_){}
    setTimeout(()=>finish('stack',score,showModeSelect,false),980)
   }
   function drop(){
@@ -306,7 +330,7 @@
    const centered=Math.abs((l+w/2)-(pl+pw/2)),denom=Math.max(1,pw*.5*assist.centerScale),placementAcc=clamp(100-(centered/denom)*100,0,100),pts=placementAcc>=97?360:placementAcc>=88?220:placementAcc>=75?110:40;
    score+=pts;accuracyTotal+=placementAcc;
    const isPerfect=placementAcc>=97;let heartBonus=false,grow=0;
-   if(isPerfect){grow=expandPerfectPiece(current);perfectCount++;if(perfectCount>=3){perfectCount=0;lives++;heartBonus=true}}
+   if(isPerfect){grow=expandPerfectPiece(current);perfectCount++;if(perfectCount>=3){perfectCount=0;if(lives<10){lives++;heartBonus=true}}}
    try{
     if(isPerfect){
      current.classList.add('good','stackPerfect');tone('perfect');buzz(heartBonus?[36,10,54,10,78,10,110]:[32,12,48,12,72]);

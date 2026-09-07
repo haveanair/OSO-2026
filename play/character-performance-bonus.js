@@ -24,7 +24,7 @@
     {date:'2026.09.05',title:'「오소 환상대모험」 대규모 확장',items:['후반부 신규 보스와 전투 구간 확장','전투 코인 보상 체계 강화','전투 밖 회복 행동 등 필드 편의 기능 추가']},
     {date:'2026.09.06',title:'환상대모험 저장 기능 강화',items:['저장·불러오기 확인 기능 추가','장거리 RPG 플레이 중 진행 상태를 보다 안전하게 관리하도록 개선']},
     {date:'2026.09.07',title:'오소도감 업그레이드 기능 추가',items:['캐릭터별 점수·코인 성능 보너스 표시','하모·아요·논개 등 캐릭터별 실제 게임 특성을 도감에서 확인 가능','보유 캐릭터를 단순 수집이 아닌 성능 선택 요소로 확장']},
-    {date:'2026.09.07',title:'비단쌓기 엔들리스 업데이트',items:['일반 15단과 엔들리스 모드 분리, 엔들리스는 10단마다 돌파','GREAT/PERFECT 성공 시 비단 폭 회복, PERFECT 3회마다 하트 +1','하모·논개 전용 판정보정 강화','일시정지·모바일 HUD·PERFECT 2줄 이펙트·구조물 격파 연출 강화']},
+    {date:'2026.09.07',title:'비단쌓기 엔들리스 업데이트',items:['일반 15단과 엔들리스 모드 분리, 엔들리스는 10단마다 돌파','GREAT/PERFECT 성공 시 비단 폭 회복, PERFECT 3회마다 하트 +1','하모·논개 전용 판정보정 강화','일시정지·모바일 HUD·GREAT/PERFECT 2줄 이펙트·구조물 격파 연출 강화','하늘→우주 자연 전환, 고고도 종료 빵빠레, 심우주 우주인·UFO 연출 추가']},
     {date:'2026.09.07',title:'업데이트 NEWS 추가',items:['타이틀 좌상단 NEWS 아이콘 추가','날짜별로 신규 게임·캐릭터·보스·도감 기능 등 큰 업데이트 이력을 확인 가능']}
   ];
 
@@ -101,6 +101,11 @@
       #stage .sseAssistSnapFx.nongae{background:#f2dcffed;border-color:#704a85;color:#4d2e5f}
       @keyframes sseAssistSnapFx{0%{opacity:0;transform:translate(-50%,-50%) scale(.7)}25%{opacity:1;transform:translate(-50%,-50%) scale(1.12)}70%{opacity:1}100%{opacity:0;transform:translate(-50%,-72%) scale(.94)}}
 
+      #stage .sseGreatBurst2{position:absolute!important;left:50%!important;top:37%!important;z-index:51!important;transform:translateX(-50%) scale(.74)!important;width:auto!important;min-width:min(210px,calc(100% - 28px))!important;max-width:calc(100% - 28px)!important;box-sizing:border-box!important;padding:9px 14px 8px!important;border:4px solid #35704a!important;border-radius:17px!important;background:#efffcdf2!important;color:#27513a!important;text-align:center!important;box-shadow:0 7px 0 #4f855d,0 13px 24px #0004!important;pointer-events:none!important;opacity:0!important;animation:sseGreatBurst2 .98s cubic-bezier(.18,.78,.22,1) forwards!important}
+      #stage .sseGreatBurst2 .sseGreatMain{display:block!important;font-size:clamp(20px,5.8vw,28px)!important;font-weight:1000!important;line-height:1.02!important;white-space:nowrap!important}
+      #stage .sseGreatBurst2 .sseGreatSub{display:block!important;margin-top:5px!important;font-size:clamp(11px,3.2vw,14px)!important;font-weight:1000!important;line-height:1.15!important;white-space:normal!important;word-break:keep-all!important}
+      @keyframes sseGreatBurst2{0%{opacity:0;transform:translateX(-50%) scale(.68)}20%{opacity:1;transform:translateX(-50%) scale(1.08)}48%,78%{opacity:1;transform:translateX(-50%) scale(1)}100%{opacity:0;transform:translateX(-50%) translateY(-18px) scale(.94)}}
+
       #stage .ssePerfectBurst2{position:absolute!important;left:50%!important;top:37%!important;right:auto!important;bottom:auto!important;z-index:52!important;transform:translateX(-50%) scale(.72)!important;width:auto!important;min-width:min(230px,calc(100% - 28px))!important;max-width:calc(100% - 28px)!important;box-sizing:border-box!important;padding:10px 16px 9px!important;border:4px solid #7a4a22!important;border-radius:18px!important;background:#fff5c9f2!important;color:#5b341e!important;text-align:center!important;box-shadow:0 7px 0 #a66d35,0 13px 24px #0005!important;pointer-events:none!important;opacity:0!important;animation:ssePerfectBurst2 1.05s cubic-bezier(.18,.78,.22,1) forwards!important}
       #stage .ssePerfectBurst2.heart{border-color:#a83f54!important;background:#fff0f3f4!important;box-shadow:0 7px 0 #b65a6d,0 13px 24px #0005!important}
       #stage .ssePerfectBurst2 .ssePerfectMain{display:block!important;margin:0!important;padding:0!important;font-size:clamp(20px,6vw,29px)!important;font-weight:1000!important;line-height:1.05!important;white-space:normal!important;word-break:keep-all!important;overflow-wrap:normal!important}
@@ -172,8 +177,8 @@
 
   function stackAssistInfo(){
     const t=skinTraits();
-    if(t.nongae)return {on:true,nongae:true,strength:.92,maxShift:56,label:'✨ 논개 강력 비단 판정보정 ON'};
-    if(t.hamo)return {on:true,nongae:false,strength:.84,maxShift:46,label:'🎯 하모 강력 비단 판정보정 ON'};
+    if(t.nongae)return {on:true,nongae:true,strength:.52,maxShift:24,label:'✨ 논개 비단 판정보정 ON'};
+    if(t.hamo)return {on:true,nongae:false,strength:.46,maxShift:20,label:'🎯 하모 비단 판정보정 ON'};
     return {on:false,nongae:false,strength:0,maxShift:0,label:''}
   }
   function refreshStackAssistBadge(){
@@ -227,6 +232,18 @@
       const center=oldL+oldW/2,newL=clamp(center-newW/2,0,Math.max(0,laneW-newW));el.style.left=newL+'px';el.style.width=newW+'px';return Math.round(gain)
     }catch(_){return 0}
   }
+  function showStackGreatBurst(message){
+    try{
+      const scene=document.querySelector('#stage #sseScene');if(!scene)return false;
+      const msg=String(message||'').trim();if(!/^GREAT!/.test(msg))return false;
+      scene.querySelectorAll('.sseGreatBurst2').forEach(e=>e.remove());
+      const parts=msg.split(' · ').map(s=>s.trim()).filter(Boolean),main=parts.shift()||'GREAT!',sub=parts.join(' · ');
+      const box=document.createElement('div');box.className='sseGreatBurst2';
+      const a=document.createElement('span');a.className='sseGreatMain';a.textContent=main;
+      const b=document.createElement('span');b.className='sseGreatSub';b.textContent=sub||'비단 폭 회복!';
+      box.append(a,b);scene.appendChild(box);setTimeout(()=>box.remove(),1040);return true
+    }catch(_){return false}
+  }
   function showStackPerfectBurst(message){
     try{
       const scene=document.querySelector('#stage #sseScene');if(!scene)return false;
@@ -249,7 +266,7 @@
       const wrapped=function(message){
         let msg=String(message==null?'':message);
         const stack=!!document.querySelector('#stage #sseScene');
-        if(stack&&/^GREAT!/.test(msg)){const gain=expandLatestStackPiece(.04,5,8);msg=rewriteGrowMessage(msg,gain);arguments[0]=msg}
+        if(stack&&/^GREAT!/.test(msg)){const gain=expandLatestStackPiece(.04,5,8);msg=rewriteGrowMessage(msg,gain);ensureStyle();if(showStackGreatBurst(msg))return;arguments[0]=msg}
         if(stack&&/^PERFECT/.test(msg)){const gain=expandLatestStackPiece(.06,9,14);msg=rewriteGrowMessage(msg,gain);ensureStyle();if(showStackPerfectBurst(msg))return}
         return original.apply(this,arguments)
       };
