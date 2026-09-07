@@ -188,6 +188,7 @@
   const lane=s.querySelector('#silkLane'),scene=s.querySelector('#sseScene'),back=s.querySelector('#sseBackdrop'),pauseBtn=s.querySelector('#ssePauseBtn'),pauseOverlay=s.querySelector('#ssePauseOverlay'),resumeBtn=s.querySelector('#sseResumeBtn'),clamp=(v,a,b)=>Math.max(a,Math.min(b,v)),assist=assistProfile();
   let score=0,total=0,segment=0,alive=true,raf=0,last=0,current=null,x=0,dir=1,accuracyTotal=0,level=1,lastDropAt=-1e9,retrying=false,lives=3,perfectCount=0,transitioning=false,paused=false,lastStageKey='',carryWidth=0,cameraOffset=0,finalFlagShown=false;
   const W=()=>lane.getBoundingClientRect().width,baseW=Math.min(235,W()*.58);carryWidth=baseW;
+  const stackBaseBottom=()=>normal?82:clamp(scene.clientHeight*.77-242,115,210);
   const patterns=[['#f8d5e2','#f0aac3','#d36a93'],['#d2ebff','#9dd3ff','#4ea7df'],['#ffe6b3','#ffc34d','#d98c00'],['#dff2cc','#a8df84','#5ba046'],['#ecd8ff','#c7a0ff','#8450d1']];
   function silkHTML(idx){const c=patterns[idx%patterns.length];return `<div class="silkFold" style="--c1:${c[0]};--c2:${c[1]};--c3:${c[2]};"><i></i><i></i><i></i><span></span></div>`}
 
@@ -224,12 +225,12 @@
 
   function clearStackVisual(){lane.querySelectorAll('.silkPiece,.silkBase,.stackFlag').forEach(e=>e.remove())}
   function addBase(width=carryWidth){
-   const w=Math.max(28,Math.min(baseW,Number(width)||baseW)),e=document.createElement('div');e.className='silkBase';e.style.width=w+'px';e.style.left=((W()-w)/2)+'px';e.style.bottom='82px';e.innerHTML=silkHTML(total);lane.appendChild(e);return e
+   const w=Math.max(28,Math.min(baseW,Number(width)||baseW)),e=document.createElement('div');e.className='silkBase';e.style.width=w+'px';e.style.left=((W()-w)/2)+'px';e.style.bottom=stackBaseBottom()+'px';e.innerHTML=silkHTML(total);lane.appendChild(e);return e
   }
   function piece(){
    const e=document.createElement('div');e.className='silkPiece';e.setAttribute('aria-hidden','true');e.style.pointerEvents='none';
    const placed=lane.querySelectorAll('.silkPiece,.silkBase'),prev=placed[placed.length-1];let w=prev?parseFloat(prev.style.width):baseW;if(!Number.isFinite(w)||w<=0)w=baseW;
-   e.style.width=w+'px';e.style.bottom=(135+segment*21-cameraOffset)+'px';e.style.left=x+'px';e.innerHTML=silkHTML(total+1);lane.appendChild(e);return e
+   e.style.width=w+'px';e.style.bottom=(stackBaseBottom()+53+segment*21-cameraOffset)+'px';e.style.left=x+'px';e.innerHTML=silkHTML(total+1);lane.appendChild(e);return e
   }
   function expandPerfectPiece(el){
    const oldW=parseFloat(el?.style.width),oldL=parseFloat(el?.style.left);if(!Number.isFinite(oldW)||!Number.isFinite(oldL))return 0;
