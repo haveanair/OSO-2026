@@ -54,6 +54,13 @@
   .sseModeBtns{display:grid;grid-template-columns:1fr 1fr;gap:10px}.sseModeBtns button{min-height:58px;border:3px solid #70442b;border-radius:15px;background:#f2c45c;color:#4d2d1b;font-weight:1000;font-size:14px;box-shadow:0 5px #9a6535}
   .sseModeBtns button:last-child{background:linear-gradient(#8be0ff,#8178ff);color:#fff;border-color:#31477a;box-shadow:0 5px #35456e}
   .sseUnlockProgress{font-size:10px!important;color:#7b5b42}
+  .sseModeBtns button:disabled{background:#c8c8c8;color:#707070;border-color:#8a8a8a;box-shadow:0 5px #888;opacity:.76}
+  .sseCountdownBox{position:absolute;inset:0;z-index:28;display:flex;align-items:center;justify-content:center;background:linear-gradient(#8edcff,#fff0c5 64%,#9e663c)}
+  .sseCountdownCard{min-width:190px;padding:22px 26px 26px;border:4px solid #5d3a27;border-radius:24px;background:#fff8dff2;box-shadow:0 10px 0 #68452d55,0 18px 42px #0004;text-align:center;color:#4e2f1d}
+  .sseCountdownCard small{display:block;margin-bottom:5px;font-size:11px;font-weight:1000;letter-spacing:.4px}
+  .sseCountdownCard strong{display:block;font-size:64px;line-height:1;font-weight:1000;text-shadow:0 5px #0002;animation:sseCountPop .28s ease-out}
+  .sseCountdownCard strong.go{font-size:46px;color:#ef632b}
+  @keyframes sseCountPop{0%{transform:scale(.4);opacity:.25}70%{transform:scale(1.18)}100%{transform:scale(1);opacity:1}}
 
   .sseScene{position:absolute;inset:0;overflow:hidden;transition:background .35s}
   .sseScene .silkLane{z-index:4}.sseScene .silkGround{z-index:3}.sseBackdrop{position:absolute;inset:0;overflow:hidden;pointer-events:none;z-index:1}
@@ -110,12 +117,32 @@
   ensureStyle();
   const s=document.querySelector('#stage');
   if(!s){if(originalPlayStack)originalPlayStack();return}
-  const clears=readClears();
-  s.innerHTML=`<div class="sseModeBox"><div class="sseModeCard"><h3>🧵 비단쌓기</h3><p>일반 15단을 ${UNLOCK_CLEARS}번 클리어해 엔들리스가 활성화되었습니다.</p><div class="sseModeBtns"><button type="button" id="sseNormalBtn">15단 도전</button><button type="button" id="sseEndlessBtn">∞ 엔들리스</button></div><p class="sseUnlockProgress">일반 클리어 ${clears}/${UNLOCK_CLEARS}</p></div></div>`;
+  const clears=readClears(),unlocked=isUnlocked();
+  const msg=unlocked?`일반 15단을 ${UNLOCK_CLEARS}번 클리어해 엔들리스가 활성화되었습니다.`:`일반 15단을 ${UNLOCK_CLEARS}번 클리어하면 엔들리스가 활성화됩니다.`;
+  s.innerHTML=`<div class="sseModeBox"><div class="sseModeCard"><h3>🧵 비단쌓기</h3><p>${msg}</p><div class="sseModeBtns"><button type="button" id="sseNormalBtn">15단 도전</button><button type="button" id="sseEndlessBtn" ${unlocked?'':'disabled'}>${unlocked?'∞ 엔들리스':`🔒 엔들리스 ${clears}/${UNLOCK_CLEARS}`}</button></div><p class="sseUnlockProgress">일반 클리어 ${clears}/${UNLOCK_CLEARS}</p></div></div>`;
   const n=s.querySelector('#sseNormalBtn'),e=s.querySelector('#sseEndlessBtn');
-  if(n)n.onclick=()=>startNormal();
-  if(e)e.onclick=()=>playEndless();
+  if(n)n.onclick=()=>startCountdown('normal');
+  if(e&&unlocked)e.onclick=()=>startCountdown('endless');
   cleanup=()=>{if(n)n.onclick=null;if(e)e.onclick=null}
+ }
+ function startCountdown(mode){
+  const s=document.querySelector('#stage');if(!s)return;
+  const label=mode==='endless'?'∞ 엔들리스':'15단 도전';
+  s.innerHTML=`<div class="sseCountdownBox"><div class="sseCountdownCard"><small>${label}</small><strong id="sseCountdownNum">3</strong></div></div>`;
+  const el=s.querySelector('#sseCountdownNum'),steps=['3','2','1','GO!'];let idx=0,cancelled=false,timer=0;
+  function sound(v){try{tone(v==='GO!'?'clear':'good');buzz(v==='GO!'?[18,7,28]:9)}catch(_){}}
+  sound('3');
+  function advance(){
+   if(cancelled)return;
+   idx++;
+   if(idx>=steps.length){
+    timer=setTimeout(()=>{if(cancelled)return;if(mode==='endless')playEndless();else startNormal()},260);return
+   }
+   el.textContent=steps[idx];el.className=steps[idx]==='GO!'?'go':'';void el.offsetWidth;el.style.animation='none';void el.offsetWidth;el.style.animation='';sound(steps[idx]);
+   timer=setTimeout(advance,steps[idx]==='GO!'?440:620)
+  }
+  timer=setTimeout(advance,620);
+  cleanup=()=>{cancelled=true;clearTimeout(timer)}
  }
  function startNormal(){
   activeMode='normal';normalClearRecorded=false;
@@ -128,7 +155,7 @@
  function entry(){
   installFinishHook();ensureStyle();
   normalClearRecorded=false;
-  if(isUnlocked())showModeSelect();else startNormal()
+  showModeSelect()
  }
 
  function stageFor(total){
@@ -163,7 +190,7 @@
   s.innerHTML=`<div class="silkScene sseScene sse-house" id="sseScene"><div class="sseBackdrop" id="sseBackdrop"></div><div class="silkLane" id="silkLane"><div class="silkSign">∞ 차곡차곡 비단쌓기</div><div class="silkBackStall"></div><div class="silkShelf shelf1"></div><div class="silkShelf shelf2"></div><div class="silkGuide">화면을 눌러 비단을 떨어뜨리소!</div></div><div class="silkGround"></div></div><div class="sseFloorHud" id="sseFloorHud"><span class="sseEndlessTag">ENDLESS</span>집 1층 · 0단</div><div class="comboHud" id="perfectHud">정확도 0%</div><div class="levelHud" id="levelHud">LEVEL 1</div><div class="lifeHud" id="stackLife">❤️❤️❤️</div><div class="gameTip">15단마다 위층 돌파 · 빌딩 → 하늘 → 우주까지 끝없이 쌓기</div>`;
   const lane=s.querySelector('#silkLane'),scene=s.querySelector('#sseScene'),back=s.querySelector('#sseBackdrop');
   const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
-  let score=0,total=0,segment=0,alive=true,raf,last=0,current=null,x=0,dir=1,perfect=0,accuracyTotal=0,level=1,lastDropAt=-1e9,retrying=false,lives=3,transitioning=false,lastStageKey='',carryWidth=0,cameraOffset=0;
+  let score=0,total=0,segment=0,alive=true,raf,last=0,current=null,x=0,dir=1,perfect=0,accuracyTotal=0,level=1,lastDropAt=-1e9,retrying=false,lives=3,transitioning=false,lastStageKey='',carryWidth=0,cameraOffset=0,finalFlagShown=false;
   const W=()=>lane.getBoundingClientRect().width,baseW=Math.min(235,W()*.58);carryWidth=baseW;
   const patterns=[['#f8d5e2','#f0aac3','#d36a93'],['#d2ebff','#9dd3ff','#4ea7df'],['#ffe6b3','#ffc34d','#d98c00'],['#dff2cc','#a8df84','#5ba046'],['#ecd8ff','#c7a0ff','#8450d1']];
   function silkHTML(idx){const c=patterns[idx%patterns.length];return `<div class="silkFold" style="--c1:${c[0]};--c2:${c[1]};--c3:${c[2]};"><i></i><i></i><i></i><span></span></div>`}
@@ -197,9 +224,13 @@
    e.style.width=w+'px';e.style.bottom=(135+segment*21-cameraOffset)+'px';e.style.left=x+'px';e.innerHTML=silkHTML(total+1);lane.appendChild(e);return e
   }
   function flag1884(){
-   const l=parseFloat(current?.style.left)||0,w=parseFloat(current?.style.width)||120;
-   const flag=document.createElement('div');flag.className='stackFlag sseFlagBurst';flag.textContent='1884 진주중앙시장';flag.style.left=Math.max(8,Math.min(W()-178,l+w/2-78))+'px';flag.style.bottom=(135+segment*21-cameraOffset+50)+'px';lane.appendChild(flag);return flag
+   lane.querySelectorAll('.stackFlag').forEach(e=>e.remove());
+   const placed=[...lane.querySelectorAll('.silkPiece,.silkBase')].filter(e=>!e.classList.contains('miss'));
+   const anchor=placed[placed.length-1]||current;
+   const l=parseFloat(anchor?.style.left)||0,w=parseFloat(anchor?.style.width)||120,b=parseFloat(anchor?.style.bottom);
+   const flag=document.createElement('div');flag.className='stackFlag sseFlagBurst';flag.textContent='1884 진주중앙시장';flag.style.left=Math.max(8,Math.min(W()-178,l+w/2-78))+'px';flag.style.bottom=((Number.isFinite(b)?b:135)+58)+'px';lane.appendChild(flag);return flag
   }
+  function showFinalFlag(){if(finalFlagShown)return;finalFlagShown=true;flag1884()}
   function debris(){
    const flash=document.createElement('div');flash.className='sseBreakFlash';scene.appendChild(flash);
    const ring=document.createElement('div');ring.className='sseBreakRing';scene.appendChild(ring);
@@ -216,12 +247,11 @@
    lane.querySelectorAll('.silkPiece,.silkBase,.stackFlag').forEach(el=>{const b=parseFloat(el.style.bottom);if(!Number.isFinite(b))return;const nb=b-shift;el.style.bottom=nb+'px';if(nb<-75)el.remove()})
   }
   function continuousMilestone(){
-   flag1884();
    try{showComboBurst(breakLabel(total),8,'great');particles(innerWidth*.5,innerHeight*.34,total>=225?'🌠':'✨',10);tone('clear');buzz([18,8,28,8,42])}catch(_){}
    if(total===225){debris();try{softShake()}catch(_){};setScene(true)}
   }
   function breakthrough(){
-   transitioning=true;carryWidth=Math.max(28,parseFloat(current?.style.width)||carryWidth||baseW);flag1884();debris();
+   transitioning=true;carryWidth=Math.max(28,parseFloat(current?.style.width)||carryWidth||baseW);debris();
    try{showComboBurst(breakLabel(total),10,'great');particles(innerWidth*.5,innerHeight*.38,'✨',16);tone('clear');buzz([22,8,36,8,54,8,76]);softShake()}catch(_){}
    setTimeout(()=>{
     if(!alive)return;
@@ -234,7 +264,7 @@
    if(overlap<28){
     retrying=true;const failed=current;failed.classList.add('miss');lives=Math.max(0,lives-1);score=Math.max(0,score-60);hud();
     try{tone('bad');buzz(110);softShake()}catch(_){}
-    if(lives<=0){alive=false;cancelAnimationFrame(raf);try{showComboBurst('GAME OVER',3,'multi')}catch(_){};setTimeout(()=>finish('stack',score,entry,false),560);return}
+    if(lives<=0){alive=false;cancelAnimationFrame(raf);showFinalFlag();try{showComboBurst('GAME OVER',3,'multi');tone('clear');buzz([20,8,34,8,52])}catch(_){};setTimeout(()=>finish('stack',score,entry,false),980);return}
     try{showComboBurst(`MISS! ❤️ ${lives}/3`,2,'multi')}catch(_){}
     setTimeout(()=>{if(!alive)return;failed.remove();dir*=-1;current=piece();x=dir>0?0:Math.max(0,W()-parseFloat(current.style.width));current.style.left=x+'px';lastDropAt=performance.now();retrying=false},360);return
    }
