@@ -1,4 +1,4 @@
-name: Patch stack judgement and KF21 haptics
+name: Patch stack judgement and KF21 haptics v2.1
 
 on:
   push:
