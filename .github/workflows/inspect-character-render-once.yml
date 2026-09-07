@@ -1,0 +1,29 @@
+name: Inspect character render once
+
+'on':
+  push:
+    paths:
+      - '.github/workflows/inspect-character-render-once.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Inspect current render code
+        run: python .github/inspect_character_render.py
+      - name: Check report diff
+        run: git diff --check
+      - name: Configure git
+        run: |
+          git config user.name "PWDJ Render Inspector"
+          git config user.email "34460283+haveanair@users.noreply.github.com"
+      - name: Commit report
+        run: |
+          git add .github/character-render-inspection.txt
+          git diff --cached --check
+          git commit -m "Inspect character rendering and Nongae super FX"
+          git push
