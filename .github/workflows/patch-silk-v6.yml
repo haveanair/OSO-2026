@@ -1,4 +1,4 @@
-name: Diagnose global touch haptics
+name: Apply selection-only haptics
 
 on:
   push:
@@ -6,38 +6,47 @@ on:
       - '.github/workflows/patch-silk-v6.yml'
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
-  diagnose:
+  patch:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 1
-      - name: Print touch and haptic call sites
+          fetch-depth: 0
+      - name: Apply selection-only touch haptics patch
+        run: python .github/scripts/patch-touch-haptics-selection.py
+      - name: Validate external javascript
+        run: node --check play/character-performance-bonus.js
+      - name: Validate inline javascript
         run: |
           python - <<'PY'
           from pathlib import Path
-          import re
-          files=[Path('play/index.html')]+list(Path('play').glob('*.js'))
-          for p in files:
-              if not p.exists(): continue
-              s=p.read_text(encoding='utf-8',errors='ignore')
-              hits=[]
-              for pat in [r'addEventListener\([^\n]{0,180}(?:pointer|touch|click)[^\n]{0,220}',r'\.onclick\s*=.{0,220}',r'\.onpointerdown\s*=.{0,220}',r'\.ontouchstart\s*=.{0,220}',r'buzz\([^\n]{0,140}',r'navigator\.vibrate\([^\n]{0,140}']:
-                  for m in re.finditer(pat,s,re.I):
-                      a=max(0,m.start()-260); b=min(len(s),m.end()+320)
-                      chunk=s[a:b]
-                      low=chunk.lower()
-                      if ('buzz(' in chunk or 'vibrate' in low) and any(k in low for k in ['pointer','touch','click','onclick']):
-                          hits.append((m.start(),chunk))
-              if hits:
-                  print('\n########',p,'########')
-                  seen=[]
-                  for pos,chunk in sorted(hits):
-                      if any(abs(pos-q)<180 for q in seen): continue
-                      seen.append(pos)
-                      line=s.count('\n',0,pos)+1
-                      print(f'\n--- line {line} pos {pos} ---\n{chunk}\n')
+          import re, subprocess, sys
+          h=Path('play/index.html').read_text(encoding='utf-8')
+          scripts=re.findall(r'<script(?![^>]*\bsrc=)[^>]*>(.*?)</script>',h,re.I|re.S)
+          checked=0
+          for i,js in enumerate(scripts):
+              if not js.strip(): continue
+              q=Path(f'/tmp/oso-inline-{i}.js');q.write_text(js,encoding='utf-8')
+              r=subprocess.run(['node','--check',str(q)],text=True,capture_output=True)
+              if r.returncode:
+                  print(r.stdout);print(r.stderr);sys.exit(r.returncode)
+              checked+=1
+          print('inline scripts checked:',checked)
           PY
+      - name: Verify haptic policy markers
+        run: |
+          ! grep -F "hapticsPrimed" play/index.html
+          ! grep -F "pendingBrowserBuzz" play/index.html
+          grep -F "전역 화면 터치는 진동시키지 않는다" play/index.html >/dev/null
+          grep -F "target.closest('#stage #sseScene')" play/character-performance-bonus.js >/dev/null
+      - name: Commit patched files
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add play/index.html play/character-performance-bonus.js
+          git diff --cached --quiet && exit 0
+          git commit -m "전역 터치 진동 제거·선택 동작에만 햅틱 유지"
+          git push
