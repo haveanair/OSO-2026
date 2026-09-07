@@ -1,0 +1,62 @@
+name: Fix silk GREAT linebreak
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/silk-great-linebreak.trigger'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Patch GREAT two-line text only
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          bonus_path=Path('play/character-performance-bonus.js')
+          index_path=Path('play/index.html')
+          bonus=bonus_path.read_text(encoding='utf-8')
+          index=index_path.read_text(encoding='utf-8')
+
+          old="""        if(stack&&/^GREAT!/.test(msg)){
+          const gain=expandLatestStackPiece(.04,5,8);msg=rewriteGrowMessage(msg,gain);
+          msg=msg.replace(/^GREAT!\\s*/, 'GREAT!\\n');arguments[0]=msg
+        }"""
+          new="""        if(stack&&/^GREAT!/.test(msg)){
+          const gain=expandLatestStackPiece(.04,5,8),pts=(msg.match(/\\+(\\d+)\\s*$/)||[])[1];
+          const line2=[gain>0?`비단 +${Math.round(gain)}`:'',pts?`+${pts}`:''].filter(Boolean).join(' · ');
+          msg=`GREAT!\\n${line2}`;arguments[0]=msg
+        }"""
+          if bonus.count(old)!=1:
+              raise SystemExit(f'GREAT wrapper target count invalid: {bonus.count(old)}')
+          bonus=bonus.replace(old,new,1)
+
+          index,n=re.subn(r'(\\./character-performance-bonus\\.js\\?v=)[^"\']+',r'\\g<1>20260908-greatline3',index,count=1)
+          if n!=1: raise SystemExit(f'cache target count invalid: {n}')
+
+          bonus_path.write_text(bonus,encoding='utf-8')
+          index_path.write_text(index,encoding='utf-8')
+          PY
+
+          node --check play/character-performance-bonus.js
+          grep -Fq 'msg=`GREAT!\n${line2}`' play/character-performance-bonus.js
+          grep -Fq "join(' · ')" play/character-performance-bonus.js
+          grep -Fq '20260908-greatline3' play/index.html
+          git diff --check
+
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add play/character-performance-bonus.js play/index.html
+          git commit -m '비단 GREAT 줄바꿈 보상표시 수정'
+          git push
