@@ -245,14 +245,17 @@
   }
   function showFinalFlag(){if(finalFlagShown)return;finalFlagShown=true;flag1884()}
 
-  function hardRoofVibrate(){
-   const pattern=[180,45,260,50,360,55,650];
+  function roofImpactVibrate(pattern){
    try{if(navigator&&typeof navigator.vibrate==='function'){navigator.vibrate(0);navigator.vibrate(pattern);return}}catch(_){}
    try{buzz(pattern)}catch(_){}
   }
   function impactSounds(){
-   hardRoofVibrate();
-   try{tone('bad');setTimeout(()=>beep(92,.11,.055,'square',58),130);setTimeout(()=>beep(72,.16,.065,'sawtooth',48),390);setTimeout(()=>beep(55,.28,.075,'square',38),720)}catch(_){}
+   try{
+    tone('bad');roofImpactVibrate([68,18,34]);
+    setTimeout(()=>{beep(92,.11,.055,'square',58);roofImpactVibrate([82,18,82])},130);
+    setTimeout(()=>{beep(72,.16,.065,'sawtooth',48);roofImpactVibrate([105,22,105])},390);
+    setTimeout(()=>{beep(55,.28,.075,'square',38);roofImpactVibrate([170,28,185,28,235])},720)
+   }catch(_){}
   }
   function structureBlast(){
    scene.classList.remove('sseImpactShake');void scene.offsetWidth;scene.classList.add('sseImpactShake');

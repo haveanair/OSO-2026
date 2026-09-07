@@ -101,18 +101,8 @@
       #stage .sseAssistSnapFx.nongae{background:#f2dcffed;border-color:#704a85;color:#4d2e5f}
       @keyframes sseAssistSnapFx{0%{opacity:0;transform:translate(-50%,-50%) scale(.7)}25%{opacity:1;transform:translate(-50%,-50%) scale(1.12)}70%{opacity:1}100%{opacity:0;transform:translate(-50%,-72%) scale(.94)}}
 
-      #stage .sseJudgeBurst2{position:absolute!important;left:50%!important;top:37%!important;z-index:74!important;transform:translateX(-50%) scale(.72);width:auto!important;min-width:min(220px,calc(100% - 28px))!important;max-width:calc(100% - 28px)!important;box-sizing:border-box!important;padding:10px 15px 9px!important;border:4px solid #526477!important;border-radius:18px!important;background:#eff7fff4!important;color:#26384b!important;text-align:center!important;box-shadow:0 7px 0 #60778c,0 13px 24px #0005!important;pointer-events:none!important;will-change:transform,opacity;opacity:0;animation:sseJudgeBurst2 1.02s cubic-bezier(.18,.78,.22,1) forwards!important}
-      #stage .sseJudgeBurst2.perfect{border-color:#7a4a22!important;background:#fff5c9f4!important;color:#5b341e!important;box-shadow:0 7px 0 #a66d35,0 13px 24px #0005!important}
-      #stage .sseJudgeBurst2.perfect.heart{border-color:#a83f54!important;background:#fff0f3f5!important;color:#7a2c41!important;box-shadow:0 7px 0 #b65a6d,0 13px 24px #0005!important}
-      #stage .sseJudgeBurst2.great{border-color:#35704a!important;background:#efffcdf4!important;color:#27513a!important;box-shadow:0 7px 0 #4f855d,0 13px 24px #0004!important}
-      #stage .sseJudgeBurst2.good{border-color:#397098!important;background:#e8f7fff4!important;color:#244e70!important;box-shadow:0 7px 0 #5889aa,0 13px 24px #0004!important}
-      #stage .sseJudgeBurst2.close{border-color:#a56c25!important;background:#fff0c9f4!important;color:#72481c!important;box-shadow:0 7px 0 #bd843d,0 13px 24px #0004!important}
-      #stage .sseJudgeBurst2.miss{border-color:#9e3e45!important;background:#ffe8eaf5!important;color:#742d34!important;box-shadow:0 7px 0 #b95d63,0 13px 24px #0005!important}
-      #stage .sseJudgeBurst2 .sseJudgeMain{display:block!important;margin:0!important;padding:0!important;font-size:clamp(22px,6.2vw,30px)!important;font-weight:1000!important;line-height:1.02!important;white-space:normal!important;word-break:keep-all!important}
-      #stage .sseJudgeBurst2 .sseJudgeSub{display:block!important;margin:5px 0 0!important;font-size:clamp(11px,3.2vw,14px)!important;font-weight:1000!important;line-height:1.15!important;white-space:normal!important;word-break:keep-all!important}
-      @keyframes sseJudgeBurst2{0%{opacity:0;transform:translateX(-50%) scale(.68)}18%{opacity:1;transform:translateX(-50%) scale(1.08)}48%,78%{opacity:1;transform:translateX(-50%) scale(1)}100%{opacity:0;transform:translateX(-50%) translateY(-18px) scale(.94)}}
 
-      #stage .sseGreatBurst2{position:absolute!important;left:50%!important;top:37%!important;z-index:51!important;transform:translateX(-50%) scale(.74)!important;width:auto!important;min-width:min(210px,calc(100% - 28px))!important;max-width:calc(100% - 28px)!important;box-sizing:border-box!important;padding:9px 14px 8px!important;border:4px solid #35704a!important;border-radius:17px!important;background:#efffcdf2!important;color:#27513a!important;text-align:center!important;box-shadow:0 7px 0 #4f855d,0 13px 24px #0004!important;pointer-events:none!important;opacity:0!important;animation:sseGreatBurst2 .98s cubic-bezier(.18,.78,.22,1) forwards!important}
+      #stage .sseGreatBurst2{position:absolute!important;left:50%!important;top:37%!important;z-index:51!important;transform:translateX(-50%) scale(.74);width:auto!important;min-width:min(210px,calc(100% - 28px))!important;max-width:calc(100% - 28px)!important;box-sizing:border-box!important;padding:9px 14px 8px!important;border:4px solid #35704a!important;border-radius:17px!important;background:#efffcdf2!important;color:#27513a!important;text-align:center!important;box-shadow:0 7px 0 #4f855d,0 13px 24px #0004!important;pointer-events:none!important;will-change:transform,opacity;opacity:0;animation:sseGreatBurst2 .98s cubic-bezier(.18,.78,.22,1) forwards!important}
       #stage .sseGreatBurst2 .sseGreatMain{display:block!important;font-size:clamp(20px,5.8vw,28px)!important;font-weight:1000!important;line-height:1.02!important;white-space:nowrap!important}
       #stage .sseGreatBurst2 .sseGreatSub{display:block!important;margin-top:5px!important;font-size:clamp(11px,3.2vw,14px)!important;font-weight:1000!important;line-height:1.15!important;white-space:normal!important;word-break:keep-all!important}
       @keyframes sseGreatBurst2{0%{opacity:0;transform:translateX(-50%) scale(.68)}20%{opacity:1;transform:translateX(-50%) scale(1.08)}48%,78%{opacity:1;transform:translateX(-50%) scale(1)}100%{opacity:0;transform:translateX(-50%) translateY(-18px) scale(.94)}}
@@ -244,25 +234,30 @@
       const center=oldL+oldW/2,newL=clamp(center-newW/2,0,Math.max(0,laneW-newW));el.style.left=newL+'px';el.style.width=newW+'px';return Math.round(gain)
     }catch(_){return 0}
   }
-  function showStackJudgementBurst(message){
+  function showStackGreatBurst(message){
     try{
       const scene=document.querySelector('#stage #sseScene');if(!scene)return false;
-      const msg=String(message||'').trim();let kind='',main='',sub='';
-      if(/^PERFECT/.test(msg)){kind='perfect';const parts=msg.split(' · ').map(v=>v.trim()).filter(Boolean);main=parts.shift()||'PERFECT!';sub=parts.join(' · ')||'정확하게 맞췄습니다!'}
-      else if(/^GREAT!/.test(msg)){kind='great';main='GREAT!';sub=msg.replace(/^GREAT!\s*/,'').trim()||'좋은 위치입니다!'}
-      else if(/^GOOD!/.test(msg)){kind='good';main='GOOD!';sub=msg.replace(/^GOOD!\s*/,'').trim()||'좋습니다!'}
-      else if(/^아슬아슬!/.test(msg)){kind='close';main='아슬아슬!';sub=msg.replace(/^아슬아슬!\s*/,'').trim()||'조금만 더 중앙으로!'}
-      else if(/^MISS!/.test(msg)){kind='miss';main='MISS!';sub=msg.replace(/^MISS!\s*/,'').trim()||'다시 도전!'}
-      else return false;
-      scene.querySelectorAll('.sseJudgeBurst2,.sseGreatBurst2,.ssePerfectBurst2,.comboBurstFX').forEach(e=>e.remove());
-      const box=document.createElement('div');box.className='sseJudgeBurst2 '+kind+(msg.includes('❤️ +1')?' heart':'');
-      const a=document.createElement('span');a.className='sseJudgeMain';a.textContent=main;
-      const b=document.createElement('span');b.className='sseJudgeSub';b.textContent=sub;
+      const msg=String(message||'').trim();if(!/^GREAT!/.test(msg))return false;
+      scene.querySelectorAll('.sseGreatBurst2,.sseJudgeBurst2').forEach(e=>e.remove());
+      const rest=msg.replace(/^GREAT!\s*/,'').trim();
+      const box=document.createElement('div');box.className='sseGreatBurst2';
+      const a=document.createElement('span');a.className='sseGreatMain';a.textContent='GREAT!';
+      const b=document.createElement('span');b.className='sseGreatSub';b.textContent=rest||'좋은 위치입니다!';
+      box.append(a,b);scene.appendChild(box);void box.offsetWidth;setTimeout(()=>box.remove(),1040);return true
+    }catch(_){return false}
+  }
+  function showStackPerfectBurst(message){
+    try{
+      const scene=document.querySelector('#stage #sseScene');if(!scene)return false;
+      const msg=String(message||'').trim();if(!/^PERFECT/.test(msg))return false;
+      scene.querySelectorAll('.ssePerfectBurst2,.sseJudgeBurst2').forEach(e=>e.remove());
+      const parts=msg.split(' · ').map(s=>s.trim()).filter(Boolean),main=parts.shift()||'PERFECT!',sub=parts.join(' · '),box=document.createElement('div');
+      box.className='ssePerfectBurst2'+(main.includes('❤️')?' heart':'');
+      const a=document.createElement('span');a.className='ssePerfectMain';a.textContent=main;
+      const b=document.createElement('span');b.className='ssePerfectSub';b.textContent=sub||'정확하게 맞췄습니다!';
       box.append(a,b);scene.appendChild(box);void box.offsetWidth;setTimeout(()=>box.remove(),1120);return true
     }catch(_){return false}
   }
-  function showStackGreatBurst(message){return showStackJudgementBurst(message)}
-  function showStackPerfectBurst(message){return showStackJudgementBurst(message)}
   function rewriteGrowMessage(msg,extra){
     if(extra<=0)return msg;
     const m=msg.match(/비단 \+(\d+)/),sum=(m?Number(m[1])||0:0)+extra;
@@ -275,10 +270,9 @@
       const original=window.showComboBurst;
       const wrapped=function(message){
         let msg=String(message==null?'':message);const stack=!!document.querySelector('#stage #sseScene');
-        if(stack&&/^GREAT!/.test(msg)){const gain=expandLatestStackPiece(.04,5,8);msg=rewriteGrowMessage(msg,gain)}
-        if(stack&&/^PERFECT/.test(msg)){const gain=expandLatestStackPiece(.06,9,14);msg=rewriteGrowMessage(msg,gain)}
-        if(stack&&/^(?:PERFECT|GREAT!|GOOD!|아슬아슬!|MISS!)/.test(msg)){ensureStyle();if(showStackJudgementBurst(msg))return}
-        arguments[0]=msg;return original.apply(this,arguments)
+        if(stack&&/^GREAT!/.test(msg)){const gain=expandLatestStackPiece(.04,5,8);msg=rewriteGrowMessage(msg,gain);ensureStyle();if(showStackGreatBurst(msg))return;arguments[0]=msg}
+        if(stack&&/^PERFECT/.test(msg)){const gain=expandLatestStackPiece(.06,9,14);msg=rewriteGrowMessage(msg,gain);ensureStyle();if(showStackPerfectBurst(msg))return;arguments[0]=msg}
+        return original.apply(this,arguments)
       };
       wrapped.__stackBalanceWrapped=true;wrapped.__stackBalanceOriginal=original;window.showComboBurst=wrapped;return true
     }catch(_){return false}
@@ -298,13 +292,12 @@
     if(stackObserver||!document)return;
     const stage=document.getElementById('stage');if(!stage)return;
     stackObserver=new MutationObserver(ms=>{
-      let blast=false,sceneAdded=false;
+      let sceneAdded=false;
       for(const m of ms)for(const n of m.addedNodes){
         if(!(n instanceof Element))continue;
-        if((n.matches&&n.matches('.sseBreakFlash'))||(n.querySelector&&n.querySelector('.sseBreakFlash')))blast=true;
         if((n.matches&&n.matches('#sseScene'))||(n.querySelector&&n.querySelector('#sseScene')))sceneAdded=true
       }
-      if(blast)strongRoofVibration();if(sceneAdded)setTimeout(refreshStackAssistBadge,0)
+      if(sceneAdded)setTimeout(refreshStackAssistBadge,0)
     });
     stackObserver.observe(stage,{childList:true,subtree:true});setTimeout(refreshStackAssistBadge,0)
   }
