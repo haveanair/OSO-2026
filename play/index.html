@@ -4246,8 +4246,8 @@ function playRun(){
   if(img.complete){
    const runnerSkin=currentSkin();
    const flipRunner=runnerSkin.id!=='ayo_glasses';
-   ctx.save();ctx.translate(84,y+45);ctx.scale(flipRunner?-sX:sX,sY);
-   if(inv>0&&Math.floor(ts/90)%2===0)ctx.globalAlpha=.38;ctx.drawImage(img,-47,-47,94,94);ctx.restore()
+   ctx.save();ctx.translate(84,y+45);const runnerScale=land>0?.90:1;ctx.scale(flipRunner?-runnerScale:runnerScale,runnerScale);
+   if(inv>0&&Math.floor(ts/90)%2===0)ctx.globalAlpha=.38;const runAG=window.OsoCharacterAspectGuard;runAG?runAG.drawContainedBox(ctx,img,-47,-47,94,94):ctx.drawImage(img,-47,-47,94,94);ctx.restore()
   }
   $('#gScore').textContent=Math.floor(score+coins*30);$('#runDist').textContent=`${Math.floor(world/10)}m · 🪙 +${coins}`;raf=requestAnimationFrame(loop)
  }
@@ -5053,6 +5053,8 @@ function playSpacefighter(craftMode='character'){
      if(pulse>.16){ctx.save();ctx.globalAlpha=.25+.62*pulse;ctx.fillStyle='#fff7bd';ctx.shadowBlur=30;ctx.shadowColor='#ff6a1d';ctx.beginPath();ctx.arc(ex,ey,12+50*pulse,0,6.28);ctx.fill();ctx.fillStyle='#ff6420';ctx.globalAlpha=.38*pulse;ctx.beginPath();ctx.arc(ex,ey,26+76*pulse,0,6.28);ctx.fill();ctx.restore()}
     }
    }
+  }else if(superFx.kind==='heaven_jade'){
+   if(window.OsoNongaeHeavenJadeFx)window.OsoNongaeHeavenJadeFx.draw(ctx,{W,H,ts,superFx,player});
   }else if(superFx.kind==='cargo'){
    for(let i=0;i<10;i++){
     let x=(i+.5)*W/10+Math.sin(ts*.01+i)*8,y=(ts*.7+i*73)%H;
@@ -5357,7 +5359,7 @@ function playSpacefighter(craftMode='character'){
    if(playerImg.complete&&playerImg.naturalWidth){
     ctx.save();ctx.translate(player.x,player.y);
     ctx.shadowColor='#8cf3ff';ctx.shadowBlur=14;
-    isKf21?ctx.drawImage(playerImg,-40,-40,80,80):isNongae?ctx.drawImage(playerImg,-22,-39,44,70):ctx.drawImage(playerImg,-30,-31,60,62);ctx.restore()
+    const sfAG=window.OsoCharacterAspectGuard;if(sfAG){if(isKf21)sfAG.drawContainedBox(ctx,playerImg,-40,-40,80,80);else if(isNongae)sfAG.drawContainedBox(ctx,playerImg,-22,-39,44,70);else sfAG.drawContainedBox(ctx,playerImg,-30,-31,60,62)}else{isKf21?ctx.drawImage(playerImg,-40,-40,80,80):isNongae?ctx.drawImage(playerImg,-22,-39,44,70):ctx.drawImage(playerImg,-30,-31,60,62)}ctx.restore()
    }else{
     drawEmoji(group==='oso'?'🐂':group==='hamo'?'🦦':group==='nongae'?'👘':'🐱',player.x,player.y,48)
    }
@@ -5699,7 +5701,7 @@ function playOsoRacing(){
 
   drawSpeedLines(hz);
   const carY=H-78,carX=W*.5+playerX*W*.28;roadCar(carX,carY,1.12,'#e9483d',true);
-  if(img.complete&&img.naturalWidth)ctx.drawImage(img,carX-28,carY-72,56,56);
+  if(img.complete&&img.naturalWidth){const raceAG=window.OsoCharacterAspectGuard;raceAG?raceAG.drawContainedBox(ctx,img,carX-28,carY-72,56,56):ctx.drawImage(img,carX-28,carY-72,56,56)};
 
   sparks.forEach(p=>{p.life-=1/60;p.x+=p.vx/60;p.y+=p.vy/60;p.vy+=4});sparks=sparks.filter(p=>p.life>0);
   ctx.fillStyle='#ffd55a';for(const p of sparks){ctx.globalAlpha=clamp(p.life/.5,0,1);ctx.fillRect(p.x,p.y,3,6)}ctx.globalAlpha=1
@@ -7043,7 +7045,7 @@ function fantasyCoinDrop(e){
   if(ch==='r'){ctx.fillStyle=par?'#d6b27a':'#dcb984';ctx.fillRect(px,py,tile+1,tile+1);ctx.strokeStyle='#b2885655';ctx.lineWidth=1;for(let yy=0;yy<tile;yy+=tile*.25){ctx.beginPath();ctx.moveTo(px,py+yy);ctx.lineTo(px+tile,py+yy);ctx.stroke()}for(let xx=(par?tile*.25:tile*.5);xx<tile;xx+=tile*.5){ctx.beginPath();ctx.moveTo(px+xx,py);ctx.lineTo(px+xx,py+tile);ctx.stroke()}ctx.fillStyle='#c89d63';ctx.fillRect(px+tile*.46,py,tile*.08,tile);return}
   const floor=theme==='abyss'?(par?'#2b2334':'#34283e'):theme==='heaven'?(par?'#eef1f8':'#dfe6f1'):theme==='demon'?(par?'#5b3b65':'#62406b'):theme==='river'?(par?'#73b9ae':'#79c0b4'):theme==='castle'?(par?'#b0a58e':'#b8ad97'):theme==='cellar'?(par?'#92704b':'#9b7953'):(par?'#e1bd86':'#e7c58f');ctx.fillStyle=floor;ctx.fillRect(px,py,tile+1,tile+1);ctx.fillStyle='#ffffff10';ctx.fillRect(px+2,py+2,tile-4,tile*.16);ctx.strokeStyle='#6d553326';ctx.strokeRect(px,py,tile,tile)
  }
-function draw(){const m=map(),top=72,bottom=136,fieldH=Math.max(250,H-top-bottom),tile=Math.max(42,Math.min(52,Math.floor(W/7.8))),mapW=m.grid[0].length*tile,mapH=m.grid.length*tile;let camX=hero.x*tile+tile/2-W/2,camY=hero.y*tile+tile/2-fieldH/2;camX=clamp(camX,0,Math.max(0,mapW-W));camY=clamp(camY,0,Math.max(0,mapH-fieldH));ctx.save();ctx.translate(-camX,top-camY);const x0=Math.max(0,Math.floor(camX/tile)-1),x1=Math.min(m.grid[0].length-1,Math.ceil((camX+W)/tile)+1),y0=Math.max(0,Math.floor(camY/tile)-1),y1=Math.min(m.grid.length-1,Math.ceil((camY+fieldH)/tile)+1);for(let y=y0;y<=y1;y++)for(let x=x0;x<=x1;x++)drawTile(m.grid[y][x],x,y,tile,m.theme);const C=(x,y)=>[(x+.5)*tile,(y+.5)*tile];if(m.facilities)for(const f of m.facilities)drawTownFacility(f,tile);for(const c of m.chests){if(c.hiddenUntil==='legend'&&!run.legendUnlocked)continue;const a=C(c.x,c.y);drawChest(c,a[0],a[1],tile)}for(const n of m.npcs){const a=C(n.x,n.y);drawPerson(n,a[0],a[1],tile)}if(m.warp){const a=C(m.warp.x,m.warp.y);drawWarp(m.warp,a[0],a[1],tile)}if(m.door){const a=C(m.door.x,m.door.y);drawDoor(a[0],a[1],tile)}if(zone===0)for(const e of SECRET_ENTRANCES)if(secretEntranceVisible(e)){const a=C(e.x,e.y);drawSecretPortal(e,a[0],a[1],tile)}if(m.boss&&!run.bossDefeated[zone]){const a=C(m.boss.x,m.boss.y);drawBossField(m.boss,a[0],a[1],tile)}const h=C(hero.x,hero.y);if(heroImg.complete&&heroImg.naturalWidth)ctx.drawImage(heroImg,h[0]-tile*.55,h[1]-tile*.67,tile*1.10,tile*1.22);else{ctx.font=`${tile*1.02}px sans-serif`;ctx.textAlign='center';ctx.fillText(heroGroup==='hamo'?'🦦':heroGroup==='ayo'?'🐱':'🐂',h[0],h[1])}ctx.restore();ctx.strokeStyle='#e8d293';ctx.lineWidth=2;ctx.strokeRect(3,top-1,W-6,fieldH+2)}
+function draw(){const m=map(),top=72,bottom=136,fieldH=Math.max(250,H-top-bottom),tile=Math.max(42,Math.min(52,Math.floor(W/7.8))),mapW=m.grid[0].length*tile,mapH=m.grid.length*tile;let camX=hero.x*tile+tile/2-W/2,camY=hero.y*tile+tile/2-fieldH/2;camX=clamp(camX,0,Math.max(0,mapW-W));camY=clamp(camY,0,Math.max(0,mapH-fieldH));ctx.save();ctx.translate(-camX,top-camY);const x0=Math.max(0,Math.floor(camX/tile)-1),x1=Math.min(m.grid[0].length-1,Math.ceil((camX+W)/tile)+1),y0=Math.max(0,Math.floor(camY/tile)-1),y1=Math.min(m.grid.length-1,Math.ceil((camY+fieldH)/tile)+1);for(let y=y0;y<=y1;y++)for(let x=x0;x<=x1;x++)drawTile(m.grid[y][x],x,y,tile,m.theme);const C=(x,y)=>[(x+.5)*tile,(y+.5)*tile];if(m.facilities)for(const f of m.facilities)drawTownFacility(f,tile);for(const c of m.chests){if(c.hiddenUntil==='legend'&&!run.legendUnlocked)continue;const a=C(c.x,c.y);drawChest(c,a[0],a[1],tile)}for(const n of m.npcs){const a=C(n.x,n.y);drawPerson(n,a[0],a[1],tile)}if(m.warp){const a=C(m.warp.x,m.warp.y);drawWarp(m.warp,a[0],a[1],tile)}if(m.door){const a=C(m.door.x,m.door.y);drawDoor(a[0],a[1],tile)}if(zone===0)for(const e of SECRET_ENTRANCES)if(secretEntranceVisible(e)){const a=C(e.x,e.y);drawSecretPortal(e,a[0],a[1],tile)}if(m.boss&&!run.bossDefeated[zone]){const a=C(m.boss.x,m.boss.y);drawBossField(m.boss,a[0],a[1],tile)}const h=C(hero.x,hero.y);if(heroImg.complete&&heroImg.naturalWidth)(window.OsoCharacterAspectGuard?window.OsoCharacterAspectGuard.drawContainedBox(ctx,heroImg,h[0]-tile*.55,h[1]-tile*.67,tile*1.10,tile*1.22):ctx.drawImage(heroImg,h[0]-tile*.55,h[1]-tile*.67,tile*1.10,tile*1.22));else{ctx.font=`${tile*1.02}px sans-serif`;ctx.textAlign='center';ctx.fillText(heroGroup==='hamo'?'🦦':heroGroup==='ayo'?'🐱':'🐂',h[0],h[1])}ctx.restore();ctx.strokeStyle='#e8d293';ctx.lineWidth=2;ctx.strokeRect(3,top-1,W-6,fieldH+2)}
  refreshSaveStatus();enterZone(0);showDialog(fantasySaveInfo()?'마왕의 기운이 진주를 덮었다.<br>저장한 모험은 MENU에서 불러올 수 있다.':'마왕의 기운이 진주를 덮었다.<br>시장 사람들과 이야기하고, 아래쪽 여관과 무기점·약방에서 모험 준비를 갖추자.');draw();raf=requestAnimationFrame(function loop(){if(!alive)return;if(!battle)draw();updateHud();raf=requestAnimationFrame(loop)});cleanup=()=>{alive=false;stopMoveHold();window.removeEventListener('pointerup',stopMoveHold,true);cancelAnimationFrame(raf);if(ro)ro.disconnect();else window.removeEventListener('resize',resize);stopBGM()}
 }
 
@@ -7166,5 +7168,7 @@ refresh();renderRanking();initGpsUi();initQrUi();boot();
 <script src="./rpg-save-confirm.js?v=20260906-saveconfirm1"></script>
 <script src="./nongae-unlock-wrap.js?v=20260906-wrap1"></script>
 <script src="./character-special-abilities.js?v=20260907-charability2"></script>
+<script src="./character-aspect-guard.js?v=20260907-aspect1"></script>
+<script src="./nongae-heaven-jade-fx.js?v=20260907-jade1"></script>
 <script src="./character-performance-bonus.js?v=20260906-charbonus2"></script>
 </body></html>
