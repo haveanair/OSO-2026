@@ -1,4 +1,4 @@
-name: Apply selection-only haptics
+name: Diagnose selection and countdown haptics
 
 on:
   push:
@@ -6,47 +6,31 @@ on:
       - '.github/workflows/patch-silk-v6.yml'
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  patch:
+  diagnose:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0
-      - name: Apply selection-only touch haptics patch
-        run: python .github/scripts/patch-touch-haptics-selection.py
-      - name: Validate external javascript
-        run: node --check play/character-performance-bonus.js
-      - name: Validate inline javascript
+          fetch-depth: 1
+      - name: Print selection and countdown paths
         run: |
           python - <<'PY'
           from pathlib import Path
-          import re, subprocess, sys
-          h=Path('play/index.html').read_text(encoding='utf-8')
-          scripts=re.findall(r'<script(?![^>]*\bsrc=)[^>]*>(.*?)</script>',h,re.I|re.S)
-          checked=0
-          for i,js in enumerate(scripts):
-              if not js.strip(): continue
-              q=Path(f'/tmp/oso-inline-{i}.js');q.write_text(js,encoding='utf-8')
-              r=subprocess.run(['node','--check',str(q)],text=True,capture_output=True)
-              if r.returncode:
-                  print(r.stdout);print(r.stderr);sys.exit(r.returncode)
-              checked+=1
-          print('inline scripts checked:',checked)
+          import re
+          p=Path('play/index.html')
+          s=p.read_text(encoding='utf-8',errors='ignore')
+          pats=['readyThen','321','3·2·1','GO!','countdown','data-game','gameCard','menuBtn','titleMenu','onclick','addEventListener']
+          shown=[]
+          for pat in pats:
+              print('\n===== PATTERN',pat,'=====')
+              for m in list(re.finditer(re.escape(pat),s,re.I))[:30]:
+                  pos=m.start()
+                  if any(abs(pos-x)<350 for x in shown): continue
+                  shown.append(pos)
+                  line=s.count('\n',0,pos)+1
+                  a=max(0,pos-650); b=min(len(s),pos+1100)
+                  print(f'\n--- line {line} pos {pos} ---\n{s[a:b]}\n')
           PY
-      - name: Verify haptic policy markers
-        run: |
-          ! grep -F "hapticsPrimed" play/index.html
-          ! grep -F "pendingBrowserBuzz" play/index.html
-          grep -F "전역 화면 터치는 진동시키지 않는다" play/index.html >/dev/null
-          grep -F "target.closest('#stage #sseScene')" play/character-performance-bonus.js >/dev/null
-      - name: Commit patched files
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add play/index.html play/character-performance-bonus.js
-          git diff --cached --quiet && exit 0
-          git commit -m "전역 터치 진동 제거·선택 동작에만 햅틱 유지"
-          git push
