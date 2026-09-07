@@ -1,0 +1,30 @@
+name: Connect silk stack endless
+
+on:
+  push:
+    paths:
+      - '.github/workflows/connect-silk-stack-endless.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Connect endless module
+        run: python3 .github/connect_silk_stack_endless.py
+      - name: Verify and publish
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --check
+          git config user.name 'PWDJ Silk Stack'
+          git config user.email '34460283+haveanair@users.noreply.github.com'
+          git add play/index.html .github/silk-stack-endless-report.txt
+          git diff --cached --quiet && exit 0
+          git commit -m 'Connect silk stack endless mode'
+          git push
