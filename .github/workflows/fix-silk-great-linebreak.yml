@@ -29,21 +29,26 @@ jobs:
           bonus=bonus_path.read_text(encoding='utf-8')
           index=index_path.read_text(encoding='utf-8')
 
-          old="""        if(stack&&/^GREAT!/.test(msg)){
-          const gain=expandLatestStackPiece(.04,5,8);msg=rewriteGrowMessage(msg,gain);
-          msg=msg.replace(/^GREAT!\\s*/, 'GREAT!\\n');arguments[0]=msg
-        }"""
-          new="""        if(stack&&/^GREAT!/.test(msg)){
-          const gain=expandLatestStackPiece(.04,5,8),pts=(msg.match(/\\+(\\d+)\\s*$/)||[])[1];
-          const line2=[gain>0?`비단 +${Math.round(gain)}`:'',pts?`+${pts}`:''].filter(Boolean).join(' · ');
-          msg=`GREAT!\\n${line2}`;arguments[0]=msg
-        }"""
+          old='\n'.join([
+              '        if(stack&&/^GREAT!/.test(msg)){',
+              '          const gain=expandLatestStackPiece(.04,5,8);msg=rewriteGrowMessage(msg,gain);',
+              "          msg=msg.replace(/^GREAT!\\s*/, 'GREAT!\\n');arguments[0]=msg",
+              '        }',
+          ])
+          new='\n'.join([
+              '        if(stack&&/^GREAT!/.test(msg)){',
+              '          const gain=expandLatestStackPiece(.04,5,8),pts=(msg.match(/\\+(\\d+)\\s*$/)||[])[1];',
+              "          const line2=[gain>0?`비단 +${Math.round(gain)}`:'',pts?`+${pts}`:''].filter(Boolean).join(' · ');",
+              '          msg=`GREAT!\\n${line2}`;arguments[0]=msg',
+              '        }',
+          ])
           if bonus.count(old)!=1:
               raise SystemExit(f'GREAT wrapper target count invalid: {bonus.count(old)}')
           bonus=bonus.replace(old,new,1)
 
-          index,n=re.subn(r'(\\./character-performance-bonus\\.js\\?v=)[^"\']+',r'\\g<1>20260908-greatline3',index,count=1)
-          if n!=1: raise SystemExit(f'cache target count invalid: {n}')
+          index,n=re.subn(r'(\./character-performance-bonus\.js\?v=)[^"\']+',r'\g<1>20260908-greatline3',index,count=1)
+          if n!=1:
+              raise SystemExit(f'cache target count invalid: {n}')
 
           bonus_path.write_text(bonus,encoding='utf-8')
           index_path.write_text(index,encoding='utf-8')
