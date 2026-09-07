@@ -125,15 +125,16 @@ if old not in h:
     raise SystemExit('missing super vibration marker')
 h = h.replace(old, new, 1)
 
-kf_marker = "   }else if(superFx.kind==='kf21'){"
-kf_pos = h.find(kf_marker)
-if kf_pos < 0:
+m = re.search(r"}\s*else\s+if\s*\(\s*superFx\.kind\s*===\s*['\"]kf21['\"]\s*\)\s*\{", h)
+if not m:
     raise SystemExit('missing KF21 super marker')
-bomb_pos = h.find("    if(elapsed>610){", kf_pos)
-if bomb_pos < 0:
+kf_pos = m.start()
+m2 = re.search(r"if\s*\(\s*elapsed\s*>\s*610\s*\)\s*\{", h[kf_pos:])
+if not m2:
     raise SystemExit('missing KF21 explosion start')
+bomb_pos = kf_pos + m2.start()
 bomb_end = block_end(h, bomb_pos)
-new_bomb_block = r'''    if(elapsed>610){
+new_bomb_block = r'''if(elapsed>610){
      const bp=Math.min(1,(elapsed-610)/900);let kfDetonations=0;
      superFx.kfVibeMask=superFx.kfVibeMask||0;
      for(let i=0;i<10;i++){
