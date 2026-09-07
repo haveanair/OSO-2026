@@ -1,4 +1,4 @@
-name: Patch silk stack endless start height
+name: Diagnose KF21 bombing
 
 on:
   push:
@@ -6,44 +6,32 @@ on:
       - '.github/workflows/patch-silk-v6.yml'
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  patch:
+  diagnose:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0
-      - name: Raise endless stack start height
+          fetch-depth: 1
+      - name: Print KF21 bombing source windows
         run: |
           python - <<'PY'
           from pathlib import Path
-          p=Path('play/silk-stack-endless.js')
-          s=p.read_text(encoding='utf-8')
-
-          marker="const W=()=>lane.getBoundingClientRect().width,baseW=Math.min(235,W()*.58);carryWidth=baseW;"
-          if marker not in s:
-              raise SystemExit('missing base width marker')
-          s=s.replace(marker,marker+"\n  const stackBaseBottom=()=>normal?82:clamp(scene.clientHeight*.77-242,115,210);",1)
-
-          if "e.style.bottom='82px'" not in s:
-              raise SystemExit('missing base bottom marker')
-          s=s.replace("e.style.bottom='82px'","e.style.bottom=stackBaseBottom()+'px'",1)
-
-          if "e.style.bottom=(135+segment*21-cameraOffset)+'px'" not in s:
-              raise SystemExit('missing piece bottom marker')
-          s=s.replace("e.style.bottom=(135+segment*21-cameraOffset)+'px'","e.style.bottom=(stackBaseBottom()+53+segment*21-cameraOffset)+'px'",1)
-
-          p.write_text(s,encoding='utf-8')
+          s=Path('play/index.html').read_text(encoding='utf-8')
+          needles=['kf21','KF-21','superFx.kind','bombs','폭격']
+          seen=[]
+          for needle in needles:
+              start=0
+              while True:
+                  i=s.find(needle,start)
+                  if i<0: break
+                  if not any(abs(i-x)<800 for x in seen):
+                      seen.append(i)
+                      a=max(0,i-1800); b=min(len(s),i+4200)
+                      print('\n===== NEEDLE',needle,'AT',i,'=====\n')
+                      print(s[a:b])
+                  start=i+len(needle)
+          print('\nTOTAL WINDOWS',len(seen))
           PY
-      - name: Validate javascript
-        run: node --check play/silk-stack-endless.js
-      - name: Commit patched file
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add play/silk-stack-endless.js
-          git diff --cached --quiet && exit 0
-          git commit -m "비단쌓기 엔들리스 10단 천장 높이 조정"
-          git push
