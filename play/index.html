@@ -3233,6 +3233,18 @@ function buzz(v=32){
  return browserBuzz(h)
 }
 // 전역 화면 터치는 진동시키지 않는다. 진동은 실제 선택·성공·충돌·폭발 등 해당 동작의 buzz 호출에서만 발생한다.
+function selectionHapticElement(target){
+ const t=target instanceof Element?target:null;if(!t)return null;
+ const el=t.closest('button,a[href],[role="button"],select,summary,input[type="button"],input[type="submit"],input[type="radio"],input[type="checkbox"]');
+ if(!el||el.disabled||el.getAttribute('aria-disabled')==='true')return null;
+ // 누르고 유지/연타하는 플레이 조작은 선택 UI가 아니므로 전역 선택 햅틱에서 제외한다.
+ if(el.closest('.fantasyDpad,.raceSteer')||['raceAccel','raceBrake','raceDrift','raceBoost','hitBtn'].includes(el.id)||el.classList.contains('pdTarget'))return null;
+ return el
+}
+addEventListener('click',e=>{
+ const el=selectionHapticElement(e.target);if(!el)return;
+ try{buzz(12)}catch(_){}
+},{capture:true,passive:true});
 function bombBuzz(){
  const h=[180,45,260,50,360];
  try{const b=window.NativeHaptics||window.AndroidHaptics;if(b&&typeof b.bomb==='function'&&Number(b.bomb())===1)return true}catch(e){}
@@ -3877,7 +3889,11 @@ function finish(code,score,retry,clear=false,bonusCoins=0){
 function readyThen(fn){
  const s=$('#stage'),e=document.createElement('div');e.className='readyCount';s.appendChild(e);
  const seq=['3','2','1','GO!'];let i=0,ti=null;
- function draw(){const v=seq[i];e.innerHTML=`<div class="readyDisc ${v==='GO!'?'go':''}">${v}</div>`;if(v==='GO!')tone('perfect');else beep(580,.04,.025)}
+ function draw(){
+  const v=seq[i];e.innerHTML=`<div class="readyDisc ${v==='GO!'?'go':''}">${v}</div>`;
+  if(v==='GO!'){tone('perfect');buzz([48,12,78])}
+  else{beep(580,.04,.025);buzz(v==='3'?26:v==='2'?32:40)}
+ }
  draw();
  ti=setInterval(()=>{i++;if(i<seq.length){draw()}else{clearInterval(ti);e.remove();fn()}},480);
  cleanup=()=>{clearInterval(ti);if(e.isConnected)e.remove()}
