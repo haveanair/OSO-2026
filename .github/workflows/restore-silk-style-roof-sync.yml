@@ -14,7 +14,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Apply patch
-        run: python3 .github/scripts/restore_silk_style_roof_sync.py
+        run: python3 .github/scripts/restore_silk_style_roof_sync_v2.py
       - name: Validate
         run: |
           node --check play/character-performance-bonus.js
