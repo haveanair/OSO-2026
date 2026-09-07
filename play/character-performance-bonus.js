@@ -1,9 +1,7 @@
 /* 어서오소 캐릭터 성능 보너스
- * 선택한 캐릭터의 도감 가격대가 높을수록 게임 최종 점수와 코인 보상이 상승한다.
- * 공통 finish / RPG 전투보상 / SP1 결과를 후킹한다.
- * 비단쌓기 모바일 UI, PERFECT 2줄 이펙트, GREAT/PERFECT 폭 회복,
- * 하모·논개 추가 정렬 보정, 구조물 격파 강진동을 후단에서 보강한다.
- * 타이틀 NEWS에서 주요 업데이트 이력을 제공한다.
+ * 캐릭터 가격대에 따른 점수/코인 보상, 도감 특성 표시,
+ * 비단쌓기 모바일 UI/판정보정/GREAT·PERFECT 보상/강진동,
+ * 타이틀 NEWS 업데이트 이력을 후단에서 보강한다.
  */
 (function(){
   'use strict';
@@ -15,15 +13,19 @@
   const SP1_SEEN=new Set();
   const roofVibeTimers=[];
   let stackObserver=null;
+  let assistRestoreTimer=0;
 
+  /* 사용자에게 보이는 큰 기능 추가 중심의 업데이트 이력 */
   const CHANGELOG=[
-    {date:'2026.08.28',title:'첫 웹게임장 빌드',items:['「어서오소! 중앙시장 게임장」 기본 골격 구축','오소·하모·아요 캐릭터와 시장 테마 UI 적용','중앙시장 거점을 활용한 7개 기본 미니게임 및 GPS·QR 해금 구조 시작']},
-    {date:'2026.08.29',title:'점수·랭킹·확장게임 체계',items:['일일 누적점수·TOP10 랭킹·누적 코인 시스템 정비','게임별 홈/나가기와 축하·진동·기록 연출 강화','우주파이터·레이싱·환상대모험으로 이어지는 추가 해금 구조 확장']},
-    {date:'2026.08.30',title:'웹판 중심 운영 전환',items:['모바일 웹 완성도 향상을 최우선으로 운영 방향 전환','시장탐험 GPS·지도·QR 보조 해금 흐름 보완','시장 현장 스탬프투어 활용을 위한 웹 접근성 정비']},
-    {date:'2026.08.31',title:'OSO-2026 온라인 운영 시작',items:['GitHub Pages 기반 OSO-2026 공개 운영판 정비','게임 접속 QR 및 해금 QR 경로 수정','온라인 실전판을 이후 통합 작업의 기준으로 고정']},
-    {date:'2026.09.04',title:'논개 캐릭터 이식',items:['논개 캐릭터 2종과 RPG 연계 해금 구조 추가','논개 전용 옥가락지 일반공격 및 특수기 연출 확장','기존 캐릭터 시스템과 논개 능력 연동 작업 시작']},
-    {date:'2026.09.06',title:'캐릭터 해금·특성 통합',items:['논개 해금 래퍼 및 캐릭터 특성 연동 강화','캐릭터별 게임 성능 차이를 공통 특성 시스템으로 정리','웹 운영판 캐릭터 표시·연출 안정화']},
-    {date:'2026.09.07',title:'비단쌓기 엔들리스·캐릭터 능력 대개편',items:['비단쌓기 일반 15단 / 엔들리스 모드 분리 및 엔들리스 10단 돌파 적용','PERFECT 3회마다 하트 +1, GREAT/PERFECT 비단 폭 회복 추가','하모·논개 비단 판정/정렬 보정 강화 및 구조물 격파 연출·진동 강화','일시정지, 모바일 HUD 재배치, PERFECT 2줄 이펙트 적용','타이틀 NEWS 업데이트 이력 기능 추가']}
+    {date:'2026.08.28',title:'첫 빌드',items:['「어서오소! 중앙시장 게임장」 첫 플레이 가능 빌드 완성','오소·하모·아요와 진주중앙시장 테마 적용','7개 기본 미니게임과 시장 방문 해금 시스템 시작']},
+    {date:'2026.08.31',title:'온라인 공개',items:['OSO-2026 웹버전 정식 공개','스마트폰 브라우저에서 바로 접속하고 플레이할 수 있도록 온라인 운영 시작','시장 현장 QR 접속·해금 기능 적용']},
+    {date:'2026.09.03',title:'SP게임 「소트리스」 추가',items:['스페셜 게임 SP1 「소트리스」 신규 추가','5스테이지 진행과 전용 연출·기록·보상 시스템 적용','오소도감과 SP게임 해금 진행도를 연동']},
+    {date:'2026.09.04',title:'논개 캐릭터 추가',items:['논개 캐릭터 2종 신규 추가','RPG 진행과 연계되는 논개 해금 구조 적용','논개 전용 옥가락지 공격과 「천상의 옥가락지 어택」 추가']},
+    {date:'2026.09.05',title:'「오소 환상대모험」 대규모 확장',items:['후반부 신규 보스와 전투 구간 확장','전투 코인 보상 체계 강화','전투 밖 회복 행동 등 필드 편의 기능 추가']},
+    {date:'2026.09.06',title:'환상대모험 저장 기능 강화',items:['저장·불러오기 확인 기능 추가','장거리 RPG 플레이 중 진행 상태를 보다 안전하게 관리하도록 개선']},
+    {date:'2026.09.07',title:'오소도감 업그레이드 기능 추가',items:['캐릭터별 점수·코인 성능 보너스 표시','하모·아요·논개 등 캐릭터별 실제 게임 특성을 도감에서 확인 가능','보유 캐릭터를 단순 수집이 아닌 성능 선택 요소로 확장']},
+    {date:'2026.09.07',title:'비단쌓기 엔들리스 업데이트',items:['일반 15단과 엔들리스 모드 분리, 엔들리스는 10단마다 돌파','GREAT/PERFECT 성공 시 비단 폭 회복, PERFECT 3회마다 하트 +1','하모·논개 전용 판정보정 강화','일시정지·모바일 HUD·PERFECT 2줄 이펙트·구조물 격파 연출 강화']},
+    {date:'2026.09.07',title:'업데이트 NEWS 추가',items:['타이틀 좌상단 NEWS 아이콘 추가','날짜별로 신규 게임·캐릭터·보스·도감 기능 등 큰 업데이트 이력을 확인 가능']}
   ];
 
   function bonusPercentForPrice(value){
@@ -71,9 +73,9 @@
   }
   function traitInfo(skin){
     const s=skin||{},t=skinTraits(s);
-    if(t.nongae)return {kind:'nongae',label:'✨ 아요+하모 특성 · 비단 판정↑ · 상시 4단점프'};
+    if(t.nongae)return {kind:'nongae',label:'✨ 아요+하모 특성 · 강한 비단 자동보정 · 상시 4단점프'};
     if(t.aya)return {kind:'aya',label:'⚡ 레이싱 300km/h · 슈팅 이동↑ · 점프↑'};
-    if(t.hamo)return {kind:'hamo',label:'🎯 수산·싹쓸이·떡떡떡·연타왕·비단 판정↑'};
+    if(t.hamo)return {kind:'hamo',label:'🎯 수산·싹쓸이·떡떡떡·연타왕 판정↑ · 비단 자동보정'};
     return null
   }
 
@@ -90,8 +92,14 @@
       #stage .sseTopHud .sseTitle{left:auto!important;right:auto!important;top:auto!important;bottom:auto!important;transform:none!important;translate:none!important;justify-self:center!important;box-sizing:border-box!important;width:calc(100% - 6px)!important;max-width:360px!important;min-width:0!important;margin:0 auto!important;padding:8px 10px!important;white-space:normal!important;overflow:visible!important;text-overflow:clip!important;overflow-wrap:break-word!important;word-break:keep-all!important;text-align:center!important;line-height:1.12!important}
       #stage .sseBottomHud{left:8px!important;right:8px!important;width:auto!important;max-width:none!important;margin:0!important;transform:none!important;translate:none!important;box-sizing:border-box!important;overflow:visible!important}
       #stage .sseBottomHud .sseGuide,#stage .sseBottomHud .sseGameTip,#stage .sseBottomHud .sseAssistBadge{left:auto!important;right:auto!important;top:auto!important;bottom:auto!important;transform:none!important;translate:none!important;justify-self:center!important;box-sizing:border-box!important;width:min(100%,430px)!important;max-width:100%!important;min-width:0!important;margin:0 auto!important;text-align:center!important;white-space:normal!important;overflow:visible!important;text-overflow:clip!important;overflow-wrap:break-word!important;word-break:keep-all!important}
-      #stage .sseAssistBadge{padding:4px 9px!important;border:2px solid #5b4a27;border-radius:999px;background:#f4ffbde8;color:#40351d;font-size:8px!important;font-weight:1000!important;line-height:1.15!important;box-shadow:0 3px #8d743e99}
+      #stage .sseAssistBadge{padding:5px 10px!important;border:2px solid #5b4a27;border-radius:999px;background:#f4ffbde8;color:#40351d;font-size:9px!important;font-weight:1000!important;line-height:1.15!important;box-shadow:0 3px #8d743e99}
       #stage .sseAssistBadge.nongae{background:#f4e9ffe8;border-color:#714a87;color:#4c2c60}
+      #stage .sseAssistBadge.assistHit{animation:sseAssistBadgeHit .42s ease-out!important;background:#fff8a8!important}
+      #stage .sseAssistBadge.nongae.assistHit{background:#f0d7ff!important}
+      @keyframes sseAssistBadgeHit{0%{transform:scale(.88)!important}45%{transform:scale(1.12)!important}100%{transform:scale(1)!important}}
+      #stage .sseAssistSnapFx{position:absolute;left:50%;top:47%;z-index:51;transform:translate(-50%,-50%);padding:7px 13px;border:3px solid #5c4522;border-radius:999px;background:#fff7a9ed;color:#49381d;font-size:13px;font-weight:1000;pointer-events:none;animation:sseAssistSnapFx .62s ease-out forwards}
+      #stage .sseAssistSnapFx.nongae{background:#f2dcffed;border-color:#704a85;color:#4d2e5f}
+      @keyframes sseAssistSnapFx{0%{opacity:0;transform:translate(-50%,-50%) scale(.7)}25%{opacity:1;transform:translate(-50%,-50%) scale(1.12)}70%{opacity:1}100%{opacity:0;transform:translate(-50%,-72%) scale(.94)}}
 
       #stage .ssePerfectBurst2{position:absolute!important;left:50%!important;top:37%!important;right:auto!important;bottom:auto!important;z-index:52!important;transform:translateX(-50%) scale(.72)!important;width:auto!important;min-width:min(230px,calc(100% - 28px))!important;max-width:calc(100% - 28px)!important;box-sizing:border-box!important;padding:10px 16px 9px!important;border:4px solid #7a4a22!important;border-radius:18px!important;background:#fff5c9f2!important;color:#5b341e!important;text-align:center!important;box-shadow:0 7px 0 #a66d35,0 13px 24px #0005!important;pointer-events:none!important;opacity:0!important;animation:ssePerfectBurst2 1.05s cubic-bezier(.18,.78,.22,1) forwards!important}
       #stage .ssePerfectBurst2.heart{border-color:#a83f54!important;background:#fff0f3f4!important;box-shadow:0 7px 0 #b65a6d,0 13px 24px #0005!important}
@@ -105,7 +113,8 @@
       #osoNewsModal{position:fixed;inset:0;z-index:12000;display:none;align-items:center;justify-content:center;padding:max(16px,env(safe-area-inset-top)) 12px max(16px,env(safe-area-inset-bottom));background:#26170fa8;backdrop-filter:blur(3px)}
       #osoNewsModal.show{display:flex}.osoNewsCard{width:min(590px,96vw);max-height:88vh;display:flex;flex-direction:column;border:4px solid #69432d;border-radius:24px;background:#fff8df;box-shadow:0 18px 45px #0008;overflow:hidden;color:#4b2d1d}
       .osoNewsHead{flex:0 0 auto;display:flex;align-items:center;gap:10px;padding:13px 14px;border-bottom:3px solid #d29a52;background:linear-gradient(#ffe36d,#ffc94c)}.osoNewsHead strong{flex:1;font-size:20px}.osoNewsClose{width:42px;height:42px;border:3px solid #64422d;border-radius:13px;background:#fff8df;font-size:21px;font-weight:1000}
-      .osoNewsList{overflow:auto;padding:13px 12px 20px;-webkit-overflow-scrolling:touch}.osoNewsEntry{margin:0 0 13px;padding:11px 12px;border:3px solid #b98a52;border-radius:17px;background:#fffdf3;box-shadow:0 4px #d8b27d}.osoNewsDate{display:inline-block;margin-bottom:5px;padding:3px 8px;border-radius:999px;background:#5b3b28;color:#fff;font-size:9px;font-weight:1000}.osoNewsEntry h3{margin:0 0 6px;font-size:15px}.osoNewsEntry ul{margin:0;padding-left:18px;font-size:10px;font-weight:850;line-height:1.55}.osoNewsFoot{padding:0 12px 11px;font-size:8px;font-weight:800;opacity:.58;text-align:center}
+      .osoNewsIntro{padding:9px 13px 0;font-size:9px;font-weight:900;line-height:1.45;color:#795437}
+      .osoNewsList{overflow:auto;padding:10px 12px 20px;-webkit-overflow-scrolling:touch}.osoNewsEntry{margin:0 0 13px;padding:11px 12px;border:3px solid #b98a52;border-radius:17px;background:#fffdf3;box-shadow:0 4px #d8b27d}.osoNewsDate{display:inline-block;margin-bottom:5px;padding:3px 8px;border-radius:999px;background:#5b3b28;color:#fff;font-size:9px;font-weight:1000}.osoNewsEntry h3{margin:0 0 6px;font-size:15px}.osoNewsEntry ul{margin:0;padding-left:18px;font-size:10px;font-weight:850;line-height:1.55}.osoNewsFoot{padding:0 12px 11px;font-size:8px;font-weight:800;opacity:.58;text-align:center}
 
       @media(max-width:390px){#stage .sseTopHud .sseTitle{width:100%!important;max-width:100%!important;padding:7px 8px!important;font-size:17px!important}#stage .sseBottomHud{left:6px!important;right:6px!important}#stage .sseBottomHud .sseGuide,#stage .sseBottomHud .sseGameTip,#stage .sseBottomHud .sseAssistBadge{width:100%!important;max-width:100%!important}#stage .ssePerfectBurst2{top:36%!important;min-width:min(220px,calc(100% - 20px))!important;max-width:calc(100% - 20px)!important;padding:9px 12px 8px!important}#osoNewsBtn{left:8px;top:8px;width:46px;height:46px;font-size:23px}.osoNewsCard{max-height:91vh}.osoNewsHead strong{font-size:18px}}
     `;document.head&&document.head.appendChild(st)
@@ -163,9 +172,9 @@
 
   function stackAssistInfo(){
     const t=skinTraits();
-    if(t.nongae)return {on:true,nongae:true,label:'✨ 논개 비단 판정보정 ON'};
-    if(t.hamo)return {on:true,nongae:false,label:'🎯 하모 비단 판정보정 ON'};
-    return {on:false,nongae:false,label:''}
+    if(t.nongae)return {on:true,nongae:true,strength:.92,maxShift:56,label:'✨ 논개 강력 비단 판정보정 ON'};
+    if(t.hamo)return {on:true,nongae:false,strength:.84,maxShift:46,label:'🎯 하모 강력 비단 판정보정 ON'};
+    return {on:false,nongae:false,strength:0,maxShift:0,label:''}
   }
   function refreshStackAssistBadge(){
     try{
@@ -176,9 +185,24 @@
       badge.classList.toggle('nongae',a.nongae);badge.textContent=a.label
     }catch(_){ }
   }
+  function showAssistSnap(a,shift){
+    try{
+      const scene=document.querySelector('#stage #sseScene'),bottom=scene&&scene.querySelector('.sseBottomHud');if(!scene||!bottom)return;
+      const badge=bottom.querySelector('.sseAssistBadge');
+      if(badge){
+        clearTimeout(assistRestoreTimer);badge.classList.remove('assistHit');void badge.offsetWidth;badge.classList.add('assistHit');badge.textContent=`${a.nongae?'✨ 논개':'🎯 하모'} 자동보정 ${Math.round(Math.abs(shift))}px`;
+        assistRestoreTimer=setTimeout(()=>{badge.classList.remove('assistHit');badge.textContent=a.label},470)
+      }
+      if(Math.abs(shift)>=8){
+        scene.querySelectorAll('.sseAssistSnapFx').forEach(e=>e.remove());
+        const fx=document.createElement('div');fx.className='sseAssistSnapFx'+(a.nongae?' nongae':'');fx.textContent=`${a.nongae?'✨':'🎯'} 판정보정!`;scene.appendChild(fx);setTimeout(()=>fx.remove(),660)
+      }
+      try{if(typeof buzz==='function')buzz(a.nongae?28:22)}catch(_){ }
+    }catch(_){ }
+  }
   function installStackMagnetAssist(){
-    if(!document||document.documentElement.dataset.stackMagnetAssist==='1')return;
-    document.documentElement.dataset.stackMagnetAssist='1';
+    if(!document||document.documentElement.dataset.stackMagnetAssist==='2')return;
+    document.documentElement.dataset.stackMagnetAssist='2';
     document.addEventListener('pointerdown',e=>{
       try{
         if(e.target&&e.target.closest&&e.target.closest('.sseControl'))return;
@@ -187,11 +211,13 @@
         const arr=[...lane.querySelectorAll('.silkPiece,.silkBase')];if(arr.length<2)return;
         const cur=arr[arr.length-1],prev=arr[arr.length-2];if(!cur.classList.contains('silkPiece')||cur.classList.contains('miss'))return;
         const l=parseFloat(cur.style.left),w=parseFloat(cur.style.width),pl=parseFloat(prev.style.left),pw=parseFloat(prev.style.width);if(![l,w,pl,pw].every(Number.isFinite))return;
-        const desired=pl+pw/2-w/2,delta=desired-l,maxShift=a.nongae?34:30,strength=a.nongae?.68:.62,shift=clamp(delta*strength,-maxShift,maxShift),maxLeft=Math.max(0,lane.getBoundingClientRect().width-w);
-        cur.style.left=clamp(l+shift,0,maxLeft)+'px';
+        const desired=pl+pw/2-w/2,delta=desired-l,shift=clamp(delta*a.strength,-a.maxShift,a.maxShift),maxLeft=Math.max(0,lane.getBoundingClientRect().width-w);
+        if(Math.abs(shift)<1)return;
+        cur.style.left=clamp(l+shift,0,maxLeft)+'px';showAssistSnap(a,shift)
       }catch(_){ }
     },true)
   }
+
   function expandLatestStackPiece(ratio,minPx,maxPx){
     try{
       const lane=document.querySelector('#stage #sseScene #silkLane');if(!lane)return 0;
@@ -223,8 +249,8 @@
       const wrapped=function(message){
         let msg=String(message==null?'':message);
         const stack=!!document.querySelector('#stage #sseScene');
-        if(stack&&/^GREAT!/.test(msg)){const gain=expandLatestStackPiece(.035,4,7);msg=rewriteGrowMessage(msg,gain);arguments[0]=msg}
-        if(stack&&/^PERFECT/.test(msg)){const gain=expandLatestStackPiece(.05,7,11);msg=rewriteGrowMessage(msg,gain);ensureStyle();if(showStackPerfectBurst(msg))return}
+        if(stack&&/^GREAT!/.test(msg)){const gain=expandLatestStackPiece(.04,5,8);msg=rewriteGrowMessage(msg,gain);arguments[0]=msg}
+        if(stack&&/^PERFECT/.test(msg)){const gain=expandLatestStackPiece(.06,9,14);msg=rewriteGrowMessage(msg,gain);ensureStyle();if(showStackPerfectBurst(msg))return}
         return original.apply(this,arguments)
       };
       wrapped.__stackBalanceWrapped=true;wrapped.__stackBalanceOriginal=original;window.showComboBurst=wrapped;return true
@@ -234,20 +260,24 @@
   function clearRoofVibration(){while(roofVibeTimers.length)clearTimeout(roofVibeTimers.pop());try{if(navigator&&typeof navigator.vibrate==='function')navigator.vibrate(0)}catch(_){ }}
   function strongRoofVibration(){
     clearRoofVibration();
-    const pulses=[[0,340],[450,440],[1030,560],[1730,950]];
+    const pulses=[[0,380],[470,520],[1100,680],[1910,1200]];
     try{
       if(navigator&&typeof navigator.vibrate==='function'){
         pulses.forEach(([at,dur])=>roofVibeTimers.push(setTimeout(()=>{try{navigator.vibrate(0);navigator.vibrate(dur)}catch(_){}},at)));return
       }
     }catch(_){ }
-    try{if(typeof buzz==='function')buzz([340,110,440,140,560,140,950])}catch(_){ }
+    try{if(typeof buzz==='function')buzz([380,90,520,110,680,130,1200])}catch(_){ }
   }
   function installStackObserver(){
     if(stackObserver||!document)return;
     const stage=document.getElementById('stage');if(!stage)return;
     stackObserver=new MutationObserver(ms=>{
       let blast=false,sceneAdded=false;
-      for(const m of ms)for(const n of m.addedNodes){if(!(n instanceof Element))continue;if(n.matches&&n.matches('.sseBreakFlash')||n.querySelector&&n.querySelector('.sseBreakFlash'))blast=true;if(n.matches&&n.matches('#sseScene')||n.querySelector&&n.querySelector('#sseScene'))sceneAdded=true}
+      for(const m of ms)for(const n of m.addedNodes){
+        if(!(n instanceof Element))continue;
+        if((n.matches&&n.matches('.sseBreakFlash'))||(n.querySelector&&n.querySelector('.sseBreakFlash')))blast=true;
+        if((n.matches&&n.matches('#sseScene'))||(n.querySelector&&n.querySelector('#sseScene')))sceneAdded=true
+      }
       if(blast)strongRoofVibration();if(sceneAdded)setTimeout(refreshStackAssistBadge,0)
     });
     stackObserver.observe(stage,{childList:true,subtree:true});setTimeout(refreshStackAssistBadge,0)
@@ -257,10 +287,13 @@
     if(!document)return;
     ensureStyle();
     const host=document.querySelector('#titleSplash .titleScene')||document.getElementById('titleSplash');if(!host)return;
-    let btn=document.getElementById('osoNewsBtn');if(!btn){btn=document.createElement('button');btn.id='osoNewsBtn';btn.type='button';btn.setAttribute('aria-label','업데이트 소식');btn.textContent='📰';host.appendChild(btn)}
+    let btn=document.getElementById('osoNewsBtn');
+    if(!btn){btn=document.createElement('button');btn.id='osoNewsBtn';btn.type='button';btn.setAttribute('aria-label','업데이트 소식');btn.textContent='📰';host.appendChild(btn)}
     let modal=document.getElementById('osoNewsModal');
     if(!modal){
-      modal=document.createElement('div');modal.id='osoNewsModal';modal.innerHTML=`<div class="osoNewsCard" role="dialog" aria-modal="true" aria-label="업데이트 소식"><div class="osoNewsHead"><span style="font-size:28px">📰</span><strong>어서오소 업데이트 소식</strong><button class="osoNewsClose" type="button" aria-label="닫기">✕</button></div><div class="osoNewsList">${CHANGELOG.map(e=>`<section class="osoNewsEntry"><span class="osoNewsDate">${e.date}</span><h3>${escapeHtml(e.title)}</h3><ul>${e.items.map(x=>`<li>${escapeHtml(x)}</li>`).join('')}</ul></section>`).join('')}</div><div class="osoNewsFoot">큰 기능 추가와 운영판 주요 변경을 날짜순으로 기록합니다.</div></div>`;document.body.appendChild(modal)
+      modal=document.createElement('div');modal.id='osoNewsModal';
+      modal.innerHTML=`<div class="osoNewsCard" role="dialog" aria-modal="true" aria-label="업데이트 소식"><div class="osoNewsHead"><span style="font-size:28px">📰</span><strong>어서오소 업데이트 소식</strong><button class="osoNewsClose" type="button" aria-label="닫기">✕</button></div><div class="osoNewsIntro">플레이어가 직접 체감할 수 있는 신규 게임·캐릭터·보스·도감 기능 등 큰 업데이트만 기록합니다.</div><div class="osoNewsList">${CHANGELOG.map(e=>`<section class="osoNewsEntry"><span class="osoNewsDate">${e.date}</span><h3>${escapeHtml(e.title)}</h3><ul>${e.items.map(x=>`<li>${escapeHtml(x)}</li>`).join('')}</ul></section>`).join('')}</div><div class="osoNewsFoot">세부 버그 수정이나 내부 작업 내역은 표시하지 않습니다.</div></div>`;
+      document.body.appendChild(modal)
     }
     const open=e=>{e.preventDefault();e.stopPropagation();modal.classList.add('show')},close=e=>{if(e){e.preventDefault();e.stopPropagation()}modal.classList.remove('show')};
     if(!btn.dataset.newsBound){btn.dataset.newsBound='1';btn.addEventListener('pointerdown',open,{passive:false})}
@@ -278,13 +311,17 @@
       if(scoreExtra>0){if(!state.best||typeof state.best!=='object')state.best={};state.best.sotris=Math.max(Math.floor(Number(state.best.sotris)||0),newScore);state.todayScore=(Number(state.todayScore)||0)+scoreExtra}
       let repeatable=Math.max(5,Math.min(90,Math.floor(score/10)||5));if(d.clear)repeatable+=330;
       const boostedReward=boosted(repeatable,info.percent),coinExtra=Math.max(0,boostedReward-repeatable),before=Math.max(0,Math.floor(Number(state.coins)||0));if(coinExtra>0)state.coins=before+coinExtra;
-      try{if(typeof save==='function')save()}catch(_){ }const coinEl=document&&document.getElementById('sp1Coin');if(coinEl)coinEl.textContent='🪙 '+fmt(state.coins||0);
-      try{if(coinExtra>0&&typeof crossedCoinMilestones==='function'&&typeof playCoinMilestones==='function')playCoinMilestones(crossedCoinMilestones(before,state.coins))}catch(_){ }showBonusToast(info,score,newScore,repeatable,boostedReward,520)
+      try{if(typeof save==='function')save()}catch(_){ }
+      const coinEl=document&&document.getElementById('sp1Coin');if(coinEl)coinEl.textContent='🪙 '+fmt(state.coins||0);
+      try{if(coinExtra>0&&typeof crossedCoinMilestones==='function'&&typeof playCoinMilestones==='function')playCoinMilestones(crossedCoinMilestones(before,state.coins))}catch(_){ }
+      showBonusToast(info,score,newScore,repeatable,boostedReward,520)
     }catch(_){ }
   }
   function scheduleShopDecoration(){setTimeout(()=>{try{decorateShop()}catch(_){}},0)}
   function bindShopDecoration(){
-    if(!document||document.documentElement.dataset.characterBonusShopBound==='1')return;document.documentElement.dataset.characterBonusShopBound='1';document.addEventListener('click',e=>{const t=e&&e.target;if(!t||!t.closest)return;if(t.closest('#titleCollection,[data-page="bookPage"],[data-buy]'))scheduleShopDecoration()},true)
+    if(!document||document.documentElement.dataset.characterBonusShopBound==='1')return;
+    document.documentElement.dataset.characterBonusShopBound='1';
+    document.addEventListener('click',e=>{const t=e&&e.target;if(!t||!t.closest)return;if(t.closest('#titleCollection,[data-page="bookPage"],[data-buy]'))scheduleShopDecoration()},true)
   }
 
   function boot(){
