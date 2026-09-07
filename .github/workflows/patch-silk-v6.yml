@@ -22,23 +22,18 @@ jobs:
           p=Path('play/silk-stack-endless.js')
           s=p.read_text(encoding='utf-8')
 
-          old="""  const W=()=>lane.getBoundingClientRect().width,baseW=Math.min(235,W()*.58);carryWidth=baseW;"""
-          new="""  const W=()=>lane.getBoundingClientRect().width,baseW=Math.min(235,W()*.58);carryWidth=baseW;\n  const stackBaseBottom=()=>normal?82:clamp(scene.clientHeight*.77-242,115,210);"""
-          if old not in s:
+          marker="const W=()=>lane.getBoundingClientRect().width,baseW=Math.min(235,W()*.58);carryWidth=baseW;"
+          if marker not in s:
               raise SystemExit('missing base width marker')
-          s=s.replace(old,new,1)
+          s=s.replace(marker,marker+"\n  const stackBaseBottom=()=>normal?82:clamp(scene.clientHeight*.77-242,115,210);",1)
 
-          old="""   e.style.width=w+'px';e.style.left=((W()-w)/2)+'px';e.style.bottom='82px';e.innerHTML=silkHTML(total);lane.appendChild(e);return e"""
-          new="""   e.style.width=w+'px';e.style.left=((W()-w)/2)+'px';e.style.bottom=stackBaseBottom()+'px';e.innerHTML=silkHTML(total);lane.appendChild(e);return e"""
-          if old not in s:
+          if "e.style.bottom='82px'" not in s:
               raise SystemExit('missing base bottom marker')
-          s=s.replace(old,new,1)
+          s=s.replace("e.style.bottom='82px'","e.style.bottom=stackBaseBottom()+'px'",1)
 
-          old="""   e.style.width=w+'px';e.style.bottom=(135+segment*21-cameraOffset)+'px';e.style.left=x+'px';e.innerHTML=silkHTML(total+1);lane.appendChild(e);return e"""
-          new="""   e.style.width=w+'px';e.style.bottom=(stackBaseBottom()+53+segment*21-cameraOffset)+'px';e.style.left=x+'px';e.innerHTML=silkHTML(total+1);lane.appendChild(e);return e"""
-          if old not in s:
+          if "e.style.bottom=(135+segment*21-cameraOffset)+'px'" not in s:
               raise SystemExit('missing piece bottom marker')
-          s=s.replace(old,new,1)
+          s=s.replace("e.style.bottom=(135+segment*21-cameraOffset)+'px'","e.style.bottom=(stackBaseBottom()+53+segment*21-cameraOffset)+'px'",1)
 
           p.write_text(s,encoding='utf-8')
           PY
