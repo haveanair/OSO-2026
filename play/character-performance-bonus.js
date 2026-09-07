@@ -102,16 +102,7 @@
       @keyframes sseAssistSnapFx{0%{opacity:0;transform:translate(-50%,-50%) scale(.7)}25%{opacity:1;transform:translate(-50%,-50%) scale(1.12)}70%{opacity:1}100%{opacity:0;transform:translate(-50%,-72%) scale(.94)}}
 
 
-      #stage .sseGreatBurst2{position:absolute!important;left:50%!important;top:37%!important;z-index:51!important;transform:translateX(-50%) scale(.74);width:auto!important;min-width:min(210px,calc(100% - 28px))!important;max-width:calc(100% - 28px)!important;box-sizing:border-box!important;padding:9px 14px 8px!important;border:4px solid #35704a!important;border-radius:17px!important;background:#efffcdf2!important;color:#27513a!important;text-align:center!important;box-shadow:0 7px 0 #4f855d,0 13px 24px #0004!important;pointer-events:none!important;will-change:transform,opacity;opacity:0;animation:sseGreatBurst2 .98s cubic-bezier(.18,.78,.22,1) forwards!important}
-      #stage .sseGreatBurst2 .sseGreatMain{display:block!important;font-size:clamp(20px,5.8vw,28px)!important;font-weight:1000!important;line-height:1.02!important;white-space:nowrap!important}
-      #stage .sseGreatBurst2 .sseGreatSub{display:block!important;margin-top:5px!important;font-size:clamp(11px,3.2vw,14px)!important;font-weight:1000!important;line-height:1.15!important;white-space:normal!important;word-break:keep-all!important}
-      @keyframes sseGreatBurst2{0%{opacity:0;transform:translateX(-50%) scale(.68)}20%{opacity:1;transform:translateX(-50%) scale(1.08)}48%,78%{opacity:1;transform:translateX(-50%) scale(1)}100%{opacity:0;transform:translateX(-50%) translateY(-18px) scale(.94)}}
-
-      #stage .ssePerfectBurst2{position:absolute!important;left:50%!important;top:37%!important;right:auto!important;bottom:auto!important;z-index:52!important;transform:translateX(-50%) scale(.72);width:auto!important;min-width:min(230px,calc(100% - 28px))!important;max-width:calc(100% - 28px)!important;box-sizing:border-box!important;padding:10px 16px 9px!important;border:4px solid #7a4a22!important;border-radius:18px!important;background:#fff5c9f2!important;color:#5b341e!important;text-align:center!important;box-shadow:0 7px 0 #a66d35,0 13px 24px #0005!important;pointer-events:none!important;opacity:0;animation:ssePerfectBurst2 1.05s cubic-bezier(.18,.78,.22,1) forwards!important}
-      #stage .ssePerfectBurst2.heart{border-color:#a83f54!important;background:#fff0f3f4!important;box-shadow:0 7px 0 #b65a6d,0 13px 24px #0005!important}
-      #stage .ssePerfectBurst2 .ssePerfectMain{display:block!important;margin:0!important;padding:0!important;font-size:clamp(20px,6vw,29px)!important;font-weight:1000!important;line-height:1.05!important;white-space:normal!important;word-break:keep-all!important;overflow-wrap:normal!important}
-      #stage .ssePerfectBurst2 .ssePerfectSub{display:block!important;margin:5px 0 0!important;padding:0!important;font-size:clamp(11px,3.3vw,15px)!important;font-weight:1000!important;line-height:1.15!important;white-space:normal!important;word-break:keep-all!important;overflow-wrap:break-word!important}
-      @keyframes ssePerfectBurst2{0%{opacity:0;transform:translateX(-50%) scale(.68)}18%{opacity:1;transform:translateX(-50%) scale(1.10)}42%,78%{opacity:1;transform:translateX(-50%) scale(1)}100%{opacity:0;transform:translateX(-50%) translateY(-20px) scale(.92)}}
+      #stage .comboBurstFX{white-space:pre-line!important}
 
       #osoNewsBtn{position:absolute;left:12px;top:12px;z-index:35;width:52px;height:52px;border:4px solid #5b3824;border-radius:17px;background:linear-gradient(#fff8dc,#ffd85f);box-shadow:0 5px #a66b2d;color:#54321e;font-size:26px;line-height:1;display:grid;place-items:center;font-weight:1000;touch-action:manipulation}
       #osoNewsBtn:after{content:'NEWS';position:absolute;left:50%;bottom:2px;transform:translateX(-50%);font-size:7px;letter-spacing:.5px;font-weight:1000}
@@ -234,30 +225,6 @@
       const center=oldL+oldW/2,newL=clamp(center-newW/2,0,Math.max(0,laneW-newW));el.style.left=newL+'px';el.style.width=newW+'px';return Math.round(gain)
     }catch(_){return 0}
   }
-  function showStackGreatBurst(message){
-    try{
-      const scene=document.querySelector('#stage #sseScene');if(!scene)return false;
-      const msg=String(message||'').trim();if(!/^GREAT!/.test(msg))return false;
-      scene.querySelectorAll('.sseGreatBurst2,.sseJudgeBurst2').forEach(e=>e.remove());
-      const rest=msg.replace(/^GREAT!\s*/,'').trim();
-      const box=document.createElement('div');box.className='sseGreatBurst2';
-      const a=document.createElement('span');a.className='sseGreatMain';a.textContent='GREAT!';
-      const b=document.createElement('span');b.className='sseGreatSub';b.textContent=rest||'좋은 위치입니다!';
-      box.append(a,b);scene.appendChild(box);void box.offsetWidth;setTimeout(()=>box.remove(),1040);return true
-    }catch(_){return false}
-  }
-  function showStackPerfectBurst(message){
-    try{
-      const scene=document.querySelector('#stage #sseScene');if(!scene)return false;
-      const msg=String(message||'').trim();if(!/^PERFECT/.test(msg))return false;
-      scene.querySelectorAll('.ssePerfectBurst2,.sseJudgeBurst2').forEach(e=>e.remove());
-      const parts=msg.split(' · ').map(s=>s.trim()).filter(Boolean),main=parts.shift()||'PERFECT!',sub=parts.join(' · '),box=document.createElement('div');
-      box.className='ssePerfectBurst2'+(main.includes('❤️')?' heart':'');
-      const a=document.createElement('span');a.className='ssePerfectMain';a.textContent=main;
-      const b=document.createElement('span');b.className='ssePerfectSub';b.textContent=sub||'정확하게 맞췄습니다!';
-      box.append(a,b);scene.appendChild(box);void box.offsetWidth;setTimeout(()=>box.remove(),1120);return true
-    }catch(_){return false}
-  }
   function rewriteGrowMessage(msg,extra){
     if(extra<=0)return msg;
     const m=msg.match(/비단 \+(\d+)/),sum=(m?Number(m[1])||0:0)+extra;
@@ -270,8 +237,13 @@
       const original=window.showComboBurst;
       const wrapped=function(message){
         let msg=String(message==null?'':message);const stack=!!document.querySelector('#stage #sseScene');
-        if(stack&&/^GREAT!/.test(msg)){const gain=expandLatestStackPiece(.04,5,8);msg=rewriteGrowMessage(msg,gain);ensureStyle();if(showStackGreatBurst(msg))return;arguments[0]=msg}
-        if(stack&&/^PERFECT/.test(msg)){const gain=expandLatestStackPiece(.06,9,14);msg=rewriteGrowMessage(msg,gain);ensureStyle();if(showStackPerfectBurst(msg))return;arguments[0]=msg}
+        if(stack&&/^GREAT!/.test(msg)){
+          const gain=expandLatestStackPiece(.04,5,8);msg=rewriteGrowMessage(msg,gain);
+          msg=msg.replace(/^GREAT!\s*/, 'GREAT!\n');arguments[0]=msg
+        }
+        if(stack&&/^PERFECT/.test(msg)){
+          const gain=expandLatestStackPiece(.06,9,14);msg=rewriteGrowMessage(msg,gain);arguments[0]=msg
+        }
         return original.apply(this,arguments)
       };
       wrapped.__stackBalanceWrapped=true;wrapped.__stackBalanceOriginal=original;window.showComboBurst=wrapped;return true
