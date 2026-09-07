@@ -2,7 +2,8 @@
  * 모드 선택 뒤 기존 readyThen 카운트다운을 1회만 사용한다.
  * 일반 15단 / 엔들리스가 동일 판정 엔진을 사용한다.
  * 하모·논개는 겹침 및 중심 오차 판정을 완화한다.
- * 15·30·45·60·75단 구조물 격파를 대표 연출로 강화한다.
+ * 일반은 15단 완주, 엔들리스는 10단마다 구조물 돌파 연출을 사용한다.
+ * PERFECT 3회마다 하트 1개를 추가한다.
  */
 (()=>{
  'use strict';
@@ -10,6 +11,8 @@
  window.__OSO_SILK_STACK_ENDLESS__=true;
 
  const UNLOCK_CLEARS=10;
+ const NORMAL_FLOORS=15;
+ const ENDLESS_BREAK=10;
  const CLEAR_KEY='oso_silk_stack_normal_clears_v1';
  const STYLE_ID='osoSilkStackEndlessStyle';
  const nativeStartGame=typeof window.startGame==='function'?window.startGame:null;
@@ -78,21 +81,22 @@
   `;document.head.appendChild(st)
  }
 
- function stageFor(total){
-  const n=Math.max(0,Math.floor(Number(total)||0));
-  if(n<30)return {zone:'house',floor:Math.floor(n/15)+1,label:`집 ${Math.floor(n/15)+1}층`};
-  if(n<75){const floor=Math.floor(n/15)+1;return {zone:'building',floor,label:`빌딩 ${floor}층`}}
-  if(n<225){const floor=Math.floor((n-75)/15)+1;return {zone:'sky',floor,label:`하늘 ${floor}층`}}
-  return {zone:'space',floor:Math.floor((n-225)/15)+1,label:`우주 ${Math.floor((n-225)/15)+1}구역`}
+ function stageFor(total,step=NORMAL_FLOORS){
+  const n=Math.max(0,Math.floor(Number(total)||0)),unit=Math.max(1,Math.floor(Number(step)||NORMAL_FLOORS));
+  if(n<unit*2)return {zone:'house',floor:Math.floor(n/unit)+1,label:`집 ${Math.floor(n/unit)+1}층`};
+  if(n<unit*5){const floor=Math.floor(n/unit)+1;return {zone:'building',floor,label:`빌딩 ${floor}층`}}
+  if(n<unit*15){const floor=Math.floor((n-unit*5)/unit)+1;return {zone:'sky',floor,label:`하늘 ${floor}층`}}
+  return {zone:'space',floor:Math.floor((n-unit*15)/unit)+1,label:`우주 ${Math.floor((n-unit*15)/unit)+1}구역`}
  }
- function breakLabel(total){
-  if(total===15)return '지붕 격파! · 2층';
-  if(total===30)return '집 지붕 격파! · 빌딩 3층';
-  if(total===45)return '빌딩 3층 격파! · 4층';
-  if(total===60)return '빌딩 4층 격파! · 5층';
-  if(total===75)return '빌딩 천장 격파! · 하늘 돌파';
-  if(total===225)return '대기권 돌파! · 우주 진입';
-  const st=stageFor(total);return st.zone==='sky'?`하늘 ${st.floor}층 상승!`:st.zone==='space'?`우주 고도 ${st.floor}`:`${st.label} 돌파!`
+ function breakLabel(total,step=NORMAL_FLOORS){
+  const unit=Math.max(1,Math.floor(Number(step)||NORMAL_FLOORS));
+  if(total===unit)return '지붕 격파! · 2층';
+  if(total===unit*2)return '집 지붕 격파! · 빌딩 3층';
+  if(total===unit*3)return '빌딩 3층 격파! · 4층';
+  if(total===unit*4)return '빌딩 4층 격파! · 5층';
+  if(total===unit*5)return '빌딩 천장 격파! · 하늘 돌파';
+  if(total===unit*15)return '대기권 돌파! · 우주 진입';
+  const st=stageFor(total,unit);return st.zone==='sky'?`하늘 ${st.floor}층 상승!`:st.zone==='space'?`우주 고도 ${st.floor}`:`${st.label} 돌파!`
  }
  function backdropHTML(st){
   if(st.zone==='house')return `<div class="sseHouseWall"></div><div class="sseHouseWindow l"></div><div class="sseHouseWindow r"></div><div class="sseCeiling"></div>`;
@@ -134,17 +138,17 @@
  function playStackMode(mode='endless'){
   ensureStyle();activeMode=mode;normalClearRecorded=false;
   const normal=mode==='normal',s=document.querySelector('#stage');if(!s)return;
-  s.innerHTML=`<div class="silkScene sseScene sse-house" id="sseScene"><div class="sseBackdrop" id="sseBackdrop"></div><div class="silkLane" id="silkLane"><div class="silkSign">${normal?'차곡차곡 비단쌓기':'∞ 차곡차곡 비단쌓기'}</div><div class="silkBackStall"></div><div class="silkShelf shelf1"></div><div class="silkShelf shelf2"></div><div class="silkGuide">화면을 눌러 비단을 떨어뜨리소!</div></div><div class="silkGround"></div></div><div class="sseFloorHud" id="sseFloorHud">${normal?'0 / 15 단':'<span class="sseEndlessTag">ENDLESS</span>집 1층 · 0단'}</div><div class="comboHud" id="perfectHud">정확도 0%</div><div class="levelHud" id="levelHud">LEVEL 1</div><div class="lifeHud" id="stackLife">❤️❤️❤️</div><div class="gameTip">${normal?'비단 폭이 점점 좁아지고 속도가 빨라집니다 · 15단 완성 목표':'15단마다 위층 돌파 · 빌딩 → 하늘 → 우주까지 끝없이 쌓기'}</div>`;
+  s.innerHTML=`<div class="silkScene sseScene sse-house" id="sseScene"><div class="sseBackdrop" id="sseBackdrop"></div><div class="silkLane" id="silkLane"><div class="silkSign">${normal?'차곡차곡 비단쌓기':'∞ 차곡차곡 비단쌓기'}</div><div class="silkBackStall"></div><div class="silkShelf shelf1"></div><div class="silkShelf shelf2"></div><div class="silkGuide">화면을 눌러 비단을 떨어뜨리소!</div></div><div class="silkGround"></div></div><div class="sseFloorHud" id="sseFloorHud">${normal?'0 / 15 단':'<span class="sseEndlessTag">ENDLESS</span>집 1층 · 0단'}</div><div class="comboHud" id="perfectHud">정확도 0%</div><div class="levelHud" id="levelHud">LEVEL 1</div><div class="lifeHud" id="stackLife">❤️❤️❤️</div><div class="gameTip">${normal?'비단 폭이 점점 좁아지고 속도가 빨라집니다 · 15단 완성 목표':'10단마다 위층 돌파 · 빌딩 → 하늘 → 우주까지 끝없이 쌓기'}</div>`;
   const lane=s.querySelector('#silkLane'),scene=s.querySelector('#sseScene'),back=s.querySelector('#sseBackdrop'),clamp=(v,a,b)=>Math.max(a,Math.min(b,v)),assist=assistProfile();
-  let score=0,total=0,segment=0,alive=true,raf=0,last=0,current=null,x=0,dir=1,accuracyTotal=0,level=1,lastDropAt=-1e9,retrying=false,lives=3,transitioning=false,lastStageKey='',carryWidth=0,cameraOffset=0,finalFlagShown=false;
+  let score=0,total=0,segment=0,alive=true,raf=0,last=0,current=null,x=0,dir=1,accuracyTotal=0,level=1,lastDropAt=-1e9,retrying=false,lives=3,perfectCount=0,transitioning=false,lastStageKey='',carryWidth=0,cameraOffset=0,finalFlagShown=false;
   const W=()=>lane.getBoundingClientRect().width,baseW=Math.min(235,W()*.58);carryWidth=baseW;
   const patterns=[['#f8d5e2','#f0aac3','#d36a93'],['#d2ebff','#9dd3ff','#4ea7df'],['#ffe6b3','#ffc34d','#d98c00'],['#dff2cc','#a8df84','#5ba046'],['#ecd8ff','#c7a0ff','#8450d1']];
   function silkHTML(idx){const c=patterns[idx%patterns.length];return `<div class="silkFold" style="--c1:${c[0]};--c2:${c[1]};--c3:${c[2]};"><i></i><i></i><i></i><span></span></div>`}
   function setScene(force=false){
-   const st=stageFor(total),continuous=st.zone==='sky'||st.zone==='space',key=continuous?st.zone:st.zone+':'+st.floor,high=st.zone==='sky'&&st.floor>=5;
+   const step=normal?NORMAL_FLOORS:ENDLESS_BREAK,st=stageFor(total,step),continuous=st.zone==='sky'||st.zone==='space',key=continuous?st.zone:st.zone+':'+st.floor,high=st.zone==='sky'&&st.floor>=5;
    scene.className=`silkScene sseScene sse-${st.zone}${high?' sse-high':''}`;
    if(force||key!==lastStageKey){back.innerHTML=backdropHTML(st);lastStageKey=key}
-   if(st.zone==='sky'){const p=clamp((total-75)/150,0,1);back.style.setProperty('--skyScale',(1-p*.58).toFixed(3));back.style.setProperty('--skyDrop',Math.round(p*88)+'px');back.style.setProperty('--skyFade',Math.max(.08,1-p*.88).toFixed(3))}
+   if(st.zone==='sky'){const p=clamp((total-step*5)/(step*10),0,1);back.style.setProperty('--skyScale',(1-p*.58).toFixed(3));back.style.setProperty('--skyDrop',Math.round(p*88)+'px');back.style.setProperty('--skyFade',Math.max(.08,1-p*.88).toFixed(3))}
    else{back.style.setProperty('--skyScale','1');back.style.setProperty('--skyDrop','0px');back.style.setProperty('--skyFade','1')}
    const h=s.querySelector('#sseFloorHud');if(!h)return;
    h.classList.toggle('space',st.zone==='space');
@@ -152,7 +156,7 @@
   }
   function hud(skipScene=false){
    const gs=document.querySelector('#gScore');if(gs)gs.textContent=score;
-   const acc=total?Math.round(accuracyTotal/total):0,ph=s.querySelector('#perfectHud');if(ph)ph.textContent=`정확도 ${acc}%`;
+   const acc=total?Math.round(accuracyTotal/total):0,ph=s.querySelector('#perfectHud');if(ph)ph.textContent=`정확도 ${acc}% · PERFECT ${perfectCount}/3`;
    const lh=s.querySelector('#stackLife');if(lh)lh.textContent='❤️'.repeat(lives)+'🖤'.repeat(Math.max(0,3-lives));
    const lev=s.querySelector('#levelHud');if(lev)lev.textContent=`LEVEL ${level}`;if(!skipScene)setScene()
   }
@@ -195,11 +199,11 @@
   }
   function altitudeMilestone(){
    const pulse=document.createElement('div');pulse.className='sseAltitudePulse';scene.appendChild(pulse);setTimeout(()=>pulse.remove(),650);
-   try{showComboBurst(breakLabel(total),7,'great');particles(innerWidth*.5,innerHeight*.34,total>=225?'🌠':'✨',10);tone('clear');buzz([16,7,25,7,38])}catch(_){}
-   if(total===225)setScene(true)
+   try{showComboBurst(breakLabel(total,ENDLESS_BREAK),7,'great');particles(innerWidth*.5,innerHeight*.34,total>=ENDLESS_BREAK*15?'🌠':'✨',10);tone('clear');buzz([16,7,25,7,38])}catch(_){}
+   if(total===ENDLESS_BREAK*15)setScene(true)
   }
   function scrollContinuous(){
-   if(total<75)return;const limit=Math.max(250,scene.clientHeight*.56),top=135+segment*21-cameraOffset+50;if(top<=limit)return;
+   if(total<ENDLESS_BREAK*5)return;const limit=Math.max(250,scene.clientHeight*.56),top=135+segment*21-cameraOffset+50;if(top<=limit)return;
    const shift=Math.min(25,Math.max(8,top-limit));cameraOffset+=shift;
    lane.querySelectorAll('.silkPiece,.silkBase,.stackFlag').forEach(el=>{const b=parseFloat(el.style.bottom);if(!Number.isFinite(b))return;const nb=b-shift;el.style.bottom=nb+'px';if(nb<-75)el.remove()})
   }
@@ -208,7 +212,7 @@
   }
   function breakthrough(){
    transitioning=true;carryWidth=Math.max(28,parseFloat(current?.style.width)||carryWidth||baseW);structureBlast();
-   try{showComboBurst(breakLabel(total),10,'great');particles(innerWidth*.5,innerHeight*.38,'✨',22)}catch(_){}
+   try{showComboBurst(breakLabel(total,normal?NORMAL_FLOORS:ENDLESS_BREAK),10,'great');particles(innerWidth*.5,innerHeight*.38,'✨',22)}catch(_){}
    setTimeout(resumeAfterBreak,1750)
   }
   function finishNormal(){
@@ -227,24 +231,26 @@
    if(overlap<assist.minOverlap){
     retrying=true;const failed=current;failed.classList.add('miss');lives=Math.max(0,lives-1);score=Math.max(0,score-60);hud();try{tone('bad');buzz(110);softShake()}catch(_){}
     if(lives<=0){gameOver();return}
-    try{showComboBurst(`MISS! ❤️ ${lives}/3`,2,'multi')}catch(_){}
+    try{showComboBurst(`MISS! ❤️ ${lives}개`,2,'multi')}catch(_){}
     setTimeout(()=>{if(!alive)return;failed.remove();dir*=-1;current=piece();x=dir>0?0:Math.max(0,W()-parseFloat(current.style.width));current.style.left=x+'px';lastDropAt=performance.now();retrying=false},360);return
    }
    current.style.left=left+'px';current.style.width=overlap+'px';
    const centered=Math.abs((l+w/2)-(pl+pw/2)),denom=Math.max(1,pw*.5*assist.centerScale),placementAcc=clamp(100-(centered/denom)*100,0,100),pts=placementAcc>=97?360:placementAcc>=88?220:placementAcc>=75?110:40;
    score+=pts;accuracyTotal+=placementAcc;
+   const isPerfect=placementAcc>=97;let heartBonus=false;
+   if(isPerfect){perfectCount++;if(perfectCount>=3){perfectCount=0;lives++;heartBonus=true}}
    try{
-    if(placementAcc>=97){current.classList.add('good','stackPerfect');tone('perfect');buzz([32,12,48,12,72]);showComboBurst(`PERFECT! +${pts}`,10,'great');particles(innerWidth*.5,innerHeight*.38,'✨',12)}
+    if(isPerfect){current.classList.add('good','stackPerfect');tone('perfect');buzz(heartBonus?[36,10,54,10,78,10,110]:[32,12,48,12,72]);showComboBurst(heartBonus?`PERFECT ×3! ❤️ +1 · +${pts}`:`PERFECT! ${perfectCount}/3 · +${pts}`,10,'great');particles(innerWidth*.5,innerHeight*.38,heartBonus?'❤️':'✨',heartBonus?18:12)}
     else if(placementAcc>=88){current.classList.add('good');tone('perfect');buzz([32,12,48]);showComboBurst(`GREAT! +${pts}`,5,'great')}
     else if(placementAcc>=75){current.classList.add('ok');tone('good');buzz(32);showComboBurst(`GOOD! +${pts}`,2,'combo')}
     else{current.classList.add('ok');tone('good');buzz(32);showComboBurst(`아슬아슬! +${pts}`,2,'combo')}
    }catch(_){}
    total++;segment++;level=updateLevel('stack',score,level);
-   const structuralMilestone=(normal&&total>=15)||(!normal&&total<=75&&total%15===0);hud(structuralMilestone);
-   if(normal&&total>=15){cancelAnimationFrame(raf);finishNormal();return}
-   if(!normal&&total<=75&&total%15===0){cancelAnimationFrame(raf);breakthrough();return}
-   if(!normal&&total>75&&total%15===0)altitudeMilestone();
-   if(!normal&&total>=75)scrollContinuous();
+   const endlessStructureEnd=ENDLESS_BREAK*5,structuralMilestone=(normal&&total>=NORMAL_FLOORS)||(!normal&&total<=endlessStructureEnd&&total%ENDLESS_BREAK===0);hud(structuralMilestone);
+   if(normal&&total>=NORMAL_FLOORS){cancelAnimationFrame(raf);finishNormal();return}
+   if(!normal&&total<=endlessStructureEnd&&total%ENDLESS_BREAK===0){cancelAnimationFrame(raf);breakthrough();return}
+   if(!normal&&total>endlessStructureEnd&&total%ENDLESS_BREAK===0)altitudeMilestone();
+   if(!normal&&total>=endlessStructureEnd)scrollContinuous();
    current=piece();dir*=-1;x=dir>0?0:Math.max(0,W()-parseFloat(current.style.width))
   }
   function pointer(e){if(!alive||!current||retrying||transitioning)return;const now=performance.now();if(now-lastDropAt<90)return;lastDropAt=now;e.preventDefault();drop()}
