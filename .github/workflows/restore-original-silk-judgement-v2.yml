@@ -1,0 +1,36 @@
+name: Restore original silk judgement v2
+
+on:
+  push:
+    paths:
+      - '.github/workflows/restore-original-silk-judgement-v2.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply original judgement style restore
+        run: python3 .github/scripts/restore_original_silk_judgement_v2.py
+      - name: Validate
+        run: |
+          node --check play/character-performance-bonus.js
+          ! grep -q 'sseGreatBurst2' play/character-performance-bonus.js
+          ! grep -q 'ssePerfectBurst2' play/character-performance-bonus.js
+          grep -q 'comboBurstFX{white-space:pre-line' play/character-performance-bonus.js
+          grep -q "GREAT!\\\\n" play/character-performance-bonus.js
+          grep -q '20260908-originaljudge2' play/index.html
+      - name: Commit patched files
+        run: |
+          if git diff --quiet -- play/character-performance-bonus.js play/index.html; then
+            echo 'No changes needed'
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add play/character-performance-bonus.js play/index.html
+          git commit -m '비단 판정 이펙트 원본 스타일로 복원'
+          git push
