@@ -1,4 +1,4 @@
-name: Diagnose selection and countdown haptics
+name: Restore selection and countdown haptics
 
 on:
   push:
@@ -6,31 +6,46 @@ on:
       - '.github/workflows/patch-silk-v6.yml'
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
-  diagnose:
+  patch:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 1
-      - name: Print selection and countdown paths
+          fetch-depth: 0
+      - name: Apply selection and countdown haptics patch
+        run: python .github/scripts/patch-selection-countdown-haptics.py
+      - name: Validate inline javascript
         run: |
           python - <<'PY'
           from pathlib import Path
-          import re
-          p=Path('play/index.html')
-          s=p.read_text(encoding='utf-8',errors='ignore')
-          pats=['readyThen','321','3·2·1','GO!','countdown','data-game','gameCard','menuBtn','titleMenu','onclick','addEventListener']
-          shown=[]
-          for pat in pats:
-              print('\n===== PATTERN',pat,'=====')
-              for m in list(re.finditer(re.escape(pat),s,re.I))[:30]:
-                  pos=m.start()
-                  if any(abs(pos-x)<350 for x in shown): continue
-                  shown.append(pos)
-                  line=s.count('\n',0,pos)+1
-                  a=max(0,pos-650); b=min(len(s),pos+1100)
-                  print(f'\n--- line {line} pos {pos} ---\n{s[a:b]}\n')
+          import re, subprocess, sys
+          h=Path('play/index.html').read_text(encoding='utf-8')
+          scripts=re.findall(r'<script(?![^>]*\bsrc=)[^>]*>(.*?)</script>',h,re.I|re.S)
+          checked=0
+          for i,js in enumerate(scripts):
+              if not js.strip(): continue
+              q=Path(f'/tmp/oso-inline-{i}.js');q.write_text(js,encoding='utf-8')
+              r=subprocess.run(['node','--check',str(q)],text=True,capture_output=True)
+              if r.returncode:
+                  print(r.stdout);print(r.stderr);sys.exit(r.returncode)
+              checked+=1
+          print('inline scripts checked:',checked)
           PY
+      - name: Verify targeted haptics policy
+        run: |
+          grep -F "function selectionHapticElement(target)" play/index.html >/dev/null
+          grep -F "buzz([48,12,78])" play/index.html >/dev/null
+          grep -F "buzz(v==='3'?26:v==='2'?32:40)" play/index.html >/dev/null
+          ! grep -F "hapticsPrimed" play/index.html
+          ! grep -F "pendingBrowserBuzz" play/index.html
+      - name: Commit patched file
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add play/index.html
+          git diff --cached --quiet && exit 0
+          git commit -m "선택 햅틱 및 321 GO 카운트다운 진동 복구"
+          git push
