@@ -45,11 +45,32 @@
     return {id:skin.id||'default',name:skin.name||'기본 오소',price,percent,multiplier:1+percent/100}
   }
 
+  function traitInfo(skin){
+    const s=skin||{};
+    try{
+      const api=window.OsoCharacterSpecialAbilities;
+      if(api&&typeof api.traits==='function'){
+        const t=api.traits(s);
+        if(t.nongae)return {kind:'nongae',label:'✨ 아요+하모 특성 · 상시 4단점프'};
+        if(t.aya)return {kind:'aya',label:'⚡ 레이싱 300km/h · 슈팅 이동↑ · 점프↑'};
+        if(t.hamo)return {kind:'hamo',label:'🎯 수산·싹쓸이·떡떡떡·연타왕 판정↑'};
+      }
+    }catch(_){ }
+    const id=String(s.id||''),group=String(s.group||'');
+    if(id==='nongae_jade'||id==='nongae_resolve'||group==='nongae')return {kind:'nongae',label:'✨ 아요+하모 특성 · 상시 4단점프'};
+    if(group==='ayo'||id==='ayo'||id==='ayo_glasses')return {kind:'aya',label:'⚡ 레이싱 300km/h · 슈팅 이동↑ · 점프↑'};
+    if(group==='hamo'||id==='hamo')return {kind:'hamo',label:'🎯 수산·싹쓸이·떡떡떡·연타왕 판정↑'};
+    return null
+  }
+
   function ensureStyle(){
     if(!document||document.getElementById(STYLE_ID))return;
     const st=document.createElement('style');st.id=STYLE_ID;st.textContent=`
       .characterRewardBonus{display:block;margin:5px 0 1px;padding:3px 6px;border:1px solid #e7bb55;border-radius:999px;background:#fff4bd;color:#6a451b;font-size:9px;font-weight:1000;line-height:1.25;text-align:center}
       .characterRewardBonus.base{border-color:#aeb8c5;background:#eef2f7;color:#53606d}
+      .characterAbilitySummary{display:block;margin:3px 0 2px;padding:3px 5px;border-radius:7px;background:#eef6ff;color:#284866;font-size:8px;font-weight:900;line-height:1.35;text-align:center;white-space:normal;word-break:keep-all}
+      .characterAbilitySummary.hamo{background:#eef9ef;color:#285335}
+      .characterAbilitySummary.nongae{background:#f6efff;color:#5b3476}
       #${TOAST_ID}{position:fixed;left:50%;top:max(76px,calc(env(safe-area-inset-top) + 62px));transform:translate(-50%,-12px);z-index:10050;max-width:92vw;padding:10px 14px;border:3px solid #ffe27a;border-radius:15px;background:#102444f2;color:#fff;text-align:center;font-size:11px;font-weight:1000;line-height:1.5;box-shadow:0 8px 26px #0008;opacity:0;pointer-events:none;transition:.18s}
       #${TOAST_ID}.show{opacity:1;transform:translate(-50%,0)}
       #${TOAST_ID} b{color:#ffe780}
@@ -82,8 +103,15 @@
       if(!tag){tag=document.createElement('span');tag.className='characterRewardBonus';const btn=card.querySelector('button[data-buy]');btn?card.insertBefore(tag,btn):card.appendChild(tag)}
       tag.classList.toggle('base',pct<=0);
       const label=pct>0?`⭐ 점수·코인 +${pct}%`:'점수·코인 기본 보상';
-      /* MutationObserver가 이 함수 자신의 textContent 변경을 다시 감지해 무한 반복하지 않도록 실제 변경이 있을 때만 갱신한다. */
-      if(tag.textContent!==label)tag.textContent=label
+      if(tag.textContent!==label)tag.textContent=label;
+
+      const trait=traitInfo(skin);
+      let ability=card.querySelector('.characterAbilitySummary');
+      if(trait){
+        if(!ability){ability=document.createElement('span');const btn=card.querySelector('button[data-buy]');btn?card.insertBefore(ability,btn):card.appendChild(ability)}
+        ability.className='characterAbilitySummary '+trait.kind;
+        if(ability.textContent!==trait.label)ability.textContent=trait.label
+      }else if(ability){ability.remove()}
     })
   }
 
@@ -97,7 +125,6 @@
         const newScore=info.percent>0?boosted(baseScore,info.percent):baseScore;
         args[1]=newScore;
         let baseCoins=NaN,newCoins=NaN;
-        /* 현재 공통 finish 시그니처의 5번째 인자는 게임 내부에서 모은 추가 코인이다. */
         if(typeof args[4]==='number'&&Number.isFinite(args[4])){
           baseCoins=Math.max(0,Math.floor(args[4]));newCoins=info.percent>0?boosted(baseCoins,info.percent):baseCoins;args[4]=newCoins
         }
@@ -130,7 +157,6 @@
         state.best.sotris=Math.max(Math.floor(Number(state.best.sotris)||0),newScore);
         state.todayScore=(Number(state.todayScore)||0)+scoreExtra
       }
-      /* SP1 최초클리어 200 고정보너스는 그대로 두고, 매 플레이 반복 보상만 캐릭터 보너스를 적용한다. */
       let repeatable=Math.max(5,Math.min(90,Math.floor(score/10)||5));if(d.clear)repeatable+=30+300;
       const boostedReward=boosted(repeatable,info.percent),coinExtra=Math.max(0,boostedReward-repeatable),before=Math.max(0,Math.floor(Number(state.coins)||0));
       if(coinExtra>0)state.coins=before+coinExtra;
@@ -159,6 +185,6 @@
     if(window&&window.addEventListener)window.addEventListener('message',handleSp1Result)
   }
 
-  window.OsoCharacterPerformanceBonus={bonusPercentForPrice,multiplierForPrice,boosted,currentBonus,decorateShop};
+  window.OsoCharacterPerformanceBonus={bonusPercentForPrice,multiplierForPrice,boosted,currentBonus,traitInfo,decorateShop};
   if(document&&document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot,{once:true});else boot()
 })();
