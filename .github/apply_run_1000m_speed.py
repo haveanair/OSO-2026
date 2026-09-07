@@ -8,15 +8,25 @@ before=hashlib.sha256(text.encode()).hexdigest()
 sotris_before=hashlib.sha256(sotris.read_bytes()).hexdigest()
 old="if(!alive)return;let dt=Math.min(.033,(ts-prev)/1000);prev=ts;let speed=Math.min(455,205+world*.055+level*18);world+=speed*dt;score+=dt*19;"
 new="if(!alive)return;let dt=Math.min(.033,(ts-prev)/1000);prev=ts;const runSpeedCtl=window.OsoRunDistanceSpeed;let speed=runSpeedCtl?runSpeedCtl.speed(world,level):Math.min(455,205+world*.055+level*18);world+=speed*dt;score+=dt*19;"
-if text.count(old)!=1:
-    raise SystemExit(f'runner speed marker count={text.count(old)}')
-text=text.replace(old,new,1)
-anchor='<script src="./character-special-abilities.js?v=20260907-charability1"></script>'
+if new not in text:
+    if text.count(old)!=1:
+        raise SystemExit(f'runner speed marker count={text.count(old)}')
+    text=text.replace(old,new,1)
 tag='<script src="./run-distance-speed.js?v=20260907-run1000-1"></script>'
 if tag not in text:
-    if anchor not in text:
+    anchors=[
+        '<script src="./character-special-abilities.js?',
+        '<script src="./character-performance-bonus.js?',
+        '</body>'
+    ]
+    idx=-1
+    for anchor in anchors:
+        idx=text.find(anchor)
+        if idx>=0:
+            break
+    if idx<0:
         raise SystemExit('script anchor missing')
-    text=text.replace(anchor,tag+'\n'+anchor,1)
+    text=text[:idx]+tag+'\n'+text[idx:]
 play.write_text(text,encoding='utf-8')
 after=hashlib.sha256(text.encode()).hexdigest()
 sotris_after=hashlib.sha256(sotris.read_bytes()).hexdigest()
