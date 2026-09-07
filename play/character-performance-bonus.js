@@ -221,8 +221,9 @@
     document.documentElement.dataset.stackMagnetAssist='2';
     document.addEventListener('pointerdown',e=>{
       try{
-        if(e.target&&e.target.closest&&e.target.closest('.sseControl'))return;
-        const scene=document.querySelector('#stage #sseScene'),a=stackAssistInfo();if(!scene||!a.on)return;
+        const target=e.target instanceof Element?e.target:null;if(!target)return;
+        const scene=target.closest('#stage #sseScene');if(!scene||target.closest('.sseControl'))return;
+        const a=stackAssistInfo();if(!a.on)return;
         const lane=scene.querySelector('#silkLane');if(!lane)return;
         const arr=[...lane.querySelectorAll('.silkPiece,.silkBase')];if(arr.length<2)return;
         const cur=arr[arr.length-1],prev=arr[arr.length-2];if(!cur.classList.contains('silkPiece')||cur.classList.contains('miss'))return;

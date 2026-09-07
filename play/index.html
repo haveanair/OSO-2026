@@ -3227,17 +3227,12 @@ function nativeBuzz(h){
  }catch(e){}
  return false
 }
-let pendingBrowserBuzz=null,hapticsPrimed=false;
 function buzz(v=32){
  const h=normalizeBuzz(v);
- if(nativeBuzz(h)){pendingBrowserBuzz=null;return true}
- const ok=browserBuzz(h);pendingBrowserBuzz=ok?null:h;return ok
+ if(nativeBuzz(h))return true;
+ return browserBuzz(h)
 }
-// content:// / file://에서는 네이티브 브리지가 없으므로 실제 사용자 터치에서 대기 중인 진동을 다시 시도한다.
-addEventListener('pointerdown',()=>{
- if(pendingBrowserBuzz){const h=pendingBrowserBuzz;pendingBrowserBuzz=null;browserBuzz(h);return}
- if(!hapticsPrimed){hapticsPrimed=true;browserBuzz(32)}
-},{capture:true,passive:true});
+// 전역 화면 터치는 진동시키지 않는다. 진동은 실제 선택·성공·충돌·폭발 등 해당 동작의 buzz 호출에서만 발생한다.
 function bombBuzz(){
  const h=[180,45,260,50,360];
  try{const b=window.NativeHaptics||window.AndroidHaptics;if(b&&typeof b.bomb==='function'&&Number(b.bomb())===1)return true}catch(e){}
