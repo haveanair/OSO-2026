@@ -1,6 +1,7 @@
 /* 어서오소 캐릭터 성능 보너스
  * 선택한 캐릭터의 도감 가격대가 높을수록 게임 최종 점수와 코인 보상이 상승한다.
  * 기존 게임별 JS는 건드리지 않고 공통 finish / RPG 전투보상 / SP1 결과를 후킹한다.
+ * 비단쌓기 모바일 UI 보정 및 PERFECT 2줄 이펙트를 후단에서 보강한다.
  */
 (function(){
   'use strict';
@@ -74,6 +75,70 @@
       #${TOAST_ID}{position:fixed;left:50%;top:max(76px,calc(env(safe-area-inset-top) + 62px));transform:translate(-50%,-12px);z-index:10050;max-width:92vw;padding:10px 14px;border:3px solid #ffe27a;border-radius:15px;background:#102444f2;color:#fff;text-align:center;font-size:11px;font-weight:1000;line-height:1.5;box-shadow:0 8px 26px #0008;opacity:0;pointer-events:none;transition:.18s}
       #${TOAST_ID}.show{opacity:1;transform:translate(-50%,0)}
       #${TOAST_ID} b{color:#ffe780}
+
+      /* 비단쌓기 모바일 좌우 잘림 방지: 기존 silkSign/silkGuide/gameTip의 50% 이동을 완전히 해제 */
+      #stage .sseTopHud .sseTitle{
+        left:auto!important;right:auto!important;top:auto!important;bottom:auto!important;
+        transform:none!important;translate:none!important;
+        justify-self:center!important;box-sizing:border-box!important;
+        width:calc(100% - 6px)!important;max-width:360px!important;min-width:0!important;
+        margin:0 auto!important;padding:8px 10px!important;
+        white-space:normal!important;overflow:visible!important;text-overflow:clip!important;
+        overflow-wrap:break-word!important;word-break:keep-all!important;
+        text-align:center!important;line-height:1.12!important;
+      }
+      #stage .sseBottomHud{
+        left:8px!important;right:8px!important;width:auto!important;max-width:none!important;
+        margin:0!important;transform:none!important;translate:none!important;
+        box-sizing:border-box!important;overflow:visible!important;
+      }
+      #stage .sseBottomHud .sseGuide,
+      #stage .sseBottomHud .sseGameTip{
+        left:auto!important;right:auto!important;top:auto!important;bottom:auto!important;
+        transform:none!important;translate:none!important;
+        justify-self:center!important;box-sizing:border-box!important;
+        width:min(100%,430px)!important;max-width:100%!important;min-width:0!important;
+        margin:0 auto!important;text-align:center!important;
+        white-space:normal!important;overflow:visible!important;text-overflow:clip!important;
+        overflow-wrap:break-word!important;word-break:keep-all!important;
+      }
+
+      /* PERFECT 전용 2줄 이펙트 */
+      #stage .ssePerfectBurst2{
+        position:absolute!important;left:50%!important;top:37%!important;right:auto!important;bottom:auto!important;
+        z-index:52!important;transform:translateX(-50%) scale(.72)!important;
+        width:auto!important;min-width:min(230px,calc(100% - 28px))!important;
+        max-width:calc(100% - 28px)!important;box-sizing:border-box!important;
+        padding:10px 16px 9px!important;border:4px solid #7a4a22!important;border-radius:18px!important;
+        background:#fff5c9f2!important;color:#5b341e!important;text-align:center!important;
+        box-shadow:0 7px 0 #a66d35,0 13px 24px #0005!important;
+        pointer-events:none!important;opacity:0!important;
+        animation:ssePerfectBurst2 1.05s cubic-bezier(.18,.78,.22,1) forwards!important;
+      }
+      #stage .ssePerfectBurst2.heart{border-color:#a83f54!important;background:#fff0f3f4!important;box-shadow:0 7px 0 #b65a6d,0 13px 24px #0005!important}
+      #stage .ssePerfectBurst2 .ssePerfectMain{
+        display:block!important;margin:0!important;padding:0!important;
+        font-size:clamp(20px,6vw,29px)!important;font-weight:1000!important;line-height:1.05!important;
+        white-space:normal!important;word-break:keep-all!important;overflow-wrap:normal!important;
+      }
+      #stage .ssePerfectBurst2 .ssePerfectSub{
+        display:block!important;margin:5px 0 0!important;padding:0!important;
+        font-size:clamp(11px,3.3vw,15px)!important;font-weight:1000!important;line-height:1.15!important;
+        white-space:normal!important;word-break:keep-all!important;overflow-wrap:break-word!important;
+      }
+      @keyframes ssePerfectBurst2{
+        0%{opacity:0;transform:translateX(-50%) scale(.68)}
+        18%{opacity:1;transform:translateX(-50%) scale(1.10)}
+        42%{opacity:1;transform:translateX(-50%) scale(1)}
+        78%{opacity:1;transform:translateX(-50%) scale(1)}
+        100%{opacity:0;transform:translateX(-50%) translateY(-20px) scale(.92)}
+      }
+      @media(max-width:390px){
+        #stage .sseTopHud .sseTitle{width:100%!important;max-width:100%!important;padding:7px 8px!important;font-size:17px!important}
+        #stage .sseBottomHud{left:6px!important;right:6px!important}
+        #stage .sseBottomHud .sseGuide,#stage .sseBottomHud .sseGameTip{width:100%!important;max-width:100%!important}
+        #stage .ssePerfectBurst2{top:36%!important;min-width:min(220px,calc(100% - 20px))!important;max-width:calc(100% - 20px)!important;padding:9px 12px 8px!important}
+      }
     `;document.head&&document.head.appendChild(st)
   }
   function showBonusToast(info,baseScore,newScore,baseCoins,newCoins,delay=80){
@@ -145,6 +210,33 @@
     }catch(_){return false}
   }
 
+  function showStackPerfectBurst(message){
+    try{
+      const scene=document.querySelector('#stage #sseScene');if(!scene)return false;
+      const msg=String(message||'').trim();if(!/^PERFECT/.test(msg))return false;
+      scene.querySelectorAll('.ssePerfectBurst2').forEach(e=>e.remove());
+      const parts=msg.split(' · ').map(s=>s.trim()).filter(Boolean),main=parts.shift()||'PERFECT!',sub=parts.join(' · ');
+      const box=document.createElement('div');box.className='ssePerfectBurst2'+(main.includes('❤️')?' heart':'');
+      const a=document.createElement('span');a.className='ssePerfectMain';a.textContent=main;
+      const b=document.createElement('span');b.className='ssePerfectSub';b.textContent=sub||'정확하게 맞췄습니다!';
+      box.append(a,b);scene.appendChild(box);setTimeout(()=>box.remove(),1120);return true
+    }catch(_){return false}
+  }
+  function wrapStackPerfectEffect(){
+    try{
+      if(typeof window.showComboBurst!=='function'||window.showComboBurst.__stackPerfectTwoLineWrapped)return false;
+      const original=window.showComboBurst;
+      const wrapped=function(message){
+        const msg=String(message==null?'':message);
+        if(/^PERFECT/.test(msg)&&document.querySelector('#stage #sseScene')){
+          ensureStyle();if(showStackPerfectBurst(msg))return
+        }
+        return original.apply(this,arguments)
+      };
+      wrapped.__stackPerfectTwoLineWrapped=true;wrapped.__stackPerfectTwoLineOriginal=original;window.showComboBurst=wrapped;return true
+    }catch(_){return false}
+  }
+
   function handleSp1Result(e){
     try{
       const d=e&&e.data||{};if(d.source!=='sotris-sp1'||d.type!=='RESULT')return;
@@ -167,21 +259,18 @@
     }catch(_){ }
   }
 
-  function scheduleShopDecoration(){
-    setTimeout(()=>{try{decorateShop()}catch(_){}},0)
-  }
+  function scheduleShopDecoration(){setTimeout(()=>{try{decorateShop()}catch(_){}},0)}
   function bindShopDecoration(){
     if(!document||document.documentElement.dataset.characterBonusShopBound==='1')return;
     document.documentElement.dataset.characterBonusShopBound='1';
     document.addEventListener('click',e=>{
-      const t=e&&e.target;
-      if(!t||!t.closest)return;
+      const t=e&&e.target;if(!t||!t.closest)return;
       if(t.closest('#titleCollection,[data-page="bookPage"],[data-buy]'))scheduleShopDecoration()
     },true)
   }
 
   function boot(){
-    ensureStyle();wrapFinish();wrapFantasyBattleReward();bindShopDecoration();
+    ensureStyle();wrapFinish();wrapFantasyBattleReward();wrapStackPerfectEffect();bindShopDecoration();
     if(window&&window.addEventListener)window.addEventListener('message',handleSp1Result)
   }
 
