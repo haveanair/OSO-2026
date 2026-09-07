@@ -1,0 +1,31 @@
+name: Apply runner 1000m speed once
+
+'on':
+  push:
+    paths:
+      - '.github/workflows/apply-run-1000m-speed.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply connector
+        run: python .github/apply_run_1000m_speed.py
+      - name: Check speed module syntax
+        run: node --check play/run-distance-speed.js
+      - name: Verify diff
+        run: git diff --check
+      - name: Configure git
+        run: |
+          git config user.name "PWDJ Runner Speed"
+          git config user.email "34460283+haveanair@users.noreply.github.com"
+      - name: Commit verified patch
+        run: |
+          git add play/index.html .github/run-1000m-speed-report.txt
+          git diff --cached --check
+          git commit -m "Increase runner speed every 1000 meters"
+          git push
