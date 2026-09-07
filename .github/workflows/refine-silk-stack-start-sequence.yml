@@ -1,0 +1,30 @@
+name: Refine silk stack start sequence
+
+on:
+  push:
+    paths:
+      - '.github/workflows/refine-silk-stack-start-sequence.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Apply start sequence and final flag rules
+        run: python3 .github/refine_silk_stack_start_sequence.py
+      - name: Verify and publish
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --check
+          git config user.name 'PWDJ Silk Stack'
+          git config user.email '34460283+haveanair@users.noreply.github.com'
+          git add play/silk-stack-endless.js play/index.html .github/silk-stack-start-sequence-report.txt
+          git diff --cached --quiet && exit 0
+          git commit -m 'Add silk stack mode select countdown'
+          git push
