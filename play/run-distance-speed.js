@@ -1,7 +1,7 @@
 (()=>{
  'use strict';
- const STEP_WORLD=10000;
- const STEP_METERS=1000;
+ const STEP_WORLD=5000;
+ const STEP_METERS=500;
  const STEP_SPEED=50;
  function step(world){return Math.max(0,Math.floor((Number(world)||0)/STEP_WORLD))}
  function speed(world,level){
