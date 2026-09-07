@@ -3,7 +3,9 @@
  * 일반 15단 / 엔들리스가 동일 판정 엔진을 사용한다.
  * 하모·논개는 겹침 및 중심 오차 판정을 완화한다.
  * 일반은 15단 완주, 엔들리스는 10단마다 구조물 돌파 연출을 사용한다.
- * PERFECT 3회마다 하트 1개를 추가한다.
+ * PERFECT 3회마다 하트 1개를 추가하고 PERFECT마다 비단 폭을 조금 회복한다.
+ * 상·하단 HUD를 도킹형으로 정리하고 일시정지 기능을 제공한다.
+ * 구조물 격파 시 안드로이드 진동 패턴을 직접 사용해 타격감을 강화한다.
  */
 (()=>{
  'use strict';
@@ -13,6 +15,8 @@
  const UNLOCK_CLEARS=10;
  const NORMAL_FLOORS=15;
  const ENDLESS_BREAK=10;
+ const PERFECT_GROW_MIN=8;
+ const PERFECT_GROW_MAX=12;
  const CLEAR_KEY='oso_silk_stack_normal_clears_v1';
  const STYLE_ID='osoSilkStackEndlessStyle';
  const nativeStartGame=typeof window.startGame==='function'?window.startGame:null;
@@ -48,7 +52,7 @@
  }
 
  function ensureStyle(){
-  if(document.getElementById(STYLE_ID))return;
+  const old=document.getElementById(STYLE_ID);if(old)old.remove();
   const st=document.createElement('style');st.id=STYLE_ID;st.textContent=`
   .sseModeBox{position:absolute;inset:0;z-index:25;display:flex;align-items:center;justify-content:center;padding:22px;background:linear-gradient(#91dcff,#fff2c8 63%,#9d653b)}
   .sseModeCard{width:min(340px,92%);padding:20px 17px;border:4px solid #71452d;border-radius:22px;background:#fff8df;box-shadow:0 10px 0 #6c432c55,0 18px 36px #0004;text-align:center;color:#55331f}
@@ -56,28 +60,52 @@
   .sseModeBtns{display:grid;grid-template-columns:1fr 1fr;gap:10px}.sseModeBtns button{min-height:58px;border:3px solid #70442b;border-radius:15px;background:#f2c45c;color:#4d2d1b;font-weight:1000;font-size:14px;box-shadow:0 5px #9a6535}
   .sseModeBtns button:last-child{background:linear-gradient(#8be0ff,#8178ff);color:#fff;border-color:#31477a;box-shadow:0 5px #35456e}
   .sseUnlockProgress{font-size:10px!important;color:#7b5b42}.sseModeBtns button:disabled{background:#c8c8c8;color:#707070;border-color:#8a8a8a;box-shadow:0 5px #888;opacity:.76}
+
   .sseScene{position:absolute;inset:0;overflow:hidden;transition:background .35s}.sseScene .silkLane{z-index:4}.sseScene .silkGround{z-index:3}.sseBackdrop{position:absolute;inset:0;overflow:hidden;pointer-events:none;z-index:1;--skyScale:1;--skyDrop:0px;--skyFade:1}
   .sseScene.sse-house{background:linear-gradient(#f4e7c7 0 56%,#d7b57e 56% 100%)}.sseScene.sse-building{background:linear-gradient(#b9dded 0 25%,#d7d5cf 25% 100%)}.sseScene.sse-sky{background:linear-gradient(#42b8f0 0%,#9ee5ff 62%,#e7f8ff 100%)}.sseScene.sse-space{background:radial-gradient(circle at 75% 18%,#33306c 0 3%,#101333 32%,#050817 72%,#01030b 100%)}
   .sseScene.sse-building .silkBackStall,.sseScene.sse-building .silkShelf,.sseScene.sse-sky .silkBackStall,.sseScene.sse-sky .silkShelf,.sseScene.sse-space .silkBackStall,.sseScene.sse-space .silkShelf{display:none}
-  .sseScene.sse-sky .silkGround{background:linear-gradient(#d8f3ff,#8fd2ee);box-shadow:inset 0 8px #fff8;opacity:var(--skyFade);transition:opacity .35s}.sseScene.sse-space .silkGround{background:linear-gradient(#25284f,#10152f);box-shadow:inset 0 8px #7682bd}.sseScene.sse-space .silkGuide{background:#20284f;color:#dce9ff;box-shadow:0 4px #090d24}
+  .sseScene.sse-sky .silkGround{background:linear-gradient(#d8f3ff,#8fd2ee);box-shadow:inset 0 8px #fff8;opacity:var(--skyFade);transition:opacity .35s}.sseScene.sse-space .silkGround{background:linear-gradient(#25284f,#10152f);box-shadow:inset 0 8px #7682bd}
+
+  .sseTopHud{position:absolute;left:10px;right:10px;top:10px;z-index:22;display:grid;grid-template-columns:minmax(94px,1fr) auto 46px auto;grid-template-areas:'floor life pause level' 'perfect perfect perfect perfect' 'title title title title';gap:7px 7px;align-items:center;pointer-events:none}
+  .sseTopHud>*{box-sizing:border-box;min-width:0}
+  .sseFloorHud{grid-area:floor;position:relative!important;left:auto!important;right:auto!important;top:auto!important;bottom:auto!important;min-width:0;padding:7px 9px;border:3px solid #3d2b22;border-radius:12px;background:#fff4d9ed;color:#4e3020;font-size:11px;font-weight:1000;line-height:1.15;text-align:left;box-shadow:0 4px #0003;pointer-events:none;white-space:nowrap}
+  .sseFloorHud.space{border-color:#8397d7;background:#111936e8;color:#e8efff}.sseEndlessTag{display:block;font-size:8px;letter-spacing:.7px;opacity:.75}
+  .sseTopHud .sseLifeHud{grid-area:life;position:relative!important;left:auto!important;right:auto!important;top:auto!important;bottom:auto!important;margin:0!important;padding:6px 7px!important;justify-self:start;white-space:nowrap;font-size:16px;line-height:1;pointer-events:none}
+  .sseTopHud .ssePauseBtn{grid-area:pause;position:relative!important;width:44px;height:40px;padding:0;border:3px solid #573723;border-radius:12px;background:#fff4d9;color:#4d3020;font-size:19px;font-weight:1000;box-shadow:0 4px #9d714a;pointer-events:auto;touch-action:manipulation}
+  .sseTopHud .ssePauseBtn:active{transform:translateY(2px);box-shadow:0 2px #9d714a}.sseTopHud .ssePauseBtn.isPaused{background:#8ee4a5}
+  .sseTopHud .sseLevelHud{grid-area:level;position:relative!important;left:auto!important;right:auto!important;top:auto!important;bottom:auto!important;margin:0!important;justify-self:end;white-space:nowrap;font-size:11px;pointer-events:none}
+  .sseTopHud .ssePerfectHud{grid-area:perfect;position:relative!important;left:auto!important;right:auto!important;top:auto!important;bottom:auto!important;margin:0!important;width:100%;max-width:none!important;padding:7px 10px!important;text-align:center;white-space:nowrap;font-size:11px;line-height:1.15;pointer-events:none}
+  .sseTopHud .sseTitle{grid-area:title;position:relative!important;left:auto!important;right:auto!important;top:auto!important;bottom:auto!important;width:min(100%,360px);max-width:100%;margin:0 auto!important;padding:8px 12px!important;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:clamp(18px,4.8vw,24px)!important;line-height:1.05;pointer-events:none}
+
+  .sseBottomHud{position:absolute;left:8px;right:8px;bottom:8px;z-index:22;display:grid;gap:5px;justify-items:center;pointer-events:none}
+  .sseBottomHud .sseGuide,.sseBottomHud .sseGameTip{position:relative!important;left:auto!important;right:auto!important;top:auto!important;bottom:auto!important;margin:0!important;box-sizing:border-box;width:auto;max-width:min(96%,430px);text-align:center;white-space:normal;line-height:1.2}
+  .sseBottomHud .sseGuide{padding:7px 11px!important;font-size:11px!important}.sseBottomHud .sseGameTip{padding:6px 10px!important;font-size:9px!important}
+
+  .ssePauseOverlay{position:absolute;inset:0;z-index:55;display:none;align-items:center;justify-content:center;background:#1b130c88;backdrop-filter:blur(2px);pointer-events:auto}
+  .ssePauseOverlay.show{display:flex}.ssePauseCard{width:min(280px,82%);padding:22px 18px;border:4px solid #5b3824;border-radius:20px;background:#fff6dc;text-align:center;color:#4c2e1e;box-shadow:0 12px 30px #0005}
+  .ssePauseCard strong{display:block;font-size:25px;margin-bottom:8px}.ssePauseCard p{margin:0 0 14px;font-size:11px;font-weight:900}.sseResumeBtn{min-width:150px;min-height:48px;border:3px solid #4d5f37;border-radius:14px;background:#92e6a6;color:#243b2a;font-size:15px;font-weight:1000;box-shadow:0 5px #4f8a5d;touch-action:manipulation}
+
   .sseHouseWall{position:absolute;left:5%;right:5%;bottom:70px;height:70%;border:7px solid #75462e;background:repeating-linear-gradient(90deg,#f2dfb6 0 64px,#e6cda0 64px 68px);box-shadow:inset 0 0 0 5px #fff4;opacity:.72}.sseHouseWindow{position:absolute;top:24%;width:70px;height:88px;border:7px solid #71482f;background:linear-gradient(#86d4f7 0 48%,#d6f4ff 48%);box-shadow:inset 0 0 0 4px #fff5}.sseHouseWindow.l{left:9%}.sseHouseWindow.r{right:9%}.sseCeiling{position:absolute;left:-3%;right:-3%;top:18%;height:24px;background:#6f432d;box-shadow:0 9px #b57a42,0 -5px #4b2c20}
   .sseBuildingWall{position:absolute;left:3%;right:3%;top:7%;bottom:65px;border:7px solid #555c67;background:repeating-linear-gradient(0deg,#c7c9c9 0 58px,#858d96 58px 64px);box-shadow:inset 0 0 0 4px #e8ecef}.sseWindowGrid{position:absolute;inset:11% 8% 17%;background:repeating-linear-gradient(90deg,#0000 0 10%,#4b7d9b 10% 20%,#bcecff 20% 27%,#0000 27% 32%),repeating-linear-gradient(0deg,#0000 0 14%,#fff7 14% 18%,#0000 18% 30%);opacity:.78}.sseFloorBand{position:absolute;left:0;right:0;top:20%;height:18px;background:#4f5660;box-shadow:0 5px #9ba1a8}
   .sseCloud{position:absolute;width:100px;height:30px;border-radius:999px;background:#fffde8;filter:drop-shadow(0 3px 2px #5b9dbb55);animation:sseFly 10s linear infinite}.sseCloud:before,.sseCloud:after{content:'';position:absolute;border-radius:50%;background:inherit}.sseCloud:before{width:46px;height:46px;left:16px;top:-23px}.sseCloud:after{width:54px;height:54px;right:10px;top:-29px}.sseCloud.c1{top:18%;left:-130px}.sseCloud.c2{top:43%;left:-190px;animation-duration:14s;animation-delay:-7s;transform:scale(.75)}.sseBird{position:absolute;left:-60px;font-size:24px;animation:sseFly 8s linear infinite}.sseBird.b1{top:35%;animation-delay:-2s}.sseBird.b2{top:22%;animation-duration:11s;animation-delay:-7s}.ssePlane{position:absolute;left:-120px;top:16%;font-size:42px;animation:sseFly 7s linear infinite;opacity:0;transition:opacity .6s}.sseScene.sse-sky.sse-high .ssePlane{opacity:1}@keyframes sseFly{to{left:calc(100% + 140px)}}
   .sseMountainFar,.sseMountainNear{position:absolute;left:-8%;right:-8%;bottom:56px;transform-origin:50% 100%;pointer-events:none}.sseMountainFar{height:34%;background:#84a9b6;clip-path:polygon(0 100%,0 71%,10% 46%,19% 70%,31% 31%,42% 68%,52% 41%,65% 72%,76% 34%,88% 66%,100% 44%,100% 100%);opacity:calc(.72 * var(--skyFade));transform:translateY(var(--skyDrop)) scale(var(--skyScale))}.sseMountainNear{height:25%;background:#537c69;clip-path:polygon(0 100%,0 66%,15% 38%,29% 72%,46% 32%,61% 74%,78% 45%,100% 69%,100% 100%);opacity:calc(.85 * var(--skyFade));transform:translateY(var(--skyDrop)) scale(var(--skyScale))}
   .sseBrokenBuilding{position:absolute;left:50%;bottom:54px;width:116px;height:210px;margin-left:-58px;background:repeating-linear-gradient(0deg,#7d8790 0 32px,#59636d 32px 37px);border:5px solid #454d54;clip-path:polygon(0 10%,12% 2%,25% 12%,40% 0,55% 13%,71% 4%,84% 12%,100% 3%,100% 100%,0 100%);transform-origin:50% 100%;transform:translateY(var(--skyDrop)) scale(var(--skyScale));opacity:var(--skyFade)}.sseBrokenBuilding:after{content:'';position:absolute;inset:22px 15px;background:repeating-linear-gradient(0deg,#90d0ef 0 17px,#40515c 17px 24px);opacity:.75}
   .sseStars{position:absolute;inset:0;background-image:radial-gradient(#fff 1.2px,transparent 1.3px),radial-gradient(#8fd8ff 1px,transparent 1.1px),radial-gradient(#ffe9a1 1px,transparent 1.1px);background-size:37px 37px,53px 53px,79px 79px;background-position:0 0,17px 11px,31px 29px;animation:sseStars 7s linear infinite}@keyframes sseStars{to{background-position:37px 74px,70px 117px,110px 187px}}.sseRocket{position:absolute;left:-80px;top:20%;font-size:42px;transform:rotate(35deg);animation:sseRocket 9s linear infinite}@keyframes sseRocket{0%{left:-80px;top:55%}100%{left:110%;top:5%}}.sseMeteor{position:absolute;width:95px;height:3px;background:linear-gradient(90deg,#fff0,#fff);transform:rotate(-28deg);animation:sseMeteor 3.8s linear infinite}.sseMeteor.m1{left:15%;top:-20%;animation-delay:-1s}.sseMeteor.m2{left:65%;top:-10%;animation-delay:-2.6s}@keyframes sseMeteor{to{transform:translate(-260px,420px) rotate(-28deg);opacity:0}}.sseStation{position:absolute;right:6%;top:14%;width:112px;height:28px;border-radius:8px;background:#d6dce9}.sseStation:before,.sseStation:after{content:'';position:absolute;top:6px;width:64px;height:16px;background:repeating-linear-gradient(90deg,#28508c 0 9px,#78a8df 9px 14px)}.sseStation:before{right:100%}.sseStation:after{left:100%}.sseStation i{position:absolute;left:46px;top:-14px;width:20px;height:56px;border-radius:10px;background:#f2f5fb}.sseAstronaut{position:absolute;left:-80px;top:38%;font-size:38px;animation:sseAstronaut 13s ease-in-out infinite;animation-delay:var(--d,0s);opacity:0}@keyframes sseAstronaut{0%,18%{opacity:0;transform:translate(0,0) rotate(-18deg)}28%,72%{opacity:1}82%,100%{opacity:0;transform:translate(calc(100vw + 150px),-90px) rotate(32deg)}}
-  .sseFloorHud{position:absolute;left:10px;top:10px;z-index:18;min-width:92px;padding:7px 9px;border:3px solid #3d2b22;border-radius:12px;background:#fff4d9e8;color:#4e3020;font-size:12px;font-weight:1000;line-height:1.2;text-align:left;box-shadow:0 4px #0003;pointer-events:none}.sseFloorHud.space{border-color:#8397d7;background:#111936e8;color:#e8efff}.sseEndlessTag{display:block;font-size:8px;letter-spacing:.7px;opacity:.75}
+
   .sseBreakFlash{position:absolute;inset:0;z-index:30;background:#fff;animation:sseFlash .82s ease-out forwards;pointer-events:none}@keyframes sseFlash{0%{opacity:.95}35%{opacity:.55}100%{opacity:0}}
-  .sseImpactShake{animation:sseImpactShake 1.45s cubic-bezier(.2,.7,.2,1)}@keyframes sseImpactShake{0%,100%{transform:translate(0)}5%{transform:translate(-7px,4px)}10%{transform:translate(8px,-5px)}18%{transform:translate(-10px,-2px)}28%{transform:translate(9px,5px)}40%{transform:translate(-6px,3px)}55%{transform:translate(5px,-3px)}72%{transform:translate(-3px,2px)}}
+  .sseImpactShake{animation:sseImpactShake 1.55s cubic-bezier(.2,.7,.2,1)}@keyframes sseImpactShake{0%,100%{transform:translate(0)}4%{transform:translate(-9px,5px)}9%{transform:translate(10px,-7px)}15%{transform:translate(-12px,-3px)}23%{transform:translate(11px,7px)}34%{transform:translate(-9px,4px)}47%{transform:translate(7px,-5px)}63%{transform:translate(-5px,3px)}80%{transform:translate(3px,-2px)}}
   .sseBreakRing{position:absolute;left:50%;top:21%;z-index:31;width:28px;height:28px;border:8px solid #fff6c7;border-radius:50%;transform:translate(-50%,-50%);animation:sseBreakRing var(--dur,.95s) ease-out var(--delay,0s) forwards;pointer-events:none;opacity:0}@keyframes sseBreakRing{0%{width:28px;height:28px;opacity:1}100%{width:520px;height:520px;opacity:0}}
   .sseCrack{position:absolute;left:4%;right:4%;top:17%;height:19px;z-index:32;background:linear-gradient(103deg,#fff0 0 7%,#fff 8% 11%,#fff0 12% 21%,#fff 22% 25%,#fff0 26% 39%,#fff 40% 44%,#fff0 45% 59%,#fff 60% 64%,#fff0 65%);filter:drop-shadow(0 3px #2b1a12);animation:sseCrack 1.2s ease-out forwards;pointer-events:none}@keyframes sseCrack{0%{transform:scaleY(.25);opacity:0}18%{transform:scaleY(1.7);opacity:1}70%{transform:translateY(34px) scaleY(2.8)}100%{opacity:0;transform:translateY(145px) scaleY(3.2)}}
-  .sseRoofChunk,.sseDebris,.sseDust{position:absolute;left:var(--x);top:var(--y);pointer-events:none;will-change:transform,opacity}
-  .sseRoofChunk{z-index:var(--z,34);width:var(--w);height:var(--h,26px);border:3px solid #623a26;background:linear-gradient(#e1a260,#8f5937);clip-path:polygon(0 0,100% 8%,86% 100%,8% 88%);animation:sseChunkFly var(--dur,1.7s) cubic-bezier(.12,.72,.18,1) var(--delay,0s) forwards}
-  .sseDebris{z-index:var(--z,33);width:var(--w,15px);height:var(--h,11px);border:2px solid #583721;background:var(--c,#a96e42);clip-path:polygon(8% 0,100% 12%,88% 100%,0 76%);animation:sseChunkFly var(--dur,1.55s) cubic-bezier(.12,.72,.18,1) var(--delay,0s) forwards}
-  @keyframes sseChunkFly{0%{transform:translate(0,0) rotate(0) scale(1);opacity:1}16%{opacity:1}100%{transform:translate(var(--dx),var(--dy)) rotate(var(--r)) scale(var(--s,1));opacity:0}}
-  .sseDust{z-index:29;width:var(--w,34px);height:var(--w,34px);border-radius:50%;background:#d8bb8b99;filter:blur(2px);animation:sseDust 1.35s ease-out var(--delay,0s) forwards}@keyframes sseDust{0%{transform:scale(.3);opacity:.8}100%{transform:translate(var(--dx),var(--dy)) scale(2.8);opacity:0}}
+  .sseRoofChunk,.sseDebris,.sseDust{position:absolute;left:var(--x);top:var(--y);pointer-events:none;will-change:transform,opacity}.sseRoofChunk{z-index:var(--z,34);width:var(--w);height:var(--h,26px);border:3px solid #623a26;background:linear-gradient(#e1a260,#8f5937);clip-path:polygon(0 0,100% 8%,86% 100%,8% 88%);animation:sseChunkFly var(--dur,1.7s) cubic-bezier(.12,.72,.18,1) var(--delay,0s) forwards}.sseDebris{z-index:var(--z,33);width:var(--w,15px);height:var(--h,11px);border:2px solid #583721;background:var(--c,#a96e42);clip-path:polygon(8% 0,100% 12%,88% 100%,0 76%);animation:sseChunkFly var(--dur,1.55s) cubic-bezier(.12,.72,.18,1) var(--delay,0s) forwards}@keyframes sseChunkFly{0%{transform:translate(0,0) rotate(0) scale(1);opacity:1}16%{opacity:1}100%{transform:translate(var(--dx),var(--dy)) rotate(var(--r)) scale(var(--s,1));opacity:0}}.sseDust{z-index:29;width:var(--w,34px);height:var(--w,34px);border-radius:50%;background:#d8bb8b99;filter:blur(2px);animation:sseDust 1.35s ease-out var(--delay,0s) forwards}@keyframes sseDust{0%{transform:scale(.3);opacity:.8}100%{transform:translate(var(--dx),var(--dy)) scale(2.8);opacity:0}}
   .sseFlagBurst{animation:sseFlagBurst .85s ease-out}@keyframes sseFlagBurst{0%{transform:scale(.18) rotate(-9deg)}55%{transform:scale(1.22) rotate(2deg)}100%{transform:scale(1)}}
   .sseAltitudePulse{position:absolute;inset:0;z-index:19;pointer-events:none;border:10px solid #fff9;animation:sseAltitudePulse .58s ease-out forwards}@keyframes sseAltitudePulse{0%{opacity:1;transform:scale(.94)}100%{opacity:0;transform:scale(1.08)}}
+  .ssePerfectGrow{animation:ssePerfectGrow .42s ease-out}@keyframes ssePerfectGrow{0%{filter:brightness(1.5);transform:scaleX(1.03)}100%{filter:none;transform:scaleX(1)}}
+
+  @media(max-width:390px){
+   .sseTopHud{left:7px;right:7px;top:7px;grid-template-columns:minmax(88px,1fr) auto 42px auto;gap:5px}
+   .sseFloorHud{padding:6px 7px;font-size:10px}.sseTopHud .sseLifeHud{font-size:14px;padding:6px!important}.sseTopHud .ssePauseBtn{width:40px;height:38px;font-size:17px}.sseTopHud .sseLevelHud{font-size:10px}.sseTopHud .ssePerfectHud{font-size:10px;padding:6px 7px!important}.sseTopHud .sseTitle{font-size:18px!important;padding:7px 9px!important}
+   .sseBottomHud{left:6px;right:6px;bottom:6px;gap:4px}.sseBottomHud .sseGuide{font-size:10px!important;padding:6px 8px!important}.sseBottomHud .sseGameTip{font-size:8px!important;padding:5px 7px!important}
+  }
   `;document.head.appendChild(st)
  }
 
@@ -138,12 +166,28 @@
  function playStackMode(mode='endless'){
   ensureStyle();activeMode=mode;normalClearRecorded=false;
   const normal=mode==='normal',s=document.querySelector('#stage');if(!s)return;
-  s.innerHTML=`<div class="silkScene sseScene sse-house" id="sseScene"><div class="sseBackdrop" id="sseBackdrop"></div><div class="silkLane" id="silkLane"><div class="silkSign">${normal?'차곡차곡 비단쌓기':'∞ 차곡차곡 비단쌓기'}</div><div class="silkBackStall"></div><div class="silkShelf shelf1"></div><div class="silkShelf shelf2"></div><div class="silkGuide">화면을 눌러 비단을 떨어뜨리소!</div></div><div class="silkGround"></div></div><div class="sseFloorHud" id="sseFloorHud">${normal?'0 / 15 단':'<span class="sseEndlessTag">ENDLESS</span>집 1층 · 0단'}</div><div class="comboHud" id="perfectHud">정확도 0%</div><div class="levelHud" id="levelHud">LEVEL 1</div><div class="lifeHud" id="stackLife">❤️❤️❤️</div><div class="gameTip">${normal?'비단 폭이 점점 좁아지고 속도가 빨라집니다 · 15단 완성 목표':'10단마다 위층 돌파 · 빌딩 → 하늘 → 우주까지 끝없이 쌓기'}</div>`;
-  const lane=s.querySelector('#silkLane'),scene=s.querySelector('#sseScene'),back=s.querySelector('#sseBackdrop'),clamp=(v,a,b)=>Math.max(a,Math.min(b,v)),assist=assistProfile();
-  let score=0,total=0,segment=0,alive=true,raf=0,last=0,current=null,x=0,dir=1,accuracyTotal=0,level=1,lastDropAt=-1e9,retrying=false,lives=3,perfectCount=0,transitioning=false,lastStageKey='',carryWidth=0,cameraOffset=0,finalFlagShown=false;
+  s.innerHTML=`<div class="silkScene sseScene sse-house" id="sseScene">
+   <div class="sseBackdrop" id="sseBackdrop"></div>
+   <div class="sseTopHud">
+    <div class="sseFloorHud" id="sseFloorHud">${normal?'0 / 15 단':'<span class="sseEndlessTag">ENDLESS</span>집 1층 · 0단'}</div>
+    <div class="lifeHud sseLifeHud" id="stackLife">❤️❤️❤️</div>
+    <button class="ssePauseBtn sseControl" id="ssePauseBtn" type="button" aria-label="일시정지">⏸</button>
+    <div class="levelHud sseLevelHud" id="levelHud">LEVEL 1</div>
+    <div class="comboHud ssePerfectHud" id="perfectHud">정확도 0% · PERFECT 0/3</div>
+    <div class="silkSign sseTitle">${normal?'차곡차곡 비단쌓기':'∞ 차곡차곡 비단쌓기'}</div>
+   </div>
+   <div class="silkLane" id="silkLane"><div class="silkBackStall"></div><div class="silkShelf shelf1"></div><div class="silkShelf shelf2"></div></div>
+   <div class="silkGround"></div>
+   <div class="sseBottomHud"><div class="silkGuide sseGuide">화면을 눌러 비단을 떨어뜨리소!</div><div class="gameTip sseGameTip">${normal?'PERFECT면 비단이 조금 늘어납니다 · 15단 완성 목표':'PERFECT면 비단이 조금 늘어납니다 · 10단마다 돌파 · 빌딩 → 하늘 → 우주'}</div></div>
+   <div class="ssePauseOverlay sseControl" id="ssePauseOverlay"><div class="ssePauseCard"><strong>⏸ 일시정지</strong><p>현재 진행 상태를 그대로 유지합니다.</p><button type="button" class="sseResumeBtn sseControl" id="sseResumeBtn">▶ 계속하기</button></div></div>
+  </div>`;
+
+  const lane=s.querySelector('#silkLane'),scene=s.querySelector('#sseScene'),back=s.querySelector('#sseBackdrop'),pauseBtn=s.querySelector('#ssePauseBtn'),pauseOverlay=s.querySelector('#ssePauseOverlay'),resumeBtn=s.querySelector('#sseResumeBtn'),clamp=(v,a,b)=>Math.max(a,Math.min(b,v)),assist=assistProfile();
+  let score=0,total=0,segment=0,alive=true,raf=0,last=0,current=null,x=0,dir=1,accuracyTotal=0,level=1,lastDropAt=-1e9,retrying=false,lives=3,perfectCount=0,transitioning=false,paused=false,lastStageKey='',carryWidth=0,cameraOffset=0,finalFlagShown=false;
   const W=()=>lane.getBoundingClientRect().width,baseW=Math.min(235,W()*.58);carryWidth=baseW;
   const patterns=[['#f8d5e2','#f0aac3','#d36a93'],['#d2ebff','#9dd3ff','#4ea7df'],['#ffe6b3','#ffc34d','#d98c00'],['#dff2cc','#a8df84','#5ba046'],['#ecd8ff','#c7a0ff','#8450d1']];
   function silkHTML(idx){const c=patterns[idx%patterns.length];return `<div class="silkFold" style="--c1:${c[0]};--c2:${c[1]};--c3:${c[2]};"><i></i><i></i><i></i><span></span></div>`}
+
   function setScene(force=false){
    const step=normal?NORMAL_FLOORS:ENDLESS_BREAK,st=stageFor(total,step),continuous=st.zone==='sky'||st.zone==='space',key=continuous?st.zone:st.zone+':'+st.floor,high=st.zone==='sky'&&st.floor>=5;
    scene.className=`silkScene sseScene sse-${st.zone}${high?' sse-high':''}`;
@@ -160,6 +204,18 @@
    const lh=s.querySelector('#stackLife');if(lh)lh.textContent='❤️'.repeat(lives)+'🖤'.repeat(Math.max(0,3-lives));
    const lev=s.querySelector('#levelHud');if(lev)lev.textContent=`LEVEL ${level}`;if(!skipScene)setScene()
   }
+
+  function setPaused(v){
+   if(!alive)return;
+   if(v&&(transitioning||retrying))return;
+   paused=!!v;
+   if(pauseOverlay)pauseOverlay.classList.toggle('show',paused);
+   if(pauseBtn){pauseBtn.classList.toggle('isPaused',paused);pauseBtn.textContent=paused?'▶':'⏸';pauseBtn.setAttribute('aria-label',paused?'계속하기':'일시정지')}
+   if(paused){cancelAnimationFrame(raf);raf=0;last=0;try{buzz(28)}catch(_){};return}
+   last=0;lastDropAt=performance.now();if(!transitioning){cancelAnimationFrame(raf);raf=requestAnimationFrame(loop)}
+  }
+  function onVisibility(){if(document.hidden&&alive&&!paused&&!transitioning&&!retrying)setPaused(true)}
+
   function clearStackVisual(){lane.querySelectorAll('.silkPiece,.silkBase,.stackFlag').forEach(e=>e.remove())}
   function addBase(width=carryWidth){
    const w=Math.max(28,Math.min(baseW,Number(width)||baseW)),e=document.createElement('div');e.className='silkBase';e.style.width=w+'px';e.style.left=((W()-w)/2)+'px';e.style.bottom='82px';e.innerHTML=silkHTML(total);lane.appendChild(e);return e
@@ -169,6 +225,12 @@
    const placed=lane.querySelectorAll('.silkPiece,.silkBase'),prev=placed[placed.length-1];let w=prev?parseFloat(prev.style.width):baseW;if(!Number.isFinite(w)||w<=0)w=baseW;
    e.style.width=w+'px';e.style.bottom=(135+segment*21-cameraOffset)+'px';e.style.left=x+'px';e.innerHTML=silkHTML(total+1);lane.appendChild(e);return e
   }
+  function expandPerfectPiece(el){
+   const oldW=parseFloat(el?.style.width),oldL=parseFloat(el?.style.left);if(!Number.isFinite(oldW)||!Number.isFinite(oldL))return 0;
+   const wanted=clamp(oldW*.06,PERFECT_GROW_MIN,PERFECT_GROW_MAX),newW=Math.min(baseW,oldW+wanted),gain=newW-oldW;if(gain<.5)return 0;
+   const center=oldL+oldW/2,newL=clamp(center-newW/2,0,Math.max(0,W()-newW));
+   el.style.left=newL+'px';el.style.width=newW+'px';el.classList.remove('ssePerfectGrow');void el.offsetWidth;el.classList.add('ssePerfectGrow');return gain
+  }
   function flag1884(){
    lane.querySelectorAll('.stackFlag').forEach(e=>e.remove());
    const placed=[...lane.querySelectorAll('.silkPiece,.silkBase')].filter(e=>!e.classList.contains('miss')),anchor=placed[placed.length-1]||current,l=parseFloat(anchor?.style.left)||0,w=parseFloat(anchor?.style.width)||120,b=parseFloat(anchor?.style.bottom),flag=document.createElement('div');
@@ -176,8 +238,14 @@
   }
   function showFinalFlag(){if(finalFlagShown)return;finalFlagShown=true;flag1884()}
 
+  function hardRoofVibrate(){
+   const pattern=[180,45,260,50,360,55,650];
+   try{if(navigator&&typeof navigator.vibrate==='function'){navigator.vibrate(0);navigator.vibrate(pattern);return}}catch(_){}
+   try{buzz(pattern)}catch(_){}
+  }
   function impactSounds(){
-   try{buzz([70,38,115,44,155,56,260]);tone('bad');setTimeout(()=>beep(92,.11,.055,'square',58),130);setTimeout(()=>beep(72,.16,.065,'sawtooth',48),390);setTimeout(()=>beep(55,.28,.075,'square',38),720)}catch(_){}
+   hardRoofVibrate();
+   try{tone('bad');setTimeout(()=>beep(92,.11,.055,'square',58),130);setTimeout(()=>beep(72,.16,.065,'sawtooth',48),390);setTimeout(()=>beep(55,.28,.075,'square',38),720)}catch(_){}
   }
   function structureBlast(){
    scene.classList.remove('sseImpactShake');void scene.offsetWidth;scene.classList.add('sseImpactShake');
@@ -208,7 +276,7 @@
    lane.querySelectorAll('.silkPiece,.silkBase,.stackFlag').forEach(el=>{const b=parseFloat(el.style.bottom);if(!Number.isFinite(b))return;const nb=b-shift;el.style.bottom=nb+'px';if(nb<-75)el.remove()})
   }
   function resumeAfterBreak(){
-   if(!alive)return;clearStackVisual();segment=0;cameraOffset=0;setScene(true);addBase(carryWidth);dir*=-1;x=dir>0?0:Math.max(0,W()-carryWidth);current=piece();current.style.left=x+'px';lastDropAt=performance.now();transitioning=false;last=0;raf=requestAnimationFrame(loop)
+   if(!alive)return;clearStackVisual();segment=0;cameraOffset=0;setScene(true);addBase(carryWidth);dir*=-1;x=dir>0?0:Math.max(0,W()-carryWidth);current=piece();current.style.left=x+'px';lastDropAt=performance.now();transitioning=false;last=0;if(!paused)raf=requestAnimationFrame(loop)
   }
   function breakthrough(){
    transitioning=true;carryWidth=Math.max(28,parseFloat(current?.style.width)||carryWidth||baseW);structureBlast();
@@ -222,11 +290,11 @@
    setTimeout(()=>{if(!alive)return;alive=false;cancelAnimationFrame(raf);recordNormalClear();finish('stack',score+400,showModeSelect,true)},2550)
   }
   function gameOver(){
-   alive=false;cancelAnimationFrame(raf);showFinalFlag();try{showComboBurst('GAME OVER',3,'multi');tone('clear');buzz([20,8,34,8,52])}catch(_){}
+   alive=false;paused=false;cancelAnimationFrame(raf);showFinalFlag();try{showComboBurst('GAME OVER',3,'multi');tone('clear');buzz([20,8,34,8,52])}catch(_){}
    setTimeout(()=>finish('stack',score,showModeSelect,false),980)
   }
   function drop(){
-   if(!alive||!current||retrying||transitioning)return;
+   if(!alive||paused||!current||retrying||transitioning)return;
    const l=parseFloat(current.style.left),w=parseFloat(current.style.width),arr=lane.querySelectorAll('.silkPiece,.silkBase'),prev=arr[arr.length-2],pl=parseFloat(prev.style.left),pw=parseFloat(prev.style.width),left=Math.max(l,pl),right=Math.min(l+w,pl+pw),overlap=Math.max(0,right-left);
    if(overlap<assist.minOverlap){
     retrying=true;const failed=current;failed.classList.add('miss');lives=Math.max(0,lives-1);score=Math.max(0,score-60);hud();try{tone('bad');buzz(110);softShake()}catch(_){}
@@ -237,10 +305,14 @@
    current.style.left=left+'px';current.style.width=overlap+'px';
    const centered=Math.abs((l+w/2)-(pl+pw/2)),denom=Math.max(1,pw*.5*assist.centerScale),placementAcc=clamp(100-(centered/denom)*100,0,100),pts=placementAcc>=97?360:placementAcc>=88?220:placementAcc>=75?110:40;
    score+=pts;accuracyTotal+=placementAcc;
-   const isPerfect=placementAcc>=97;let heartBonus=false;
-   if(isPerfect){perfectCount++;if(perfectCount>=3){perfectCount=0;lives++;heartBonus=true}}
+   const isPerfect=placementAcc>=97;let heartBonus=false,grow=0;
+   if(isPerfect){grow=expandPerfectPiece(current);perfectCount++;if(perfectCount>=3){perfectCount=0;lives++;heartBonus=true}}
    try{
-    if(isPerfect){current.classList.add('good','stackPerfect');tone('perfect');buzz(heartBonus?[36,10,54,10,78,10,110]:[32,12,48,12,72]);showComboBurst(heartBonus?`PERFECT ×3! ❤️ +1 · +${pts}`:`PERFECT! ${perfectCount}/3 · +${pts}`,10,'great');particles(innerWidth*.5,innerHeight*.38,heartBonus?'❤️':'✨',heartBonus?18:12)}
+    if(isPerfect){
+     current.classList.add('good','stackPerfect');tone('perfect');buzz(heartBonus?[36,10,54,10,78,10,110]:[32,12,48,12,72]);
+     const growText=grow>=.5?` · 비단 +${Math.round(grow)}`:'';
+     showComboBurst(heartBonus?`PERFECT ×3! ❤️ +1${growText} · +${pts}`:`PERFECT! ${perfectCount}/3${growText} · +${pts}`,10,'great');particles(innerWidth*.5,innerHeight*.38,heartBonus?'❤️':'✨',heartBonus?18:12)
+    }
     else if(placementAcc>=88){current.classList.add('good');tone('perfect');buzz([32,12,48]);showComboBurst(`GREAT! +${pts}`,5,'great')}
     else if(placementAcc>=75){current.classList.add('ok');tone('good');buzz(32);showComboBurst(`GOOD! +${pts}`,2,'combo')}
     else{current.classList.add('ok');tone('good');buzz(32);showComboBurst(`아슬아슬! +${pts}`,2,'combo')}
@@ -253,15 +325,24 @@
    if(!normal&&total>=endlessStructureEnd)scrollContinuous();
    current=piece();dir*=-1;x=dir>0?0:Math.max(0,W()-parseFloat(current.style.width))
   }
-  function pointer(e){if(!alive||!current||retrying||transitioning)return;const now=performance.now();if(now-lastDropAt<90)return;lastDropAt=now;e.preventDefault();drop()}
+  function pointer(e){
+   if(e.target&&typeof e.target.closest==='function'&&e.target.closest('.sseControl'))return;
+   if(!alive||paused||!current||retrying||transitioning)return;const now=performance.now();if(now-lastDropAt<90)return;lastDropAt=now;e.preventDefault();drop()
+  }
   function loop(ts){
-   if(!alive||transitioning)return;if(!last){last=ts;raf=requestAnimationFrame(loop);return}
+   if(!alive||paused||transitioning)return;if(!last){last=ts;raf=requestAnimationFrame(loop);return}
    const dt=Math.max(0,Math.min(.04,(ts-last)/1000));last=ts;if(retrying){raf=requestAnimationFrame(loop);return}
    const pieceW=parseFloat(current.style.width),maxX=Math.max(0,W()-pieceW),speedPx=120+Math.min(250,total*4.5)+(level-1)*22;
    x+=dir*speedPx*dt;if(x<=0){x=0;dir=1}if(x>=maxX){x=maxX;dir=-1}current.style.left=x+'px';raf=requestAnimationFrame(loop)
   }
+
+  const pauseClick=e=>{e.preventDefault();e.stopPropagation();setPaused(!paused)},resumeClick=e=>{e.preventDefault();e.stopPropagation();setPaused(false)};
+  if(pauseBtn)pauseBtn.addEventListener('pointerdown',pauseClick,{passive:false});if(resumeBtn)resumeBtn.addEventListener('pointerdown',resumeClick,{passive:false});document.addEventListener('visibilitychange',onVisibility);
   addBase();setScene(true);current=piece();hud();s.style.touchAction='none';s.addEventListener('pointerdown',pointer,{capture:true,passive:false});raf=requestAnimationFrame(loop);
-  cleanup=()=>{alive=false;retrying=true;transitioning=false;cancelAnimationFrame(raf);s.removeEventListener('pointerdown',pointer,true)}
+  cleanup=()=>{
+   alive=false;paused=false;retrying=true;transitioning=false;cancelAnimationFrame(raf);try{if(navigator&&typeof navigator.vibrate==='function')navigator.vibrate(0)}catch(_){}
+   s.removeEventListener('pointerdown',pointer,true);if(pauseBtn)pauseBtn.removeEventListener('pointerdown',pauseClick);if(resumeBtn)resumeBtn.removeEventListener('pointerdown',resumeClick);document.removeEventListener('visibilitychange',onVisibility)
+  }
  }
 
  function entry(){ensureStyle();normalClearRecorded=false;showModeSelect()}
