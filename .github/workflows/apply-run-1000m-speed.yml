@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Apply connector
+      - name: Apply connector v2
         run: python .github/apply_run_1000m_speed.py
       - name: Check speed module syntax
         run: node --check play/run-distance-speed.js
