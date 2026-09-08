@@ -37,7 +37,7 @@ fish = replace_once(
 )
 fish = replace_once(
     fish,
-    "function hud(){$('#combo').textContent=`COMBO ×${combo}`;const c=$('#playCoinHud');if(c)c.textContent=`🪙 +${bonusCoins}`}",
+    "function hud(){$('#combo').textContent=`COMBO ×${combo}`;const c=$('#playCoinHud');if(c)c.textContent=`🪙 +${bonusCoins}`} ",
     "function hud(){$('#combo').textContent=`COMBO ×${combo}`;const l=$('#life');if(l)l.textContent='❤️'.repeat(lives)+'🖤'.repeat(3-lives);const c=$('#playCoinHud');if(c)c.textContent=`🪙 +${bonusCoins}`}",
     'fish HUD renderer'
 )
