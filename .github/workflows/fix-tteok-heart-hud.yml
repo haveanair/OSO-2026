@@ -31,7 +31,7 @@ jobs:
           t=s[a:b]
           assert 'class="lifeHud tteokLifeHud" id="life">❤️❤️❤️' in t
           assert '.tteokLifeHud{top:108px!important;left:10px!important;right:auto!important;z-index:18!important' in s
-          scripts=re.findall(r'<script(?![^>]*\\bsrc=)[^>]*>([\\s\\S]*?)</script>',s,flags=re.I)
+          scripts=re.findall(r'<script(?![^>]*src=)[^>]*>(.*?)</script>',s,flags=re.I|re.S)
           core=[x for x in scripts if 'function playTteok(){' in x]
           assert len(core)==1, len(core)
           Path('/tmp/oso-core.js').write_text(core[0],encoding='utf-8')
