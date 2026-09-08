@@ -1,0 +1,50 @@
+name: Fix tteok heart HUD
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/tteok-heart-hud.trigger'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Apply tteok HUD fix
+        run: python3 .github/scripts/fix-tteok-heart-hud.py
+      - name: Validate targeted fix
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          s=Path('play/index.html').read_text(encoding='utf-8')
+          a=s.index('function playTteok(){')
+          b=s.index('/* POWERDUCK',a)
+          t=s[a:b]
+          assert 'class="lifeHud tteokLifeHud" id="life">❤️❤️❤️' in t
+          assert '.tteokLifeHud{top:108px!important;left:10px!important;right:auto!important;z-index:18!important' in s
+          scripts=re.findall(r'<script(?![^>]*\\bsrc=)[^>]*>([\\s\\S]*?)</script>',s,flags=re.I)
+          core=[x for x in scripts if 'function playTteok(){' in x]
+          assert len(core)==1, len(core)
+          Path('/tmp/oso-core.js').write_text(core[0],encoding='utf-8')
+          print('tteok heart HUD markers OK')
+          PY
+          node --check /tmp/oso-core.js
+      - name: Commit gameplay fix
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add play/index.html
+          git diff --cached --quiet && { echo 'No gameplay changes'; exit 0; }
+          git commit -m '떡 하트 HUD 표시 위치 수정'
+          git push
