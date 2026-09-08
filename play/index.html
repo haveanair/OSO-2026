@@ -3865,7 +3865,7 @@ function finish(code,score,retry,clear=false,bonusCoins=0){
  const stars=starsFor(code,score),r=document.createElement('div');r.className='result';
  const bonusNames={basket:'장바구니 획득',fish:'수산시장 획득',run:'달리기 획득',slice:'시장 싹쓸이 획득',spacefighter:'슈팅 획득',racing:'레이스 획득',fantasy:'모험 획득'};
  const bonusLabel=bonusNames[code]||'게임 중 획득'; const rewardTotal=reward+bonusCoins+clearBonus;const rewardParts=[`기본 ${reward}`];if(bonusCoins)rewardParts.push(`${bonusLabel} ${bonusCoins}`);if(clearBonus)rewardParts.push(`RPG 클리어 보너스 ${clearBonus}`);const rewardDetail=(bonusCoins||clearBonus)?` (${rewardParts.join(' + ')})`:'';
- r.innerHTML=`<img src="${currentOsoSrc()}" alt="오소"><div class="resultBadge">${clear?'🎉 클리어!':rec?'🏆 신기록!':'도전 완료'}</div><div class="score">${score}</div><div class="resultStars">${'⭐'.repeat(stars)}${'☆'.repeat(3-stars)}</div><div>🪙 +${rewardTotal}${rewardDetail} · 현재 보유 ${state.coins}</div><div>🏆 누적점수 ${Number(state.todayScore||0).toLocaleString('ko-KR')}점</div>${scoreBonusUnlocks.length?`<div class="resultBadge">🔓 ${scoreBonusUnlocks.map(c=>game(c).name).join(' · ')} 해금!</div>`:''}<div class="actions"><button id="rx">나가기</button><button class="primary" id="rr">한판 더!</button></div>`;
+ r.innerHTML=`<img src="${currentOsoSrc()}" alt="오소"><div class="resultBadge">${clear?'🎉 클리어!':rec?'💥 GAME OVER · 🏆 신기록!':'💥 GAME OVER'}</div><div class="score">${score}</div><div class="resultStars">${'⭐'.repeat(stars)}${'☆'.repeat(3-stars)}</div><div>🪙 +${rewardTotal}${rewardDetail} · 현재 보유 ${state.coins}</div><div>🏆 누적점수 ${Number(state.todayScore||0).toLocaleString('ko-KR')}점</div>${scoreBonusUnlocks.length?`<div class="resultBadge">🔓 ${scoreBonusUnlocks.map(c=>game(c).name).join(' · ')} 해금!</div>`:''}<div class="actions"><button id="rx">나가기</button><button class="primary" id="rr">한판 더!</button></div>`;
  $('#stage').appendChild(r);
  if(crossedMilestones.length)playCoinMilestones(crossedMilestones);
 
@@ -3941,12 +3941,17 @@ function playBasket(){
 /* fish with water flow/audio/drops */
 function playFish(){
  const s=$('#stage');
- s.innerHTML=`<div class="scene fishScene"><div class="marketAwning"></div><div class="marketSign">팔딱팔딱 수산시장</div><div class="waterLayer"><div class="waterGlow"></div><div class="waterBand w1"></div><div class="waterBand w2"></div><div class="waterBand w3"></div></div><div class="fishCounter"></div></div><div class="counter" id="tm">35</div><div class="comboHud" id="combo">COMBO ×0</div><div class="levelHud" id="levelHud">LEVEL 1</div><div class="playCoinHud" id="playCoinHud">🪙 +0</div><div class="gameTip">생선 사이에 간헐적으로 동전 등장 · 잡으면 실제 코인 보너스!</div><div class="grid9 fishGrid">${Array.from({length:9},(_,i)=>`<button class="hole" data-i="${i}"></button>`).join('')}</div>`;
- let score=0,t=35,combo=0,level=1,sp=null,ended=false,wave=0,bonusCoins=0;
+ s.innerHTML=`<div class="scene fishScene"><div class="marketAwning"></div><div class="marketSign">팔딱팔딱 수산시장</div><div class="waterLayer"><div class="waterGlow"></div><div class="waterBand w1"></div><div class="waterBand w2"></div><div class="waterBand w3"></div></div><div class="fishCounter"></div></div><div class="counter" id="tm">35</div><div class="comboHud" id="combo">COMBO ×0</div><div class="lifeHud" id="life">❤️❤️❤️</div><div class="levelHud" id="levelHud">LEVEL 1</div><div class="playCoinHud" id="playCoinHud">🪙 +0</div><div class="gameTip">생선 사이에 간헐적으로 동전 등장 · 잡으면 실제 코인 보너스!</div><div class="grid9 fishGrid">${Array.from({length:9},(_,i)=>`<button class="hole" data-i="${i}"></button>`).join('')}</div>`;
+ let score=0,t=35,combo=0,level=1,sp=null,ended=false,wave=0,bonusCoins=0,lives=3;
  const holes=$$('.hole'),stopWater=waterAmbience(),expireTimers=new Map();
  const fishAbility=window.OsoCharacterSpecialAbilities,fishAbilitySkin=currentSkin();
  const DWELL=fishAbility?fishAbility.fishDwellMs(fishAbilitySkin,1250):1250;
- function hud(){$('#combo').textContent=`COMBO ×${combo}`;const c=$('#playCoinHud');if(c)c.textContent=`🪙 +${bonusCoins}`} 
+ function endFish(clear){
+  if(ended)return;ended=true;if(sp)clearInterval(sp);clearInterval(ti);
+  expireTimers.forEach(id=>clearTimeout(id));expireTimers.clear();holes.forEach(h=>clearHole(h,false));
+  const fg=s.querySelector('.fishGrid');if(fg)fg.remove();stopWater();finish('fish',score,playFish,!!clear,bonusCoins)
+ }
+ function hud(){$('#combo').textContent=`COMBO ×${combo}`;const l=$('#life');if(l)l.textContent='❤️'.repeat(lives)+'🖤'.repeat(3-lives);const c=$('#playCoinHud');if(c)c.textContent=`🪙 +${bonusCoins}`}
  function friend(){return `<img class="friendChar" src="${Math.random()>.5?HAMO_SRC:AYO_SRC}">`}
  function droplets(h){
   let r=h.getBoundingClientRect(),sr=s.getBoundingClientRect();
@@ -3998,7 +4003,7 @@ function playFish(){
   h.dataset.hit='1';if(expireTimers.has(h)){clearTimeout(expireTimers.get(h));expireTimers.delete(h)}
   let r=h.getBoundingClientRect(),x=r.left+r.width/2,y=r.top+r.height/2;
   if(kind==='friend'){
-   combo=0;score=Math.max(0,score-8);tone('bad');bombBuzz();softShake();fxText(x,y,'앗! -8','#d94343')
+   combo=0;lives--;tone('bad');bombBuzz();softShake();fxText(x,y,'❤️ -1','#d94343');hud();if(lives<=0){clearHole(h,false);$('#gScore').textContent=score;endFish(false);return}
   }else if(kind==='coin'){
    bonusCoins+=10;score+=35;tone('coin');buzz([12,6,22]);fxText(x,y,'🪙 +10','#c77b00');particles(x,y,'🪙',7)
   }else{
@@ -4011,7 +4016,7 @@ function playFish(){
  }
  holes.forEach(h=>{h.style.touchAction='manipulation';h.addEventListener('pointerdown',e=>hitHole(h,e),{passive:false});h.addEventListener('contextmenu',e=>e.preventDefault())});
  spawnWave();restart();
- let ti=setInterval(()=>{t--;$('#tm').textContent=t;if(t<=0){ended=true;clearInterval(sp);clearInterval(ti);expireTimers.forEach(id=>clearTimeout(id));expireTimers.clear();holes.forEach(h=>clearHole(h,false));const fg=s.querySelector('.fishGrid');if(fg)fg.remove();stopWater();finish('fish',score,playFish,true,bonusCoins)}},1000);
+ let ti=setInterval(()=>{t--;$('#tm').textContent=t;if(t<=0)endFish(true)},1000);
  cleanup=()=>{ended=true;clearInterval(sp);clearInterval(ti);expireTimers.forEach(id=>clearTimeout(id));expireTimers.clear();stopWater()}
 }
 
@@ -4382,10 +4387,10 @@ function playSlice(){
 /* tteok - detailed pieces + real impact + level patterns */
 function playTteok(){
  const s=$('#stage');
- s.innerHTML=`<div class="scene tteokSceneV9"><div class="tteokAwning"></div><div class="tteokShopSign">1884 전통 떡집</div><div class="backShelf"><div class="tteokTray" style="left:7%;right:54%;top:66px"></div><div class="tteokTray" style="left:54%;right:7%;top:66px"></div><div class="tteokPiece" style="left:11%;top:36px"></div><div class="tteokPiece pink" style="left:25%;top:32px"></div><div class="tteokPiece green" style="left:39%;top:37px"></div><div class="tteokPiece pink" style="right:36%;top:35px"></div><div class="tteokPiece" style="right:22%;top:32px"></div><div class="tteokPiece green" style="right:9%;top:37px"></div></div><div class="marketCounter"></div><div class="malletShadowV9"></div><div class="mortarWrap"><div class="mortar"></div><div class="dough" id="dough"></div></div><div class="mortarImpactV9" id="impact"></div><div class="tteokHammer" id="mallet"><div class="woodHammerHead"></div><div class="woodHammerHandle"></div><div class="hammerGrip"></div></div><div class="rhythmTarget" id="target"></div><div class="rhythmRing" id="ring"></div><img class="tteokMascotV9" src="${currentOsoSrc()}" alt="오소"></div><div class="counter" id="tm">35</div><div class="tteokSpeed" id="tteokSpeed">속도 ×1.00</div><div class="comboHud" id="combo">COMBO ×0</div><div class="levelHud" id="levelHud">LEVEL 1</div><div class="feverWrap"><div class="feverFill" id="feverFill"></div></div><div class="feverText" id="feverText">찰기 0%</div><div class="tteokGrade" id="grade"></div><button class="tteokHitButton" id="hitBtn">쿵! 떡메 내리치기</button>`;
+ s.innerHTML=`<div class="scene tteokSceneV9"><div class="tteokAwning"></div><div class="tteokShopSign">1884 전통 떡집</div><div class="backShelf"><div class="tteokTray" style="left:7%;right:54%;top:66px"></div><div class="tteokTray" style="left:54%;right:7%;top:66px"></div><div class="tteokPiece" style="left:11%;top:36px"></div><div class="tteokPiece pink" style="left:25%;top:32px"></div><div class="tteokPiece green" style="left:39%;top:37px"></div><div class="tteokPiece pink" style="right:36%;top:35px"></div><div class="tteokPiece" style="right:22%;top:32px"></div><div class="tteokPiece green" style="right:9%;top:37px"></div></div><div class="marketCounter"></div><div class="malletShadowV9"></div><div class="mortarWrap"><div class="mortar"></div><div class="dough" id="dough"></div></div><div class="mortarImpactV9" id="impact"></div><div class="tteokHammer" id="mallet"><div class="woodHammerHead"></div><div class="woodHammerHandle"></div><div class="hammerGrip"></div></div><div class="rhythmTarget" id="target"></div><div class="rhythmRing" id="ring"></div><img class="tteokMascotV9" src="${currentOsoSrc()}" alt="오소"></div><div class="counter" id="tm">35</div><div class="tteokSpeed" id="tteokSpeed">속도 ×1.00</div><div class="comboHud" id="combo">COMBO ×0</div><div class="lifeHud" id="life">❤️❤️❤️</div><div class="levelHud" id="levelHud">LEVEL 1</div><div class="feverWrap"><div class="feverFill" id="feverFill"></div></div><div class="feverText" id="feverText">찰기 0%</div><div class="tteokGrade" id="grade"></div><button class="tteokHitButton" id="hitBtn">쿵! 떡메 내리치기</button>`;
 
  let score=0,t=35,alive=true,raf,prev=performance.now();
- let phase=0,combo=0,fever=0,feverTime=0,level=1;
+ let phase=0,combo=0,fever=0,feverTime=0,level=1,lives=3;
  const tteokAbility=window.OsoCharacterSpecialAbilities,tteokAbilitySkin=currentSkin();
 
  const ring=$('#ring'),mallet=$('#mallet'),dough=$('#dough'),
@@ -4405,9 +4410,16 @@ function playTteok(){
 
  function hud(){
   $('#combo').textContent=`COMBO ×${combo}`;
+  const l=$('#life');if(l)l.textContent='❤️'.repeat(lives)+'🖤'.repeat(3-lives);
   $('#feverFill').style.width=fever+'%';
   $('#feverText').textContent=feverTime>0?`🔥 FEVER ${feverTime.toFixed(1)}s`:`찰기 ${Math.floor(fever)}%`;
   $('#tteokSpeed').textContent=`속도 ×${(speedNow()/.78).toFixed(2)}`;
+ }
+
+ function loseTteokHeart(){
+  if(!alive)return true;lives=Math.max(0,lives-1);hud();buzz([35,14,55]);
+  if(lives<=0){alive=false;clearInterval(ti);cancelAnimationFrame(raf);finish('tteok',score,playTteok,false);return true}
+  return false
  }
 
  function nextBeat(){
@@ -4452,7 +4464,7 @@ function playTteok(){
   }else if(d<GOOD_WINDOW){
    pts=18;label='GOOD';color='#4e9ad1';combo++;gain=7;q='good';tone('good');
   }else{
-   combo=0;tone('bad');softShake();
+   combo=0;tone('bad');softShake();if(loseTteokHeart())return;
   }
 
   let mult=feverTime>0?2:1;
@@ -4504,7 +4516,7 @@ function playTteok(){
    grade.textContent='MISS';
    grade.style.color='#d84a43';
    grade.classList.remove('show');void grade.offsetWidth;grade.classList.add('show');
-   tone('bad');
+   tone('bad');softShake();if(loseTteokHeart())return;
    nextBeat();
   }
 
@@ -7193,5 +7205,5 @@ refresh();renderRanking();initGpsUi();initQrUi();boot();
 <script src="./nongae-heaven-jade-fx.js?v=20260907-jade1"></script>
 <script src="./silk-stack-endless.js?v=20260908-roofsync1"></script>
 <script src="./character-performance-bonus.js?v=20260908-news1"></script>
-<script src="./result-auto-collapse.js?v=20260908-resultcollapse1"></script>
+<script src="./result-auto-collapse.js?v=20260908-resultcollapse2"></script>
 </body></html>
