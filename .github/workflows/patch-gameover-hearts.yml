@@ -1,0 +1,67 @@
+name: Apply game-over and heart rules
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/gameover-hearts.trigger'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Apply gameplay patch
+        run: python3 .github/scripts/patch-gameover-hearts-v1.py
+
+      - name: Validate JavaScript and rules
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check play/result-auto-collapse.js
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          s=Path('play/index.html').read_text(encoding='utf-8')
+          scripts=re.findall(r'<script(?![^>]*\bsrc=)[^>]*>([\s\S]*?)</script>',s,flags=re.I)
+          core=[x for x in scripts if 'function playFish(){' in x and 'function playTteok(){' in x]
+          if len(core)!=1: raise SystemExit(f'core inline script count={len(core)}')
+          Path('/tmp/oso-core-inline.js').write_text(core[0],encoding='utf-8')
+
+          fish=s[s.index('function playFish(){'):s.index('/* stack */',s.index('function playFish(){'))]
+          tteok=s[s.index('function playTteok(){'):s.index('/* POWERDUCK',s.index('function playTteok(){'))]
+
+          checks={
+            'common GAME OVER': "💥 GAME OVER" in s,
+            'fish life HUD': 'id="life">❤️❤️❤️' in fish,
+            'fish friend heart': "fxText(x,y,'❤️ -1'" in fish and "finish('fish',score,playFish,false,bonusCoins)" in fish,
+            'fish old score penalty removed': "score=Math.max(0,score-8)" not in fish,
+            'tteok life HUD': 'id="life">❤️❤️❤️' in tteok,
+            'tteok life helper': "function loseTteokHeart()" in tteok and "finish('tteok',score,playTteok,false)" in tteok,
+            'tteok miss heart calls': tteok.count('loseTteokHeart()')>=3,
+            'result cache v2': './result-auto-collapse.js?v=20260908-resultcollapse2' in s,
+          }
+          bad=[k for k,v in checks.items() if not v]
+          if bad: raise SystemExit('validation failed: '+', '.join(bad))
+          print('targeted rules OK')
+          PY
+          node --check /tmp/oso-core-inline.js
+          git diff --check
+
+      - name: Commit gameplay changes
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add play/index.html
+          git diff --cached --quiet && { echo 'No gameplay changes'; exit 0; }
+          git commit -m '수산·떡 하트 게임오버 및 결과판 공통화'
+          git push
