@@ -1,0 +1,49 @@
+name: Connect result auto collapse
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/result-auto-collapse.trigger'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Connect result score auto collapse
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('play/index.html')
+          s=p.read_text(encoding='utf-8')
+          tag='<script src="./result-auto-collapse.js?v=20260908-resultcollapse1"></script>'
+          if tag not in s:
+              if s.count('</body>')!=1:
+                  raise SystemExit(f'body close count invalid: {s.count("</body>")}')
+              s=s.replace('</body>',tag+'\n</body>',1)
+              p.write_text(s,encoding='utf-8')
+          if s.count('result-auto-collapse.js?v=20260908-resultcollapse1')!=1:
+              raise SystemExit('result auto collapse script tag verification failed')
+          PY
+          node --check play/result-auto-collapse.js
+          grep -Fq 'const AUTO_MS=5000' play/result-auto-collapse.js
+          grep -Fq "collapsed?'🏆 결과 보기':'▾ 접기'" play/result-auto-collapse.js
+          grep -Fq 'result-auto-collapse.js?v=20260908-resultcollapse1' play/index.html
+          git diff --check
+          if git diff --quiet; then
+            echo 'No changes needed'
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add play/index.html
+          git commit -m '결과 점수판 5초 자동 축소 연결'
+          git push
