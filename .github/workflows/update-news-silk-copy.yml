@@ -1,0 +1,59 @@
+name: Update silk NEWS copy
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/news-silk-copy.trigger'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Trim minor silk NEWS items
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          bonus_path=Path('play/character-performance-bonus.js')
+          index_path=Path('play/index.html')
+          bonus=bonus_path.read_text(encoding='utf-8')
+          index=index_path.read_text(encoding='utf-8')
+
+          old="""    {date:'2026.09.07',title:'비단쌓기 엔들리스 업데이트',items:['일반 15단과 엔들리스 모드 분리, 엔들리스는 10단마다 돌파','GREAT/PERFECT 성공 시 비단 폭 회복, PERFECT 3회마다 하트 +1','하모·논개 전용 판정보정 강화','일시정지·모바일 HUD·GREAT/PERFECT 2줄 이펙트·구조물 격파 연출 강화','하늘→우주 자연 전환, 고고도 종료 빵빠레, 심우주 우주인·UFO 연출 추가']},"""
+          new="""    {date:'2026.09.07',title:'비단쌓기 엔들리스 업데이트',items:['일반 15단과 엔들리스 모드 분리, 엔들리스는 10단마다 돌파','GREAT/PERFECT 성공 시 비단 폭 회복, PERFECT 3회마다 하트 +1','하모·논개 전용 판정보정 적용','일시정지·모바일 HUD·구조물 격파 연출 강화','하늘→우주 자연 전환']},"""
+          if bonus.count(old)!=1:
+              raise SystemExit(f'NEWS target count invalid: {bonus.count(old)}')
+          bonus=bonus.replace(old,new,1)
+
+          index,n=re.subn(r'(\./character-performance-bonus\.js\?v=)[^"\']+',r'\g<1>20260908-news1',index,count=1)
+          if n!=1:
+              raise SystemExit(f'cache target count invalid: {n}')
+
+          bonus_path.write_text(bonus,encoding='utf-8')
+          index_path.write_text(index,encoding='utf-8')
+          PY
+
+          node --check play/character-performance-bonus.js
+          grep -Fq "일시정지·모바일 HUD·구조물 격파 연출 강화" play/character-performance-bonus.js
+          grep -Fq "하늘→우주 자연 전환" play/character-performance-bonus.js
+          ! grep -Fq "GREAT/PERFECT 2줄 이펙트" play/character-performance-bonus.js
+          ! grep -Fq "고고도 종료 빵빠레" play/character-performance-bonus.js
+          ! grep -Fq "심우주 우주인·UFO 연출 추가" play/character-performance-bonus.js
+          grep -Fq '20260908-news1' play/index.html
+          git diff --check
+
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add play/character-performance-bonus.js play/index.html
+          git commit -m '비단쌓기 NEWS 세부 연출 문구 정리'
+          git push
