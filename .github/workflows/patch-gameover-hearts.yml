@@ -41,7 +41,7 @@ jobs:
           checks={
             'common GAME OVER': "💥 GAME OVER" in s,
             'fish life HUD': 'id="life">❤️❤️❤️' in fish,
-            'fish friend heart': "fxText(x,y,'❤️ -1'" in fish and "finish('fish',score,playFish,false,bonusCoins)" in fish,
+            'fish friend heart': "fxText(x,y,'❤️ -1'" in fish and 'endFish(false)' in fish and "finish('fish',score,playFish,!!clear,bonusCoins)" in fish,
             'fish old score penalty removed': "score=Math.max(0,score-8)" not in fish,
             'tteok life HUD': 'id="life">❤️❤️❤️' in tteok,
             'tteok life helper': "function loseTteokHeart()" in tteok and "finish('tteok',score,playTteok,false)" in tteok,
