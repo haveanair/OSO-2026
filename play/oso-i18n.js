@@ -25,7 +25,6 @@
     "🏆 중앙시장 누적 점수 랭킹": "🏆 Central Market All-Time Rankings",
     "순위별 기준 최초 돌파 시 1회 등록 · TOP 10": "First to reach each milestone · TOP 10",
     "잠시 후 타이틀 화면으로 돌아갑니다": "Returning to the title screen shortly",
-    "어서오소!": "OSO! Welcome!",
     "타이틀 화면으로": "Return to title",
     "🏠 홈": "🏠 Home",
     "🎮 오늘 뭐하고 놀겠소?": "🎮 What shall we play today?",
@@ -132,6 +131,7 @@
   }
   function walk(root) {
     if (!root) return;
+    if (root.nodeType === Node.ELEMENT_NODE && root.closest(ignored)) return;
     translateNode(root);
     if (root.nodeType !== Node.ELEMENT_NODE) return;
     const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT);
