@@ -19,7 +19,11 @@ const PRECACHE = [
   "./nongae-heaven-jade-fx.js",
   "./silk-stack-endless.js",
   "./character-performance-bonus.js",
-  "./result-auto-collapse.js"
+  "./result-auto-collapse.js",
+  "./assets/nongae-01.webp",
+  "./assets/nongae-02.webp",
+  "./assets/kf21-approved-top.webp",
+  "./assets/kf21-game-topdown.webp"
 ];
 self.addEventListener("install", event => {
   event.waitUntil((async () => {
