@@ -7,6 +7,60 @@
   if (window.OSO_I18N) return;
   const KEY = "oso.language.v1";
   const LABELS = Object.freeze({
+    "오소의 장바구니": "OSO's Shopping Basket",
+    "상품을 받고 폭탄을 피하며 LEVEL 5까지 버티기": "Catch market goods, dodge bombs and survive to Level 5",
+    "해금 위치: 진주중앙시장 주차장": "Unlock: Jinju Central Market parking area",
+    "팔딱팔딱 수산시장": "Splashing Fish Market",
+    "흐르는 물 속 생선을 잡고 물방울 콤보를 이어가기": "Catch swimming fish and chain bubble combos",
+    "해금 위치: 3구 어시장 인근 전체": "Unlock: Zone 3 fish market area",
+    "차곡차곡 비단쌓기": "Silk Stack Challenge",
+    "좌우로 움직이는 비단 보를 정확히 쌓아 15단 완성": "Stack 15 shifting silk bundles with precise timing",
+    "해금 위치: 중앙시장 2구통로 전체": "Unlock: Market corridor, Zone 2",
+    "오소 장보기 RUN": "OSO Market Run",
+    "2단점프 · GREAT 시 3단점프 · LV5 돌파": "Double jump; earn a triple jump with GREAT; clear Lv. 5",
+    "해금 위치: 1구통로 전체": "Unlock: Market corridor, Zone 1",
+    "시장 싹쓸이!": "Market Slice!",
+    "시장 음식을 높이 띄워 시원하게 베기": "Slice market foods as they fly through the air",
+    "해금 위치: 뉴먹자골목 전체": "Unlock: New Food Alley",
+    "떡! 떡! 떡!": "Pound That Rice Cake!",
+    "떡메를 들어 올려 절구의 떡을 힘껏 내려치기": "Time your mallet strikes to pound rice cakes",
+    "해금 위치: 중앙시장 북쪽통로 전체": "Unlock: North market corridor",
+    "파워덕질 1초 연타왕": "Powerduckjil 1-Second Tap King",
+    "과일 5→수박 7→게임패드 10→큰 오락기 13→지구 16회를 1초에 연타해 반으로 부수기": "Tap 5, 7, 10, 13, then 16 times in one second to smash increasingly tough objects",
+    "해금 위치: 2층 3구 비단길 전체": "Unlock: BIdan-gil, 2F, Zone 3",
+    "오소 우주파이터": "OSO Space Fighter",
+    "종스크롤 슈팅! 5스테이지를 질주하며 지구를 구하소": "Vertical shooter! Clear five stages and save Earth",
+    "해금 조건 · 7개 게임 모두 획득": "Unlock: Collect all seven market games",
+    "오소레이싱": "OSO Racing",
+    "스크롤되는 진주 도로를 달리며 교통을 피하고 체크포인트를 돌파하소": "Race down Jinju's roads, dodge traffic and clear checkpoints",
+    "해금 조건: 누적점수 500,000점 달성": "Unlock: Reach 500,000 total points",
+    "오소 환상대모험": "OSO Fantasy Adventure",
+    "중앙시장의 단서를 따라 보물상자를 찾고 던전과 보스를 돌파해 세계를 구하소": "Follow market clues, find treasure and defeat dungeon bosses",
+    "해금 조건 · 누적 1,000,000점 달성": "Unlock: Reach 1,000,000 total points",
+    "장바구니": "Basket",
+    "수산시장": "Fish Market",
+    "비단쌓기": "Silk Stack",
+    "시장 싹쓸이": "Market Slice",
+    "떡메치기": "Rice Cake Pounding",
+    "파워덕질": "Powerduckjil",
+    "7개를 모두 획득하면 오소 우주파이터": "Collect all seven to unlock OSO Space Fighter",
+    "누적 500,000점이면 오소레이싱": "Reach 500,000 total points for OSO Racing",
+    "누적 1,000,000점이면 오소 환상대모험": "Reach 1,000,000 total points for OSO Fantasy Adventure",
+    "🏆 최고": "🏆 Best",
+    "최고 기록": "Personal Best",
+    "🔒 미해금": "🔒 Locked",
+    "해금 완료": "Unlocked",
+    "게임 획득": "Game Unlocked",
+    "누적점수": "Total Points",
+    "실패": "Failed",
+    "성공": "Success",
+    "다시하기": "Retry",
+    "다시 시작": "Restart",
+    "돌아가기": "Go Back",
+    "선택하기": "Select",
+    "구매하기": "Buy",
+    "장착하기": "Equip",
+    "보유중": "Owned",
     "1884 진주중앙시장": "Jinju Central Market · Est. 1884",
     "오늘 뭐하고 놀겠소?": "What shall we play today?",
     "어서오소!": "OSO! Welcome!",
@@ -137,7 +191,38 @@
     const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT);
     while (walker.nextNode()) translateNode(walker.currentNode);
   }
+
+  let originalManual = null;
+  const englishManual = `
+    <h3>1. Collect games around Jinju Central Market</h3>
+    <p><b>GPS auto-unlock</b> is the main way to collect games. Allow location access while using the game. Enter each designated area to receive a GAME GET notification. GPS may be inaccurate inside the market, so use <b>Unlock with QR</b> in Market Exploration to scan an on-site QR code instead. Once collected, a game stays unlocked on this device.</p>
+    <h3>2. Play seven market mini-games</h3>
+    <p><b>OSO's Shopping Basket:</b> move left and right, catch goods and avoid bombs.<br>
+    <b>Splashing Fish Market:</b> tap fish and build combos.<br>
+    <b>Silk Stack Challenge:</b> precisely stack 15 silk bundles.<br>
+    <b>OSO Market Run:</b> double jump; earn a one-time triple jump with GREAT.<br>
+    <b>Market Slice:</b> swipe to slice flying food.<br>
+    <b>Pound That Rice Cake:</b> strike at the right moment.<br>
+    <b>Powerduckjil Tap King:</b> tap as fast as you can in one second.</p>
+    <h3>3. Unlock three bonus adventures</h3>
+    <p>Collect all seven market games for <b>OSO Space Fighter</b>. Earn <b>500,000 total points</b> to unlock OSO Racing, and <b>1,000,000 total points</b> to unlock OSO Fantasy Adventure.</p>
+    <h3>4. Levels and coins</h3>
+    <p>Most mini-games become faster and more challenging as you advance from <b>Level 1 to Level 5</b>. Reach coin milestones of 1,000 / 5,000 / 10,000 / 20,000 / 30,000 / 40,000 / 50,000 / 100,000 to see a celebration.</p>
+    <h3>5. Market map and GPS</h3>
+    <p>The external GrowMaps map shows actual locations. This game does not invent unverified shops or landmarks. Check each game's details for where to unlock it, then use Market Exploration for GPS status and the market map link.</p>
+    <p><b>Tip:</b> Try an on-site QR code if your GPS position jumps indoors.</p>`;
+  function renderManual() {
+    const pane = document.querySelector("#manualModal .manualScroll");
+    if (!pane) return;
+    if (originalManual === null) {
+      originalManual = pane.innerHTML;
+      pane.setAttribute("data-oso-no-translate", "");
+    }
+    const next = language === "en" ? englishManual : originalManual;
+    if (pane.innerHTML !== next) pane.innerHTML = next;
+  }
   function repaint() {
+    renderManual();
     document.documentElement.lang = language;
     document.title = language === "en" ? "OSO! Jinju Central Market Arcade" : "어서오소! 진주중앙시장 게임장";
     document.querySelectorAll(roots).forEach(walk);
