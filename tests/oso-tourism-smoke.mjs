@@ -17,7 +17,7 @@ try {
   const response = await page.goto(base, { waitUntil: "domcontentloaded", timeout: 45000 });
   assert.equal(response?.status(), 200, "Game page should load");
 
-  await page.waitForFunction(() => !!window.OSO_I18N, { timeout: 30000 });
+  await page.waitForFunction(() => !!window.OSO_I18N, null, { timeout: 30000 });
   assert.equal(await page.locator("#oso-language-switch button").count(), 2);
   assert.equal(await page.evaluate(() => document.documentElement.lang), "ko");
 
@@ -57,7 +57,7 @@ try {
   assert.ok(manifest.icons.some(icon => icon.sizes === "192x192"));
   assert.ok(manifest.icons.some(icon => icon.sizes === "512x512"));
   const iconStatus = await page.evaluate(async icons => Promise.all(icons.filter(icon => icon.type === "image/png").map(async icon => {
-    const response = await fetch(new URL(icon.src, "./manifest.webmanifest"));
+    const response = await fetch(new URL(icon.src, new URL("./manifest.webmanifest", location.href)));
     return { src: icon.src, status: response.status };
   })), manifest.icons);
   assert.ok(iconStatus.every(icon => icon.status === 200), "PWA icon files must load");
