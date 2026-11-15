@@ -7,10 +7,13 @@
 - **검증 필수:** Android Chrome 및 삼성 브라우저에서 GPS·QR·카메라·뒤로가기·데이터보존·전체화면·오디오를 테스트한다.
 
 ## 2026-11-16 착수: 구현됨
-1. `play/oso-i18n.js`: 한국어/영어 선택 및 로컬 저장, 일부 타이틀·메뉴·탐험·QR·설명 문자열 번역. 동적 모든 게임 대사는 아직 미번역이다.
-2. `play/manifest.webmanifest`: PWA 설치 설명 및 시작 URL. 안드로이드 스토어 패키징을 위한 **PNG 192×192, 512×512 및 maskable 아이콘**은 추가 제작 및 확인 필요.
+1. `play/oso-i18n.js`: 한국어/영어 선택 및 로컬 저장, 타이틀·메뉴·탐험·QR·10종 게임의 명칭/설명/해금 조건, 영어 플레이 매뉴얼을 번역. 동적 모든 게임 대사는 아직 미번역이다.
+2. `play/manifest.webmanifest`: PWA 설치 설명 및 시작 URL. 기존 승인된 오소 아트로 만든 **PNG 192×192, 512×512 및 maskable 512×512 아이콘**을 확인하여 등록했다.
 3. `play/icons/oso-icon.svg`: 현재 게임의 승인된 오소 이미지를 기반으로 한 SVG 초안.
-4. `play/index.html`: 별도 번역 스크립트와 manifest 로드. GPS 해금 좌표·점수·게임 저장키는 수정하지 않음.
+4. `play/index.html`: 별도 번역 스크립트와 manifest, 서비스워커 로드. GPS 해금 좌표·점수·게임 저장키는 수정하지 않음.
+5. `play/sw.js`: 온라인 우선·오프라인 재접속 안내 및 이미 불러온 핵심 자원 캐시. 오프라인 전체 게임 품질은 현장검증 전까지 보장하지 않음.
+6. `tools/build_oso_icons.py`: HTML 안 기존 오소 이미지를 PNG 앱 아이콘으로 변환. `.github/workflows/oso-icons.yml`을 통해 개발 브랜치에 출력됨.
+7. `tests/oso-tourism-smoke.mjs`: 한영 전환·10종 제목·매뉴얼·게임 목록·아이콘 로딩을 확인하는 Chromium 자동 테스트 코드. `.github/workflows/oso-smoke.yml` 실행 결과 확인 전까지는 **테스트 통과를 주장하지 않음**.
 
 ## 로드맵
 ### A. 번역 완성
@@ -44,3 +47,9 @@
 - https://developer.chrome.com/docs/android/trusted-web-activity/
 - https://developer.android.com/develop/ui/views/layout/webapps/guide-trusted-web-activities-version2
 - https://support.google.com/googleplay/android-developer/answer/9898783
+
+## 2026-11-16 정적 검증
+- 10개 게임의 이름·설명·해금 정보 모두 영어 사전에 존재함을 확인.
+- PNG 아이콘 3종의 실제 파일 존재 및 PNG 헤더·해상도 확인.
+- 기존 main과 비교했을 때 GPS_DEFAULTS, GAMES 원본 목록, localStorage 저장 함수가 동일함을 확인.
+- 번역 스크립트와 서비스워커 JavaScript 문법 검사 통과. 브라우저 렌더링 및 실기기 GPS/QR은 별개 검증 필요.
