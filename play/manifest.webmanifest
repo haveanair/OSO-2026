@@ -15,6 +15,24 @@
   "dir": "auto",
   "icons": [
     {
+      "src": "./icons/oso-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "./icons/oso-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "./icons/oso-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
       "src": "./icons/oso-icon.svg",
       "sizes": "any",
       "type": "image/svg+xml",
