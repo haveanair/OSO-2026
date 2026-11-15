@@ -7212,4 +7212,13 @@ refresh();renderRanking();initGpsUi();initQrUi();boot();
 <script src="./character-performance-bonus.js?v=20260908-news1"></script>
 <script src="./result-auto-collapse.js?v=20260908-resultcollapse2"></script>
 <script defer src="./oso-i18n.js?v=20261116-1"></script>
+<script>
+/* Scoped PWA shell: game state remains in its existing localStorage keys. */
+if ("serviceWorker" in navigator && location.protocol === "https:") {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("./sw.js", { scope: "./" })
+      .catch(error => console.warn("OSO offline shell unavailable", error));
+  }, { once: true });
+}
+</script>
 </body></html>
