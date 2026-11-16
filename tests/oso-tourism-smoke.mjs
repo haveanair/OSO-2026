@@ -20,8 +20,14 @@ try {
   await page.waitForFunction(() => !!window.OSO_I18N, null, { timeout: 30000 });
   assert.equal(await page.locator("#oso-language-switch button").count(), 2);
   assert.equal(await page.evaluate(() => document.documentElement.lang), "ko");
-
-  await page.locator('#oso-language-switch button[data-oso-language="en"]').click({ force: true });
+  // The language buttons live on the title splash. Skip both logos using the game's own Skip button.
+  await page.evaluate(() => {
+    const skip = document.getElementById("skip1");
+    if (typeof skip?.onclick !== "function") throw new Error("Splash skip handler missing");
+    skip.click();
+  });
+  await page.waitForFunction(() => document.querySelector("#titleSplash")?.classList.contains("show"), null, { timeout: 10000 });
+  await page.locator('#oso-language-switch button[data-oso-language="en"]').click();
   const languageDiagnostics = await page.evaluate(() => ({
     locale: window.OSO_I18N?.getLanguage?.(),
     rootLanguage: document.documentElement.lang,
@@ -66,7 +72,7 @@ try {
     "All ten game titles should have English translations");
 
   // Enter the actual game listing, not just the title screen.
-  await page.locator("#startBtn").click({ force: true });
+  await page.locator("#startBtn").click();
   await page.waitForFunction(() => document.querySelector("#app") && !document.querySelector("#app").classList.contains("hidden"), null, { timeout: 10000 });
   await page.waitForFunction(() => document.querySelector("#library")?.textContent?.includes("OSO's Shopping Basket"), null, { timeout: 15000 });
   assert.ok((await page.locator("#library").innerText()).includes("OSO's Shopping Basket"));
