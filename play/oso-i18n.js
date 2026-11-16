@@ -49,7 +49,7 @@
     "해금 위치: 중앙시장 북쪽통로 전체": "Unlock: North market corridor",
     "파워덕질 1초 연타왕": "Powerduckjil 1-Second Tap King",
     "과일 5→수박 7→게임패드 10→큰 오락기 13→지구 16회를 1초에 연타해 반으로 부수기": "Tap 5, 7, 10, 13, then 16 times in one second to smash increasingly tough objects",
-    "해금 위치: 2층 3구 비단길 전체": "Unlock: BIdan-gil, 2F, Zone 3",
+    "해금 위치: 2층 3구 비단길 전체": "Unlock: Bidan-gil, 2F, Zone 3",
     "오소 우주파이터": "OSO Space Fighter",
     "종스크롤 슈팅! 5스테이지를 질주하며 지구를 구하소": "Vertical shooter! Clear five stages and save Earth",
     "해금 조건 · 7개 게임 모두 획득": "Unlock: Collect all seven market games",
