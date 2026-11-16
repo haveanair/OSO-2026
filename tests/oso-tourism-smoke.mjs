@@ -17,7 +17,7 @@ try {
   const response = await page.goto(base, { waitUntil: "domcontentloaded", timeout: 45000 });
   assert.equal(response?.status(), 200, "Game page should load");
 
-  await page.waitForFunction(() => !!window.OSO_I18N, null, null, { timeout: 30000 });
+  await page.waitForFunction(() => !!window.OSO_I18N, null, { timeout: 30000 });
   assert.equal(await page.locator("#oso-language-switch button").count(), 2);
   assert.equal(await page.evaluate(() => document.documentElement.lang), "ko");
 
@@ -30,7 +30,7 @@ try {
     shellText: document.querySelector(".cleanLogo")?.textContent
   }));
   console.log("OSO language switch diagnostics:", JSON.stringify(languageDiagnostics));
-  await page.waitForFunction(() => document.querySelector("#startBtn")?.textContent?.includes("Start Playing"), null, null, { timeout: 10000 });
+  await page.waitForFunction(() => document.querySelector("#startBtn")?.textContent?.includes("Start Playing"), null, { timeout: 10000 });
   assert.equal(await page.evaluate(() => document.documentElement.lang), "en");
   assert.ok((await page.locator("#manualModal .manualScroll").innerText()).includes("Seven") ||
     (await page.locator("#manualModal .manualScroll").innerText()).includes("Play seven"));
