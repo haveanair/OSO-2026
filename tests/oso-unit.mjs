@@ -41,8 +41,20 @@ const sandbox = {
 };
 vm.createContext(sandbox);
 vm.runInContext(read("play/oso-i18n.js"), sandbox, { timeout: 1500 });
+vm.runInContext(read("play/oso-rpg-strings.js"), sandbox, { timeout: 1500 });
 vm.runInContext(read("play/oso-game-i18n.js"), sandbox, { timeout: 1500 });
 assert.equal(win.OSO_I18N.getLanguage(), "en");
+assert.ok(Object.keys(win.OSO_RPG_STRINGS).length >= 140, "RPG dialogue dictionary should be complete enough for this phase");
+assert.ok(win.OSO_GAME_I18N.dictionarySize >= 240, "Stage translator must merge RPG dialogue dictionary");
+for (const [ko, en] of [
+  ["시장 원로", "Market Elder"],
+  ["마왕 흑우령", "Demon King Heuk-u-ryeong"],
+  ["지하창고부터 차근차근 살펴보게. 서두르지 않아도 길은 하나씩 열리네.",
+   "Start with the basement warehouse. Take your time; one path will open after another."],
+  ["황금장바구니방패가 공격을 막았다!", "The Golden Basket Shield blocked the attack!"]
+]) {
+  assert.equal(win.OSO_GAME_I18N.translate(ko), en, `RPG English translation missing for ${ko}`);
+}
 for (const game of games) {
   for (const key of ["name", "desc", "area"]) {
     const tr = win.OSO_I18N.t(game[key]);
@@ -69,6 +81,7 @@ win.OSO_I18N.setLanguage("en");
 assert.equal(win.OSO_I18N.getLanguage(), "en");
 assert.equal(memory.get("oso.language.v1"), "en");
 assert.ok(html.includes('src="./oso-game-i18n.js'), "Game translator must load");
+assert.ok(html.indexOf('src="./oso-rpg-strings.js') < html.indexOf('src="./oso-game-i18n.js'), "RPG dictionary must load before stage translator");
 assert.ok(html.includes('rel="manifest"'), "Game must link install manifest");
 assert.ok(html.includes('href="./oso-i18n.css'), "English layout stylesheet must load");
 assert.ok(html.includes('register("./sw.js"'), "Service worker must register");
