@@ -62,4 +62,11 @@
 - `tests/oso-tourism-smoke.mjs`: 게임 스테이지에 결과 레이아웃을 만들어 한국어→영어→한국어 전환을 확인하는 브라우저 테스트 추가.
 - `android/TWA_RELEASE_CHECKLIST.md`, `android/assetlinks.example.json`: 개인 개발자 출시 경로·도메인 루트의 Digital Asset Links·API36 요구사항과 미입력값 정리.
 - **확인된 것:** 번역 모듈 초기화·대표 문구 변환·언어 상태 전환의 독립적인 JavaScript 검증과 파일 무결성 확인.
-- **확인되지 않은 것:** GitHub Actions 자동 테스트 실제 성공 로그, Android 실기기 GPS/QR/뒤로가기, 전체 RPG 대사 완전 번역, AAB 생성, Google Play 소유권 검증·출시.
+- **확인되지 않은 것:** Android 실기기 GPS/QR/뒤로가기, 전체 RPG 대사 완전 번역, AAB 생성, Google Play 소유권 검증·출시.
+
+## 자동 테스트 확인 결과 (2026-11-16)
+- GitHub Actions [OSO bilingual mobile smoke test #43779770239](https://github.com/haveanair/OSO-2026/actions/runs/43779770239): `unit` ✅ 성공, `browser-smoke` ✅ 성공.
+- 브라우저 검사: 실제 타이틀 한국어/English 토글, 게임 결과 화면 영어화 및 원복, 10종 번역 사전, 잠긴 GPS 게임의 설명·해금 안내, PWA 설치 아이콘 URL 확인.
+- 잠긴 게임의 이름이 `???`로 표시되는 기존 GPS 해금 규칙은 변경하지 않음.
+- 영어 UI 좁은 화면을 위한 `play/oso-i18n.css`를 추가했으며, 런타임 로딩은 정적 회귀검사에서 확인됨.
+- 테스트는 CI Chromium 기반 자동 검증이며 실제 관광 현장 GPS/QR 기능 검증 및 플레이스토어 AAB 출시 검증과는 구별함.
