@@ -74,11 +74,17 @@ try {
   // Enter the actual game listing, not just the title screen.
   await page.locator("#startBtn").click();
   await page.waitForFunction(() => document.querySelector("#app") && !document.querySelector("#app").classList.contains("hidden"), null, { timeout: 10000 });
-  await page.waitForFunction(() => document.querySelector("#library")?.textContent?.includes("OSO's Shopping Basket"), null, { timeout: 15000 });
-  assert.ok((await page.locator("#library").innerText()).includes("OSO's Shopping Basket"));
+  // Locked games intentionally show "???" instead of their title until GPS/QR unlock.
+  // Their descriptions and location hints still need English translations.
+  await page.waitForFunction(() => document.querySelector('#library [data-game="basket"] small')?.textContent?.includes("Catch market goods"), null, { timeout: 15000 });
+  assert.ok((await page.locator('#library [data-game="basket"] small').innerText()).includes("Catch market goods"));
+  await page.locator('#library [data-game="basket"]').click();
+  await page.waitForFunction(() => document.querySelector("#mName")?.textContent === "Locked Game");
+  assert.ok((await page.locator("#mArea").innerText()).includes("Jinju Central Market parking area"));
+  await page.locator("#mClose").click();
 
   await page.evaluate(() => window.OSO_I18N.setLanguage("ko"));
-  await page.waitForFunction(() => document.querySelector("#library")?.textContent?.includes("오소의 장바구니"));
+  await page.waitForFunction(() => document.querySelector('#library [data-game="basket"] small')?.textContent?.includes("상품을"));
   assert.equal(await page.evaluate(() => localStorage.getItem("oso.language.v1")), "ko");
   assert.ok((await page.locator("#manualModal .manualScroll").innerText()).includes("7가지 미니게임"));
 
