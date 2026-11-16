@@ -146,5 +146,19 @@ window.OSO_RPG_STRINGS = Object.freeze({
   "마왕 흑우령 · 제2형태": "Demon King · Form 2",
   "마왕 흑우령 · 최종형태": "Demon King · Final Form",
   "암흑영웅장군의 심연참": "Dark Hero General's Abyss Slash",
-  "대천사논개의 천상심판": "Archangel Nongae's Celestial Judgment"
+  "대천사논개의 천상심판": "Archangel Nongae's Celestial Judgment",
+  "무기점 · 약방": "Weaponsmith · Apothecary",
+  "에테르 ×2": "Ether ×2",
+  "에테르 ×3": "Ether ×3",
+  "에테르 ×4": "Ether ×4",
+  "에테르 ×5": "Ether ×5",
+  "마력의 열매": "Magic Fruit",
+  "성벽 갑옷장군": "Armored Fortress General",
+  "생명의 씨앗": "Seed of Life",
+  "⚔️ 중앙시장 무기점": "⚔️ Central Market Weaponsmith",
+  "🛡️ 포목·방어구점": "🛡️ Fabric & Armor Shop",
+  "💊 중앙시장 약방": "💊 Central Market Apothecary",
+  "⚔️ 무기 보기": "⚔️ Browse Weapons",
+  "🛡️ 방어구 보기": "🛡️ Browse Armor",
+  "💊 약 살펴보기": "💊 Browse Medicines"
 });
