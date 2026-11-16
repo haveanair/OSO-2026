@@ -121,6 +121,27 @@ const examples = [
 for (const [ko, en] of examples) {
   assert.equal(win.OSO_GAME_I18N.translate(ko), en, `Wrong translation for ${ko}`);
 }
+const gpsRoundtrip = [
+  "🎯 현장 게임 획득 구역 7곳",
+  "진주중앙시장 주차장",
+  "📍 진주중앙시장 주차장",
+  "GPS 작동 중 · 정확도 약 ±18m",
+  "GPS 신호가 너무 약합니다 (±162m). 잠시 이동하거나 하늘이 보이는 곳에서 다시 확인하소.",
+  "📡 획득 구역까지 약 28m",
+  "오소의 장바구니 획득구역이 가까워졌소!",
+  "3구 어시장 인근 전부 방향 · 약 32m",
+  "오소의 장바구니 QR 확인 완료!",
+  "오소의 장바구니은 이미 획득했소!"
+];
+for (const korean of gpsRoundtrip) {
+  const english = win.OSO_I18N.format(korean);
+  assert.notEqual(english, korean, `GPS translation missing: ${korean}`);
+  win.OSO_I18N.setLanguage("ko");
+  const restored = win.OSO_I18N.format(english);
+  assert.equal(restored, korean, `GPS notice did not round-trip: ${korean}`);
+  win.OSO_I18N.setLanguage("en");
+}
+assert.ok(html.includes('id="locationList"'), "Market exploration must show the seven GPS stops");
 win.OSO_I18N.setLanguage("ko");
 assert.equal(win.OSO_I18N.getLanguage(), "ko");
 win.OSO_I18N.setLanguage("en");
