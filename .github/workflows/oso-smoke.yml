@@ -32,6 +32,7 @@ jobs:
         run: |
           node --check play/oso-i18n.js
           node --check play/oso-game-i18n.js
+          node --check play/oso-rpg-strings.js
           node --check play/sw.js
           node --check tests/oso-unit.mjs
           node tests/oso-unit.mjs
