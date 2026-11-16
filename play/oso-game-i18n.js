@@ -8,7 +8,8 @@
   const core = () => window.OSO_I18N;
   const stage = () => document.getElementById("stage");
   const targetSelectors = [
-    ".result", ".gameTip", ".marketSign", ".silkSign", ".pdTitle",
+    ".result", ".gameTip", ".marketSign", ".silkSign", ".silkGuide", ".pdTitle",
+    ".counter", ".comboHud", ".jumpHud", ".sfGaugeText",
     ".pdNeed", ".pdText", ".pdCount", ".pdStageText", ".pdStageLabel",
     ".coinCelebrateCard", ".raceSection", ".raceControlHint", ".raceResult",
     ".fantasyWrap", ".fantasyDialog", ".fantasyQuest", ".fantasyPlace", ".fantasySaveMenu",
@@ -135,6 +136,8 @@
       const names = m[1].split(" · ").map(name => core()?.t?.(name) || dictionary.get(name) || name);
       return `🔓 ${names.join(" · ")} Unlocked!`;
     }
+    if ((m = raw.match(/^점프 (\d+)\/(\d+)$/))) return `Jumps ${m[1]}/${m[2]}`;
+    if ((m = raw.match(/^초필살기 ([\d.]+)%$/))) return `SPECIAL ${m[1]}%`;
     if ((m = raw.match(/^([\d,]+) 연타$/))) return `${m[1]} taps`;
     if ((m = raw.match(/^([\d,]+) \/ 15 단$/))) return `${m[1]} / 15 layers`;
     if ((m = raw.match(/^정확도 ([\d.]+)%$/))) return `Accuracy ${m[1]}%`;
