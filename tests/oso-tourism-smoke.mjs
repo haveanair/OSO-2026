@@ -27,6 +27,26 @@ try {
   assert.ok((await page.locator("#manualModal .manualScroll").innerText()).includes("Seven") ||
     (await page.locator("#manualModal .manualScroll").innerText()).includes("Play seven"));
 
+  // The real arcade re-renders these labels after each round; stage translation must be reversible.
+  await page.evaluate(() => {
+    const result = document.createElement("div");
+    result.className = "result";
+    result.id = "oso-test-result";
+    result.innerHTML = `<div class="resultBadge">💥 GAME OVER · 🏆 신기록!</div>
+      <div>🪙 +150 (기본 100 + 장바구니 획득 50) · 현재 보유 1,250</div>
+      <div>🏆 누적점수 12,345점</div>
+      <div class="actions"><button>한판 더!</button></div>`;
+    document.getElementById("stage").appendChild(result);
+  });
+  await page.waitForFunction(() => document.querySelector("#oso-test-result")?.textContent?.includes("Play Again!"));
+  assert.ok((await page.locator("#oso-test-result").innerText()).includes("Total Score 12,345 pts"));
+  assert.ok((await page.locator("#oso-test-result").innerText()).includes("Balance 1,250"));
+  await page.evaluate(() => window.OSO_I18N.setLanguage("ko"));
+  await page.waitForFunction(() => document.querySelector("#oso-test-result")?.textContent?.includes("한판 더!"));
+  assert.ok((await page.locator("#oso-test-result").innerText()).includes("현재 보유 1,250"));
+  await page.locator("#oso-test-result").evaluate(element => element.remove());
+  await page.evaluate(() => window.OSO_I18N.setLanguage("en"));
+
   const games = [
     "오소의 장바구니", "팔딱팔딱 수산시장", "차곡차곡 비단쌓기", "오소 장보기 RUN",
     "시장 싹쓸이!", "떡! 떡! 떡!", "파워덕질 1초 연타왕", "오소 우주파이터",
