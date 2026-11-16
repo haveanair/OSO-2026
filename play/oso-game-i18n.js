@@ -11,7 +11,7 @@
     ".result", ".gameTip", ".marketSign", ".silkSign", ".pdTitle",
     ".pdNeed", ".pdText", ".pdCount", ".pdStageText", ".pdStageLabel",
     ".coinCelebrateCard", ".raceSection", ".raceControlHint", ".raceResult",
-    ".fantasyDialog", ".fantasyQuest", ".fantasyPlace", ".fantasySaveMenu",
+    ".fantasyWrap", ".fantasyDialog", ".fantasyQuest", ".fantasyPlace", ".fantasySaveMenu",
     ".fantasyMapOverlay", ".fantasyStatusPage", ".fantasyEndingThanks",
     ".fantasyEndingChapter", ".fantasyEndingFinal", ".fantasyEndingCopyright",
     ".sfCraftSelect", ".sfClearOverlay", ".sfEndOverlay", ".spaceResult",
@@ -112,7 +112,7 @@
     "단계":"Stage", "남은 시간":"Time Left",
     "NEW RECORD!":"NEW RECORD!",
   };
-  const dictionary = new Map(Object.entries(pairs));
+  const dictionary = new Map([...Object.entries(pairs), ...Object.entries(window.OSO_RPG_STRINGS || {})]);
   const reverse = new Map(Object.entries(pairs).map(([ko, en]) => [en, ko]));
   const memory = new WeakMap();
 
@@ -182,7 +182,7 @@
     }
     if (root.nodeType !== Node.ELEMENT_NODE) return;
     if (root !== container && !container.contains(root)) return;
-    if (root.matches(targetSelectors)) walkText(root);
+    if (root.matches(targetSelectors) || root.closest(targetSelectors)) walkText(root);
     else root.querySelectorAll(targetSelectors).forEach(walkText);
   }
   function repaint() {
