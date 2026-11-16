@@ -153,6 +153,18 @@ try {
   assert.equal(await page.evaluate(() => localStorage.getItem("oso.language.v1")), "ko",
     "A temporary network outage must not erase the selected language");
   await context.setOffline(false);
+  // Test the existing QR parsing/unlock bridge without pretending a real camera was used.
+  await page.evaluate(() => {
+    window.OSO_I18N.setLanguage("en");
+    window.unlockFromNative("JCM:fish");
+  });
+  const qrInfo = await page.evaluate(() => JSON.parse(localStorage.getItem("jcm-v168-locked") || "{}"));
+  assert.equal(qrInfo.qrUnlocked.fish, true, "Valid on-site fish-market QR should unlock the fish game");
+  assert.ok((await page.locator("#qrStatus").innerText()).includes("QR verified!"));
+  await page.evaluate(() => window.unlockFromNative("JCM:fantasy"));
+  const afterRejectedBonusQr = await page.evaluate(() => JSON.parse(localStorage.getItem("jcm-v168-locked") || "{}"));
+  assert.equal(afterRejectedBonusQr.unlock.fantasy, undefined,
+    "Bonus RPG game must not unlock from a QR code");
   assert.deepEqual(errors, [], "No uncaught JavaScript exceptions in opening screens");
 
   // The market-tour stops are populated from the existing game model, not fabricated map pins.
