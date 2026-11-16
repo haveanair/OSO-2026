@@ -183,7 +183,29 @@ try {
     assert.ok((await gpsPage.locator("#gpsStatus").innerText()).includes("GPS active"));
     assert.ok((await gpsPage.locator("#locationList").innerText()).includes("Jinju Central Market Parking Area"));
     assert.ok((await gpsPage.locator("#locationList").innerText()).includes("Unlocked by GPS"));
-    console.log("OSO simulated GPS parking-zone unlock: PASS");
+    // Move the same simulated device through all remaining official game coordinates.
+    // This checks the real watchPosition -> closest-zone -> unlock pathway.
+    const remainingGpsZones = [
+      ["fish", 35.195345669871315, 128.08535934581866],
+      ["stack", 35.194615480555584, 128.08561322498929],
+      ["run", 35.194274577002346, 128.08568564761663],
+      ["slice", 35.194941119149156, 128.08469439128578],
+      ["tteok", 35.19522503998621, 128.0849524090848],
+      ["powerduck", 35.194613594496, 128.08480142824]
+    ];
+    for (const [code, latitude, longitude] of remainingGpsZones) {
+      await gpsContext.setGeolocation({ latitude, longitude, accuracy: 12 });
+      await gpsPage.waitForFunction(target => {
+        const data = JSON.parse(localStorage.getItem("jcm-v168-locked") || "{}");
+        return data.gpsUnlocked?.[target] === true;
+      }, code, { timeout: 12000 });
+    }
+    const collected = await gpsPage.evaluate(() => JSON.parse(localStorage.getItem("jcm-v168-locked") || "{}"));
+    assert.equal(Object.values(collected.gpsUnlocked).filter(Boolean).length, 7,
+      "All seven on-site games should unlock at their own simulated coordinates");
+    assert.equal(collected.unlock.spacefighter, true,
+      "Collecting all seven market games should still unlock OSO Space Fighter");
+    console.log("OSO simulated seven-zone GPS unlock test: PASS");
   } finally {
     await gpsContext.close();
   }
