@@ -54,7 +54,7 @@ function rpgStaticText(html) {
   const phrases = new Set();
   for (const char of text) {
     if (!quote) {
-      if (char === "'" || char === '"' || char === "\`") {
+      if (char === "'" || char === '"' || char === "`") {
         quote = char; buffer = ""; escaped = false;
       }
       continue;
