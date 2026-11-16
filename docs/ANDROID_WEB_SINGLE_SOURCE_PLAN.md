@@ -70,3 +70,13 @@
 - 잠긴 게임의 이름이 `???`로 표시되는 기존 GPS 해금 규칙은 변경하지 않음.
 - 영어 UI 좁은 화면을 위한 `play/oso-i18n.css`를 추가했으며, 런타임 로딩은 정적 회귀검사에서 확인됨.
 - 테스트는 CI Chromium 기반 자동 검증이며 실제 관광 현장 GPS/QR 기능 검증 및 플레이스토어 AAB 출시 검증과는 구별함.
+
+## 4차 RPG 영어화 (2026-11-16)
+- `play/oso-rpg-strings.js`: 주민 대화, 상점, 던전, 장비, 적과 보스 대사 159개 항목의 전용 영어 사전.
+- `play/oso-game-i18n.js`: 실시간 RPG 장면 `.fantasyWrap`의 동적 텍스트에도 번역 적용. RUN 점프 횟수, 실크 쌓기, 우주파이터 초필살기 게이지도 영어 표시.
+- `play/index.html`: RPG 사전을 번역 엔진보다 먼저 로드. GPS 좌표, 점수 계산식, 게임 저장키 변경 없음.
+- `play/sw.js`: RPG 사전 및 최신 번역 엔진을 오프라인 캐시에 포함.
+- `tests/oso-unit.mjs`: RPG 본편에서 추출할 수 있는 **고정 한국어 문자열 151개**가 영어 번역 사전에 모두 존재하는지 자동 전수검사. 동적 문자열·표현식 안의 일부 대사는 대상에 포함되지 않는다.
+- `tests/oso-tourism-smoke.mjs`: 실제 Chromium에서 RPG NPC 대화·전투 메시지·퀘스트 안내·장비명 영어 번역 및 한국어 복원 테스트.
+- Chromium + Node 회귀검사 모두 통과한 실행: [GitHub Actions #43786230527](https://github.com/haveanair/OSO-2026/actions/runs/43786230527).
+- **남은 작업:** RPG 동적 스토리 대사/전투 상태 및 보너스게임 전체 영문 감수, 관광 현장의 7개 GPS 구역과 QR 실기기 검증, 앱 서명/도메인 인증 후 실제 AAB 제작.
