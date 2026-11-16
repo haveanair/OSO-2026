@@ -70,6 +70,7 @@ assert.equal(win.OSO_I18N.getLanguage(), "en");
 assert.equal(memory.get("oso.language.v1"), "en");
 assert.ok(html.includes('src="./oso-game-i18n.js'), "Game translator must load");
 assert.ok(html.includes('rel="manifest"'), "Game must link install manifest");
+assert.ok(html.includes('href="./oso-i18n.css'), "English layout stylesheet must load");
 assert.ok(html.includes('register("./sw.js"'), "Service worker must register");
 
 const manifest = JSON.parse(read("play/manifest.webmanifest"));
