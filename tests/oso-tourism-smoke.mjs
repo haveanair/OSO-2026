@@ -160,6 +160,7 @@ try {
   });
   const qrInfo = await page.evaluate(() => JSON.parse(localStorage.getItem("jcm-v168-locked") || "{}"));
   assert.equal(qrInfo.qrUnlocked.fish, true, "Valid on-site fish-market QR should unlock the fish game");
+  await page.waitForFunction(() => document.querySelector("#qrStatus")?.textContent?.includes("QR verified!"), null, { timeout: 6000 });
   assert.ok((await page.locator("#qrStatus").innerText()).includes("QR verified!"));
   await page.evaluate(() => window.unlockFromNative("JCM:fantasy"));
   const afterRejectedBonusQr = await page.evaluate(() => JSON.parse(localStorage.getItem("jcm-v168-locked") || "{}"));
