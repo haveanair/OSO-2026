@@ -7,6 +7,13 @@ on:
       - play/**
       - tests/**
       - .github/workflows/oso-smoke.yml
+  pull_request:
+    branches:
+      - main
+    paths:
+      - play/**
+      - tests/**
+      - .github/workflows/oso-smoke.yml
   workflow_dispatch:
 
 permissions:
