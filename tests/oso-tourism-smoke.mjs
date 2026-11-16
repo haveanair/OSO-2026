@@ -61,6 +61,32 @@ try {
   await page.locator("#oso-test-result").evaluate(element => element.remove());
   await page.evaluate(() => window.OSO_I18N.setLanguage("en"));
 
+  // A simulated RPG scene exercises live battle/NPC text without bypassing GPS game unlocks.
+  await page.evaluate(() => {
+    const fantasy = document.createElement("div");
+    fantasy.id = "oso-rpg-test";
+    fantasy.className = "fantasyWrap";
+    fantasy.innerHTML = `<div class="fantasyDialog">
+        <b>시장 원로</b>
+        <span>지하창고부터 차근차근 살펴보게. 서두르지 않아도 길은 하나씩 열리네.</span>
+      </div>
+      <div class="fantasyLog">황금장바구니방패가 공격을 막았다!</div>
+      <div class="fantasyQuest">상점에서 장비와 약을 정비하고 북쪽 통로로 본편 던전을 진행하시오.</div>
+      <div class="fantasyShopPanel">1884 황금검</div>`;
+    document.getElementById("stage").appendChild(fantasy);
+  });
+  await page.waitForFunction(() => document.querySelector("#oso-rpg-test")?.textContent?.includes("Market Elder"), null, { timeout: 12000 });
+  let rpgText = await page.locator("#oso-rpg-test").innerText();
+  assert.ok(rpgText.includes("The Golden Basket Shield blocked the attack!"));
+  assert.ok(rpgText.includes("Start with the basement warehouse."));
+  assert.ok(rpgText.includes("1884 Golden Sword"));
+  await page.evaluate(() => window.OSO_I18N.setLanguage("ko"));
+  await page.waitForFunction(() => document.querySelector("#oso-rpg-test")?.textContent?.includes("시장 원로"), null, { timeout: 10000 });
+  rpgText = await page.locator("#oso-rpg-test").innerText();
+  assert.ok(rpgText.includes("황금장바구니방패가 공격을 막았다!"));
+  await page.locator("#oso-rpg-test").evaluate(element => element.remove());
+  await page.evaluate(() => window.OSO_I18N.setLanguage("en"));
+
   const games = [
     "오소의 장바구니", "팔딱팔딱 수산시장", "차곡차곡 비단쌓기", "오소 장보기 RUN",
     "시장 싹쓸이!", "떡! 떡! 떡!", "파워덕질 1초 연타왕", "오소 우주파이터",
