@@ -80,3 +80,15 @@
 - `tests/oso-tourism-smoke.mjs`: 실제 Chromium에서 RPG NPC 대화·전투 메시지·퀘스트 안내·장비명 영어 번역 및 한국어 복원 테스트.
 - Chromium + Node 회귀검사 모두 통과한 실행: [GitHub Actions #43786230527](https://github.com/haveanair/OSO-2026/actions/runs/43786230527).
 - **남은 작업:** RPG 동적 스토리 대사/전투 상태 및 보너스게임 전체 영문 감수, 관광 현장의 7개 GPS 구역과 QR 실기기 검증, 앱 서명/도메인 인증 후 실제 AAB 제작.
+
+## 5차 RPG 동적 번역 및 6차 관광 GPS 품질 검증 (2026-11-16)
+- `play/oso-rpg-dynamic.js`: RPG의 NPC 이름+대사, 보스 공격 피해량, 적 격파 보상, 퀘스트 목표, 워프 문구, 코인·장비 상태 등 **값이 바뀌는 문장 패턴**을 실시간 영어화. 게임 저장 구조·조작·점수 계산식 수정 없음.
+- `play/oso-rpg-strings.js`: RPG 후반 스토리, NPC 이름, 챕터 엔딩의 한국어 문장 조각을 보완. 고정/동적 문구를 혼합한 대사는 끝까지 감수가 필요함.
+- `play/index.html`: 기존 `renderGpsLocations()`가 찾던 `#locationList`를 시장 탐험 화면에 실제로 추가. 현장 7개 게임 구역 표시 기능을 복구.
+- `play/oso-i18n.js`: GPS 구역명/위치 힌트 7개, GPS 거리 및 정확도, 현장 QR 안내·해금 결과를 양방향 번역.
+- `play/oso-i18n.css`: 작은 화면에서도 위치 목록·영어 텍스트가 줄바꿈하도록 보완.
+- `play/sw.js`: 신규 RPG 동적 번역 스크립트를 캐시 대상에 추가.
+- 자동 검사: **Node unit 성공 + Chromium browser-smoke 성공** [GitHub Actions #43790787153](https://github.com/haveanair/OSO-2026/actions/runs/43790787153).
+- 브라우저 자동검사 내용: 번역 전환·재전환, RPG 대표 동적 문구, 현장 게임 7개 해금 좌표를 가상 위치로 순차 이동해 7개 모두 해금 및 우주파이터 조건해금, QR 파싱·보조 해금·보너스 QR 우회 거부, 오프라인 재시작 시 캐시 HTML 사용.
+- **검증 경계:** 실제 시장 내부 GPS 정확도 및 Android TWA 실기기 카메라/뒤로가기/상용 배포는 아직 테스트하지 않음. QR 테스트는 기존 QR 해금 파서에 가짜 QR 문자열을 주입한 기능 검사이며 카메라 촬영 검사가 아님.
+- **기존 운영 판 보호:** `main`의 `play/index.html`은 수정하지 않음. 개발 브랜치와 main의 `GPS_DEFAULTS`, `GAMES`, `load/save`, 기본/보너스 게임 해금 코드와 RPG 게임 계산 로직 주요 원문이 동일함을 비교 확인.
