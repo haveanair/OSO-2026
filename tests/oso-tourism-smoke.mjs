@@ -155,6 +155,38 @@ try {
   await context.setOffline(false);
   assert.deepEqual(errors, [], "No uncaught JavaScript exceptions in opening screens");
 
+  // The market-tour stops are populated from the existing game model, not fabricated map pins.
+  const gpsContext = await browser.newContext({
+    viewport: { width: 390, height: 844 },
+    locale: "en-US",
+    permissions: ["geolocation"],
+    geolocation: { latitude: 35.197412338175, longitude: 128.08448465174, accuracy: 12 },
+    serviceWorkers: "allow"
+  });
+  try {
+    const gpsPage = await gpsContext.newPage();
+    gpsPage.on("pageerror", error => errors.push("GPS mock: " + String(error)));
+    await gpsPage.goto(base, { waitUntil: "domcontentloaded", timeout: 45000 });
+    await gpsPage.waitForFunction(() => !!window.OSO_I18N, null, { timeout: 15000 });
+    await gpsPage.evaluate(() => document.getElementById("skip1").click());
+    await gpsPage.locator("#startBtn").click();
+    await gpsPage.locator('nav button[data-page="mapPage"]').click();
+    await gpsPage.waitForFunction(() => document.querySelectorAll("#locationList .locationRow").length === 7, null, { timeout: 10000 });
+    assert.ok((await gpsPage.locator("#osoStopsTitle").innerText()).includes("7 Market Game Stops"));
+    await gpsPage.waitForFunction(() => {
+      const data = JSON.parse(localStorage.getItem("jcm-v168-locked") || "{}");
+      return data.gpsUnlocked?.basket === true;
+    }, null, { timeout: 30000 });
+    const gpsState = await gpsPage.evaluate(() => JSON.parse(localStorage.getItem("jcm-v168-locked") || "{}"));
+    assert.equal(gpsState.gpsUnlocked.basket, true, "Parking-area GPS must unlock shopping basket");
+    assert.equal(gpsState.unlock.basket, true);
+    assert.ok((await gpsPage.locator("#gpsStatus").innerText()).includes("GPS active"));
+    assert.ok((await gpsPage.locator("#locationList").innerText()).includes("Jinju Central Market Parking Area"));
+    assert.ok((await gpsPage.locator("#locationList").innerText()).includes("Unlocked by GPS"));
+    console.log("OSO simulated GPS parking-zone unlock: PASS");
+  } finally {
+    await gpsContext.close();
+  }
   console.log("OSO bilingual mobile smoke test: PASS");
   await context.close();
 } finally {
