@@ -100,6 +100,8 @@ const examples = [
    "🪙 +150 (Base 100 + Basket Bonus 50) · Balance 1,250"],
   ["🏆 누적점수 12,345점", "🏆 Total Score 12,345 pts"],
   ["15 연타", "15 taps"],
+  ["점프 2/2", "Jumps 2/2"],
+  ["초필살기 75%", "SPECIAL 75%"],
   ["10 / 15 단", "10 / 15 layers"],
   ["속도 ×1.25", "Speed ×1.25"],
   ["나가기", "Exit"]
