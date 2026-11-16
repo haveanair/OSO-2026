@@ -95,3 +95,18 @@ html[lang="en"] .fantasySaveCard,
 html[lang="en"] .fantasyDialog {
   overflow-wrap: anywhere;
 }
+
+/* Market Exploration: seven actual GPS/QR stops, no invented map geometry. */
+.osoStopsPanel { margin-top: 12px; margin-bottom: 12px; }
+.osoStopsPanel h2 { margin: 0 0 5px; font-size: clamp(15px, 4vw, 19px); line-height: 1.25; }
+.osoStopsNote { margin: 0 0 10px; font-size: 11px; font-weight: 750; line-height: 1.45; opacity: .83; }
+.osoStopList { display: grid; gap: 8px; }
+.osoStopList .locationRow { min-width: 0; grid-template-columns: 34px minmax(0, 1fr) auto; gap: 6px; }
+.osoStopList .locationRow .e { font-size: 25px; }
+.osoStopList .locationRow .where,
+.osoStopList .locationRow .how,
+.osoStopList .locationRow .gpsDistance { line-height: 1.33; overflow-wrap: anywhere; }
+.osoStopList .locationRow .statusBadge { max-width: 75px; white-space: normal; text-align: center; line-height: 1.2; }
+html[lang="en"] .osoStopList .locationRow { grid-template-columns: 30px minmax(0, 1fr) 68px; }
+html[lang="en"] .osoStopList .locationRow b { font-size: 11px; }
+html[lang="en"] .osoStopList .locationRow .statusBadge { font-size: 9px; }
