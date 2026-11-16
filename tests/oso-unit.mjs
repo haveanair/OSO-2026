@@ -42,6 +42,7 @@ const sandbox = {
 vm.createContext(sandbox);
 vm.runInContext(read("play/oso-i18n.js"), sandbox, { timeout: 1500 });
 vm.runInContext(read("play/oso-rpg-strings.js"), sandbox, { timeout: 1500 });
+vm.runInContext(read("play/oso-rpg-dynamic.js"), sandbox, { timeout: 1500 });
 vm.runInContext(read("play/oso-game-i18n.js"), sandbox, { timeout: 1500 });
 assert.equal(win.OSO_I18N.getLanguage(), "en");
 
@@ -99,6 +100,17 @@ const examples = [
   ["🪙 +150 (기본 100 + 장바구니 획득 50) · 현재 보유 1,250",
    "🪙 +150 (Base 100 + Basket Bonus 50) · Balance 1,250"],
   ["🏆 누적점수 12,345점", "🏆 Total Score 12,345 pts"],
+  ["시장 원로: 지하창고부터 차근차근 살펴보게. 서두르지 않아도 길은 하나씩 열리네.", "Market Elder: Start with the basement warehouse. Take your time; one path will open after another."],
+  ["이 지역의 강적을 3번 더 물리치시오.", "Defeat 3 more powerful enemies in this area."],
+  ["마왕 흑우령에게 도전하시오.", "Challenge Demon King Heuk-u-ryeong."],
+  ["시장 지하창고의 워프진이 중앙시장과 연결됐다!", "The Market Basement warp is now linked to Central Market!"],
+  ["마왕 흑우령의 공격! 37 피해!", "Demon King Heuk-u-ryeong attacks! 37 damage!"],
+  ["남강 갑각수을(를) 물리쳤다! EXP 40 획득!", "Defeated Namgang Armored Beast! Earned 40 EXP!"],
+  ["마왕 흑우령 격파 보상! 🪙 +3,000", "Demon King Heuk-u-ryeong victory reward! 🪙 +3,000"],
+  ["공격 28 · 방어 19", "ATK 28 · DEF 19"],
+  ["포션 2 · 에테르 1 · 성수 0", "Potion 2 · Ether 1 · Holy Water 0"],
+  ["LV 9 · 중앙시장 · 누적 12,450점", "LV 9 · Central Market · Total 12,450 pts"],
+  ["오소용사, 마왕과 암흑영웅장군을 넘어 대천사 논개의 봉인까지 풀어냈군. 이제야 진주의 하늘과 땅이 함께 평온해졌네.", "Hero OSO, you've defeated the Demon King and Dark Hero General, then broken Archangel Nongae's seal. At last, peace has returned to Jinju."],
   ["15 연타", "15 taps"],
   ["점프 2/2", "Jumps 2/2"],
   ["초필살기 75%", "SPECIAL 75%"],
@@ -116,6 +128,7 @@ assert.equal(win.OSO_I18N.getLanguage(), "en");
 assert.equal(memory.get("oso.language.v1"), "en");
 assert.ok(html.includes('src="./oso-game-i18n.js'), "Game translator must load");
 assert.ok(html.indexOf('src="./oso-rpg-strings.js') < html.indexOf('src="./oso-game-i18n.js'), "RPG dictionary must load before stage translator");
+assert.ok(html.indexOf('src="./oso-rpg-dynamic.js') < html.indexOf('src="./oso-game-i18n.js'), "Dynamic RPG formatter must load before stage translator");
 assert.ok(html.includes('rel="manifest"'), "Game must link install manifest");
 assert.ok(html.includes('href="./oso-i18n.css'), "English layout stylesheet must load");
 assert.ok(html.includes('register("./sw.js"'), "Service worker must register");
