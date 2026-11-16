@@ -44,6 +44,38 @@ vm.runInContext(read("play/oso-i18n.js"), sandbox, { timeout: 1500 });
 vm.runInContext(read("play/oso-rpg-strings.js"), sandbox, { timeout: 1500 });
 vm.runInContext(read("play/oso-game-i18n.js"), sandbox, { timeout: 1500 });
 assert.equal(win.OSO_I18N.getLanguage(), "en");
+
+function rpgStaticText(html) {
+  const start = html.indexOf("function playOsoFantasy(){");
+  const end = html.indexOf("</script>", start);
+  assert.ok(start >= 0 && end > start, "RPG source block must be present");
+  const text = html.slice(start, end);
+  let quote = null, buffer = "", escaped = false;
+  const phrases = new Set();
+  for (const char of text) {
+    if (!quote) {
+      if (char === "'" || char === '"' || char === "\`") {
+        quote = char; buffer = ""; escaped = false;
+      }
+      continue;
+    }
+    if (escaped) { buffer += char; escaped = false; continue; }
+    if (char === "\\") { escaped = true; continue; }
+    if (char === quote) {
+      if (/[가-힣]/.test(buffer) && buffer.length < 240 && buffer.length > 5
+          && !buffer.includes("<") && !buffer.includes("}")
+          && !buffer.includes("return ") && !buffer.includes("function ")) phrases.add(buffer);
+      quote = null; continue;
+    }
+    buffer += char;
+  }
+  return [...phrases];
+}
+const rpgLines = rpgStaticText(html);
+assert.ok(rpgLines.length >= 145, "RPG static-phrase audit has unexpectedly low coverage");
+const untranslatedRpg = rpgLines.filter(line => win.OSO_GAME_I18N.translate(line) === line);
+assert.deepEqual(untranslatedRpg, [], "Untranslated fixed RPG phrases must be added to the English dictionary");
+
 assert.ok(Object.keys(win.OSO_RPG_STRINGS).length >= 140, "RPG dialogue dictionary should be complete enough for this phase");
 assert.ok(win.OSO_GAME_I18N.dictionarySize >= 240, "Stage translator must merge RPG dialogue dictionary");
 for (const [ko, en] of [
