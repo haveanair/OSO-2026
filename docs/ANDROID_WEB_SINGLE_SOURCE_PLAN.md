@@ -53,3 +53,13 @@
 - PNG 아이콘 3종의 실제 파일 존재 및 PNG 헤더·해상도 확인.
 - 기존 main과 비교했을 때 GPS_DEFAULTS, GAMES 원본 목록, localStorage 저장 함수가 동일함을 확인.
 - 번역 스크립트와 서비스워커 JavaScript 문법 검사 통과. 브라우저 렌더링 및 실기기 GPS/QR은 별개 검증 필요.
+
+## 2026-11-16 3차 진행 (개발 브랜치에서만 적용)
+- `play/oso-game-i18n.js`: `#stage` 내부의 안내·결과·보너스와 주요 RPG 메뉴를 게임 상태 변경 없이 번역하도록 별도 모듈로 분리. `oso:languagechange` 이벤트로 한국어 복원을 지원한다.
+- 게임 선택창의 잠금 상태·GPS 장소 힌트·동적으로 생성되는 누적 점수·신기록도 번역 범위를 확장했다.
+- `play/sw.js` 온라인 우선 캐시가 새 번역 모듈을 포함하도록 캐시 버전을 갱신했다.
+- `tests/oso-unit.mjs`: 10종 게임 이름/설명/해금 영어 사전, 게임 결과 문구, PWA PNG 파일을 검증하는 Node 테스트 추가.
+- `tests/oso-tourism-smoke.mjs`: 게임 스테이지에 결과 레이아웃을 만들어 한국어→영어→한국어 전환을 확인하는 브라우저 테스트 추가.
+- `android/TWA_RELEASE_CHECKLIST.md`, `android/assetlinks.example.json`: 개인 개발자 출시 경로·도메인 루트의 Digital Asset Links·API36 요구사항과 미입력값 정리.
+- **확인된 것:** 번역 모듈 초기화·대표 문구 변환·언어 상태 전환의 독립적인 JavaScript 검증과 파일 무결성 확인.
+- **확인되지 않은 것:** GitHub Actions 자동 테스트 실제 성공 로그, Android 실기기 GPS/QR/뒤로가기, 전체 RPG 대사 완전 번역, AAB 생성, Google Play 소유권 검증·출시.
