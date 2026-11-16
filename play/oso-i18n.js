@@ -7,6 +7,28 @@
   if (window.OSO_I18N) return;
   const KEY = "oso.language.v1";
   const LABELS = Object.freeze({
+    "잠긴 게임": "Locked Game",
+    "장소 힌트": "Location Hint",
+    "조건달성 필요": "Complete the Unlock Condition",
+    "GPS 획득 필요": "Find the GPS Unlock Zone",
+    "🔒 7개 게임 획득 시 해금": "🔒 Collect 7 Games to Unlock",
+    "🔒 누적 500,000점 달성 시 해금": "🔒 Earn 500,000 Total Points",
+    "🔒 누적 1,000,000점 달성 시 해금": "🔒 Earn 1,000,000 Total Points",
+    "🔒 GPS/QR로 획득": "🔒 Unlock with GPS/QR",
+    "장소 힌트 · 진주중앙시장 주차장": "Location hint · Jinju Central Market parking area",
+    "장소 힌트 · 3구 어시장 인근 전체": "Location hint · Zone 3 fish market area",
+    "장소 힌트 · 중앙시장 2구통로 전체": "Location hint · Market corridor, Zone 2",
+    "장소 힌트 · 1구통로 전체": "Location hint · Market corridor, Zone 1",
+    "장소 힌트 · 뉴먹자골목 전체": "Location hint · New Food Alley",
+    "장소 힌트 · 중앙시장 북쪽통로 전체": "Location hint · North market corridor",
+    "장소 힌트 · 2층 3구 비단길 전체": "Location hint · Bidan-gil, 2F, Zone 3",
+    "장소 힌트 · 해금 조건 · 7개 게임 모두 획득": "Unlock condition · Collect all seven market games",
+    "장소 힌트 · 해금 조건: 누적점수 500,000점 달성": "Unlock condition · Reach 500,000 total points",
+    "장소 힌트 · 해금 조건 · 누적 1,000,000점 달성": "Unlock condition · Reach 1,000,000 total points",
+    "아직 등록된 기록이 없습니다.": "No records yet.",
+    "잠시 후 자동으로 돌아갑니다": "Returning shortly",
+    "총점": "Total Score",
+    "게임 목록": "Game List",
     "오소의 장바구니": "OSO's Shopping Basket",
     "상품을 받고 폭탄을 피하며 LEVEL 5까지 버티기": "Catch market goods, dodge bombs and survive to Level 5",
     "해금 위치: 진주중앙시장 주차장": "Unlock: Jinju Central Market parking area",
@@ -157,13 +179,26 @@
     return /^en(?:-|$)/i.test(navigator.language || "") ? "en" : "ko";
   })();
 
+  const formatLabel = (center, locale) => {
+    let match;
+    if (locale === "en") {
+      if ((match = center.match(/^🏆 최고 ([\d,]+)$/))) return `🏆 Best ${match[1]}`;
+      if ((match = center.match(/^누적점수 ([\d,]+)점$/))) return `Total Score ${match[1]} pts`;
+      if ((match = center.match(/^([\d,]+)점$/))) return `${match[1]} pts`;
+    } else {
+      if ((match = center.match(/^🏆 Best ([\d,]+)$/))) return `🏆 최고 ${match[1]}`;
+      if ((match = center.match(/^Total Score ([\d,]+) pts$/))) return `누적점수 ${match[1]}점`;
+      if ((match = center.match(/^([\d,]+) pts$/))) return `${match[1]}점`;
+    }
+    return null;
+  };
   const lookup = (text, locale) => {
     const match = /^(\s*)([\s\S]*?)(\s*)$/.exec(text);
     if (!match) return text;
     const center = match[2];
     const ko = Object.prototype.hasOwnProperty.call(LABELS, center) ? center : reverse.get(center);
-    if (!ko) return text;
-    return match[1] + (locale === "en" ? LABELS[ko] : ko) + match[3];
+    const next = ko ? (locale === "en" ? LABELS[ko] : ko) : (formatLabel(center, locale) || center);
+    return match[1] + next + match[3];
   };
   function translateNode(node) {
     if (node.nodeType === Node.TEXT_NODE) {
