@@ -215,6 +215,42 @@
     return /^en(?:-|$)/i.test(navigator.language || "") ? "en" : "ko";
   })();
 
+  // Dynamic GPS/QR notices are presentation strings. Never modify zone geometry or game save data.
+  const formatGps = (center, locale) => {
+    let m;
+    const toEnglish = value => LABELS[value] || value;
+    const toKorean = value => reverse.get(value) || value;
+    if (locale === "en") {
+      if ((m = center.match(/^📍 (.+)$/))) {
+        const name = toEnglish(m[1]); return name === m[1] ? null : "📍 " + name;
+      }
+      if ((m = center.match(/^GPS 작동 중 · 정확도 약 ±(\d+)m$/))) return "GPS active · Accuracy ±" + m[1] + "m";
+      if ((m = center.match(/^GPS 위치 확인 중 · 정확도 약 ±(\d+)m$/))) return "Checking GPS · Accuracy ±" + m[1] + "m";
+      if ((m = center.match(/^GPS 신호가 너무 약합니다 \(±(\d+)m\). 잠시 이동하거나 하늘이 보이는 곳에서 다시 확인하소\.$/))) return "GPS signal too weak (±" + m[1] + "m). Move closer to an open area and try again.";
+      if ((m = center.match(/^📡 획득 구역까지 약 (\d+)m$/))) return "📡 About " + m[1] + "m to unlock zone";
+      if ((m = center.match(/^(.+) 획득구역이 가까워졌소!$/))) return "Unlock zone for " + toEnglish(m[1]) + " is nearby!";
+      if ((m = center.match(/^(.+) 방향 · 약 (\d+)m$/))) return "Toward " + toEnglish(m[1]) + " · about " + m[2] + "m";
+      if ((m = center.match(/^(.+) QR 확인 · 이 위치를 GPS 기준점으로 저장했소!$/))) return toEnglish(m[1]) + " QR verified · GPS reference saved!";
+      if ((m = center.match(/^(.+) QR 확인 완료! · GPS 기준점도 저장했소\.$/))) return toEnglish(m[1]) + " QR verified · GPS reference also saved.";
+      if ((m = center.match(/^(.+) QR 확인 완료!$/))) return toEnglish(m[1]) + " QR verified!";
+      if ((m = center.match(/^(.+)은 이미 획득했소!$/))) return toEnglish(m[1]) + " is already unlocked!";
+    } else {
+      if ((m = center.match(/^📍 (.+)$/))) {
+        const name = toKorean(m[1]); return name === m[1] ? null : "📍 " + name;
+      }
+      if ((m = center.match(/^GPS active · Accuracy ±(\d+)m$/))) return "GPS 작동 중 · 정확도 약 ±" + m[1] + "m";
+      if ((m = center.match(/^Checking GPS · Accuracy ±(\d+)m$/))) return "GPS 위치 확인 중 · 정확도 약 ±" + m[1] + "m";
+      if ((m = center.match(/^GPS signal too weak \(±(\d+)m\). Move closer to an open area and try again\.$/))) return "GPS 신호가 너무 약합니다 (±" + m[1] + "m). 잠시 이동하거나 하늘이 보이는 곳에서 다시 확인하소.";
+      if ((m = center.match(/^📡 About (\d+)m to unlock zone$/))) return "📡 획득 구역까지 약 " + m[1] + "m";
+      if ((m = center.match(/^Unlock zone for (.+) is nearby!$/))) return toKorean(m[1]) + " 획득구역이 가까워졌소!";
+      if ((m = center.match(/^Toward (.+) · about (\d+)m$/))) return toKorean(m[1]) + " 방향 · 약 " + m[2] + "m";
+      if ((m = center.match(/^(.+) QR verified · GPS reference saved!$/))) return toKorean(m[1]) + " QR 확인 · 이 위치를 GPS 기준점으로 저장했소!";
+      if ((m = center.match(/^(.+) QR verified · GPS reference also saved\.$/))) return toKorean(m[1]) + " QR 확인 완료! · GPS 기준점도 저장했소.";
+      if ((m = center.match(/^(.+) QR verified!$/))) return toKorean(m[1]) + " QR 확인 완료!";
+      if ((m = center.match(/^(.+) is already unlocked!$/))) return toKorean(m[1]) + "은 이미 획득했소!";
+    }
+    return null;
+  };
   const formatLabel = (center, locale) => {
     let match;
     if (locale === "en") {
@@ -226,7 +262,7 @@
       if ((match = center.match(/^Total Score ([\d,]+) pts$/))) return `누적점수 ${match[1]}점`;
       if ((match = center.match(/^([\d,]+) pts$/))) return `${match[1]}점`;
     }
-    return null;
+    return formatGps(center, locale);
   };
   const lookup = (text, locale) => {
     const match = /^(\s*)([\s\S]*?)(\s*)$/.exec(text);
@@ -353,6 +389,7 @@
     t: (key, fallback) => language === "en" ? (LABELS[key] || fallback || key) : key,
     getLanguage: () => language,
     setLanguage,
+    format: value => lookup(value, language),
     getTranslationKeys: () => Object.keys(LABELS)
   });
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init, { once: true });
