@@ -2,7 +2,7 @@
  * Network-first to keep web and TWA updates in sync; cache fallback for repeat visits.
  * NEVER caches external URLs, ranking submissions, or non-GET requests.
  */
-const CACHE = "oso-tourism-shell-20261116-v2";
+const CACHE = "oso-tourism-shell-20261116-v3";
 const ROOT = new URL("./", self.location.href).pathname;
 const INDEX = new URL("./index.html", self.location.href).href;
 const PRECACHE = [
@@ -10,6 +10,7 @@ const PRECACHE = [
   "./manifest.webmanifest",
   "./oso-i18n.js",
   "./oso-game-i18n.js",
+  "./oso-i18n.css",
   "./sp1/sotris-integration.js",
   "./rpg-field-actions.js",
   "./rpg-save-confirm.js",
