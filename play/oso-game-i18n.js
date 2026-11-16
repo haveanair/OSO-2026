@@ -12,7 +12,7 @@
     ".counter", ".comboHud", ".jumpHud", ".sfGaugeText",
     ".pdNeed", ".pdText", ".pdCount", ".pdStageText", ".pdStageLabel",
     ".coinCelebrateCard", ".raceSection", ".raceControlHint", ".raceResult",
-    ".fantasyWrap", ".fantasyDialog", ".fantasyQuest", ".fantasyPlace", ".fantasySaveMenu",
+    ".fantasyWrap", ".fantasyChapterEnding", ".nongaAscensionScene", ".fantasyDialog", ".fantasyQuest", ".fantasyPlace", ".fantasySaveMenu",
     ".fantasyMapOverlay", ".fantasyStatusPage", ".fantasyEndingThanks",
     ".fantasyEndingChapter", ".fantasyEndingFinal", ".fantasyEndingCopyright",
     ".sfCraftSelect", ".sfClearOverlay", ".sfEndOverlay", ".spaceResult",
@@ -121,6 +121,10 @@
     const coreResult = core()?.t?.(raw);
     if (coreResult && coreResult !== raw) return coreResult;
     if (dictionary.has(raw)) return dictionary.get(raw);
+    const dynamic = window.OSO_RPG_DYNAMIC?.translate(raw, text => core()?.t?.(text) !== text
+      ? core().t(text)
+      : (dictionary.get(text) || text));
+    if (dynamic && dynamic !== raw) return dynamic;
     let m;
     if ((m = raw.match(/^🏆 누적점수 ([\d,]+)점$/))) return `🏆 Total Score ${m[1]} pts`;
     if ((m = raw.match(/^🏆 최고 ([\d,]+)$/))) return `🏆 Best ${m[1]}`;
