@@ -70,7 +70,10 @@ try {
         <b>시장 원로</b>
         <span>지하창고부터 차근차근 살펴보게. 서두르지 않아도 길은 하나씩 열리네.</span>
       </div>
-      <div class="fantasyLog">황금장바구니방패가 공격을 막았다!</div>
+      <div class="fantasyLog">마왕 흑우령의 공격! 37 피해!</div>
+      <div class="fantasyBattleInfo">황금장바구니방패가 공격을 막았다!</div>
+      <div class="fantasySaveStatus">LV 9 · 중앙시장 · 누적 12,450점</div>
+      <div class="fantasyMerchantSpeech">시장 원로: 지하창고부터 차근차근 살펴보게. 서두르지 않아도 길은 하나씩 열리네.</div>
       <div class="fantasyQuest">상점에서 장비와 약을 정비하고 북쪽 통로로 본편 던전을 진행하시오.</div>
       <div class="fantasyShopPanel">1884 황금검</div>`;
     document.getElementById("stage").appendChild(fantasy);
@@ -80,10 +83,15 @@ try {
   assert.ok(rpgText.includes("The Golden Basket Shield blocked the attack!"));
   assert.ok(rpgText.includes("Start with the basement warehouse."));
   assert.ok(rpgText.includes("1884 Golden Sword"));
+  assert.ok(rpgText.includes("Demon King Heuk-u-ryeong attacks! 37 damage!"));
+  assert.ok(rpgText.includes("Market Elder: Start with the basement warehouse."));
+  assert.ok(rpgText.includes("LV 9 · Central Market · Total 12,450 pts"));
   await page.evaluate(() => window.OSO_I18N.setLanguage("ko"));
   await page.waitForFunction(() => document.querySelector("#oso-rpg-test")?.textContent?.includes("시장 원로"), null, { timeout: 10000 });
   rpgText = await page.locator("#oso-rpg-test").innerText();
   assert.ok(rpgText.includes("황금장바구니방패가 공격을 막았다!"));
+  assert.ok(rpgText.includes("마왕 흑우령의 공격! 37 피해!"));
+  assert.ok(rpgText.includes("LV 9 · 중앙시장 · 누적 12,450점"));
   await page.locator("#oso-rpg-test").evaluate(element => element.remove());
   await page.evaluate(() => window.OSO_I18N.setLanguage("en"));
 
