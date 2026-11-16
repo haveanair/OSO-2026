@@ -5,7 +5,7 @@ on:
       - feature/oso-bilingual-twa-20261116
     paths:
       - play/**
-      - tests/oso-tourism-smoke.mjs
+      - tests/**
       - .github/workflows/oso-smoke.yml
   workflow_dispatch:
 
@@ -13,6 +13,22 @@ permissions:
   contents: read
 
 jobs:
+  unit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Syntax and offline feature regression checks
+        run: |
+          node --check play/oso-i18n.js
+          node --check play/oso-game-i18n.js
+          node --check play/sw.js
+          node --check tests/oso-unit.mjs
+          node tests/oso-unit.mjs
+
   browser-smoke:
     runs-on: ubuntu-latest
     timeout-minutes: 15
