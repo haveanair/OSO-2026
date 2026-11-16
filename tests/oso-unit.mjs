@@ -20,6 +20,7 @@ const doc = {
   addEventListener: noop,
   createElement: () => ({}),
   head: { appendChild: noop },
+  querySelector: () => null,
   querySelectorAll: () => [],
   getElementById: () => null,
   documentElement: {}
