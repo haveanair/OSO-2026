@@ -135,6 +135,24 @@ try {
     return { src: icon.src, status: response.status };
   })), manifest.icons);
   assert.ok(iconStatus.every(icon => icon.status === 200), "PWA icon files must load");
+  // Validate the shared PWA shell under a temporary network outage.
+  // This does not claim that every mini-game works offline; it checks the cached entry point.
+  await page.waitForFunction(() => navigator.serviceWorker?.controller !== null, null, { timeout: 25000 });
+  const offlineCachePresent = await page.evaluate(async () => {
+    const keys = await caches.keys();
+    const active = keys.find(key => key.startsWith("oso-tourism-shell-"));
+    if (!active) return false;
+    const cache = await caches.open(active);
+    return !!(await cache.match(new URL("./index.html", location.href).href));
+  });
+  assert.ok(offlineCachePresent, "The service worker should cache the game entry point");
+  await context.setOffline(true);
+  const cachedResponse = await page.reload({ waitUntil: "domcontentloaded", timeout: 30000 });
+  assert.equal(cachedResponse?.status(), 200, "Offline repeat visit must use the cached HTML shell");
+  await page.waitForFunction(() => !!window.OSO_I18N, null, { timeout: 12000 });
+  assert.equal(await page.evaluate(() => localStorage.getItem("oso.language.v1")), "ko",
+    "A temporary network outage must not erase the selected language");
+  await context.setOffline(false);
   assert.deepEqual(errors, [], "No uncaught JavaScript exceptions in opening screens");
 
   console.log("OSO bilingual mobile smoke test: PASS");
