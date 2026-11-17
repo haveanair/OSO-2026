@@ -16,7 +16,9 @@
     // Dialogue uses "NPC name: dialogue" while its name and line are kept in Korean
     // internally so NPC interactions and save-state IDs are not modified.
     if ((m = raw.match(/^([^:\n]{1,40}):\s*([\s\S]+)$/))) {
-      const name = named(m[1]), line = named(m[2]);
+      const name = named(m[1]);
+      const fixedLine = named(m[2]);
+      const line = fixedLine === m[2] ? translate(m[2], known) : fixedLine;
       if (name !== m[1] || line !== m[2]) return name + ": " + line;
     }
     // RPG NPC dialogue after all three major bosses have been defeated.
