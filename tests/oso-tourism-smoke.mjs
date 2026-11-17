@@ -146,12 +146,15 @@ try {
     return !!(await cache.match(new URL("./index.html", location.href).href));
   });
   assert.ok(offlineCachePresent, "The service worker should cache the game entry point");
+  await page.evaluate(() => window.OSO_I18N.setLanguage("en"));
   await context.setOffline(true);
   const cachedResponse = await page.reload({ waitUntil: "domcontentloaded", timeout: 30000 });
   assert.equal(cachedResponse?.status(), 200, "Offline repeat visit must use the cached HTML shell");
   await page.waitForFunction(() => !!window.OSO_I18N, null, { timeout: 12000 });
-  assert.equal(await page.evaluate(() => localStorage.getItem("oso.language.v1")), "ko",
+  assert.equal(await page.evaluate(() => localStorage.getItem("oso.language.v1")), "en",
     "A temporary network outage must not erase the selected language");
+  assert.equal(await page.locator("html").getAttribute("lang"), "en");
+  assert.equal(await page.locator('[data-oso-language="en"]').getAttribute("aria-pressed"), "true");
   await context.setOffline(false);
   // Test the existing QR parsing/unlock bridge without pretending a real camera was used.
   await page.evaluate(() => {

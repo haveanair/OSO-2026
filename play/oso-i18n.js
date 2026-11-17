@@ -354,7 +354,7 @@
     bar.className = "oso-language-switch";
     bar.setAttribute("role", "group");
     bar.setAttribute("aria-label", "언어 선택 / Select language");
-    bar.innerHTML = '<button type="button" data-oso-language="ko" lang="ko">한국어</button><button type="button" data-oso-language="en" lang="en">EN</button>';
+    bar.innerHTML = '<button type="button" data-oso-language="ko" lang="ko">한국어</button><button type="button" data-oso-language="en" lang="en">English</button>';
     bar.addEventListener("click", event => {
       const btn = event.target.closest("button[data-oso-language]");
       if (btn) setLanguage(btn.dataset.osoLanguage);
@@ -362,7 +362,7 @@
     title.appendChild(bar);
   }
   const style = document.createElement("style");
-  style.textContent = '.oso-language-switch{position:absolute;right:6px;top:4px;display:flex;gap:3px;z-index:45;background:#fffbee;border:2px solid #765037;border-radius:99px;padding:3px;box-shadow:0 2px 5px #0002}.oso-language-switch button{border:0;border-radius:99px;padding:4px 7px;background:transparent;color:#765037;font-size:11px;font-weight:900;line-height:1.1}.oso-language-switch button.active{background:#ffc928;color:#392216}';
+  style.textContent = '.oso-language-switch{position:absolute;right:6px;top:4px;display:flex;gap:3px;z-index:45;background:#fffbee;border:2px solid #765037;border-radius:99px;padding:3px;box-shadow:0 2px 5px #0002}.oso-language-switch button{border:0;border-radius:99px;min-height:32px;padding:4px 8px;background:transparent;color:#765037;font-size:11px;font-weight:900;line-height:1.1}.oso-language-switch button:focus-visible{outline:2px solid #392216;outline-offset:-2px}.oso-language-switch button.active{background:#ffc928;color:#392216}';
   document.head.appendChild(style);
   let scheduled = false;
   const changes = new Set();

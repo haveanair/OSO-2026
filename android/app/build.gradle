@@ -1,0 +1,42 @@
+plugins {
+    id 'com.android.application' version '8.10.1'
+}
+
+def appId = providers.gradleProperty('osoApplicationId').getOrElse('io.github.haveanair.osoarcade')
+def webUrl = providers.gradleProperty('osoWebUrl').getOrElse('https://haveanair.github.io/OSO-2026/play/?source=android')
+def uri = new URI(webUrl)
+if (uri.scheme != 'https' || !uri.host || uri.userInfo || uri.fragment) {
+    throw new GradleException('osoWebUrl must be an HTTPS game URL without credentials or a fragment.')
+}
+
+android {
+    namespace 'io.github.haveanair.osoarcade'
+    compileSdk 36
+
+    defaultConfig {
+        applicationId appId
+        minSdk 23
+        targetSdk 36
+        versionCode 1
+        versionName '1.0.0'
+        manifestPlaceholders = [gameUrl: webUrl]
+        resValue 'string', 'asset_statements', '[{"relation":["delegate_permission/common.handle_all_urls"],"target":{"namespace":"web","site":"' + uri.scheme + '://' + uri.rawAuthority + '"}}]'
+    }
+    buildTypes {
+        debug {
+            applicationIdSuffix '.debug'
+        }
+    }
+    sourceSets.main.res.srcDir layout.buildDirectory.dir('generated/oso-res')
+}
+
+tasks.register('copyGameIcon', Copy) {
+    from(rootProject.file('../play/icons/oso-192.png'))
+    into(layout.buildDirectory.dir('generated/oso-res/mipmap-xxxhdpi'))
+    rename { 'oso_launcher.png' }
+}
+tasks.named('preBuild').configure { dependsOn 'copyGameIcon' }
+
+dependencies {
+    implementation 'com.google.androidbrowserhelper:androidbrowserhelper:2.6.2'
+}
