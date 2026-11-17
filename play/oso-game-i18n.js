@@ -11,7 +11,7 @@
     ".result", ".gameTip", ".marketSign", ".silkSign", ".silkGuide", ".pdTitle",
     ".counter", ".comboHud", ".jumpHud", ".sfGaugeText",
     ".pdNeed", ".pdText", ".pdCount", ".pdStageText", ".pdStageLabel",
-    ".coinCelebrateCard", ".raceSection", ".raceControlHint", ".raceResult",
+    ".coinCelebrateCard", 'div:has(> div > img[src^="assets/nongae-01.webp"])', ".raceSection", ".raceControlHint", ".raceResult",
     ".fantasyWrap", ".fantasyChapterEnding", ".nongaAscensionScene", ".fantasyDialog", ".fantasyQuest", ".fantasyPlace", ".fantasySaveMenu",
     ".fantasyMapOverlay", ".fantasyStatusPage", ".fantasyEndingThanks",
     ".fantasyEndingChapter", ".fantasyEndingFinal", ".fantasyEndingCopyright",
@@ -137,7 +137,7 @@
       return `🪙 +${m[1]}${extras} · Balance ${m[3]}`;
     }
     if ((m = raw.match(/^🔓 (.+) 해금!$/))) {
-      const names = m[1].split(" · ").map(name => core()?.t?.(name) || dictionary.get(name) || name);
+      const names = m[1].split(" · ").map(name => core()?.t?.(name, dictionary.get(name)) || name);
       return `🔓 ${names.join(" · ")} Unlocked!`;
     }
     if ((m = raw.match(/^점프 (\d+)\/(\d+)$/))) return `Jumps ${m[1]}/${m[2]}`;

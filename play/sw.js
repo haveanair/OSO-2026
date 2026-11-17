@@ -2,7 +2,7 @@
  * Network-first to keep web and TWA updates in sync; cache fallback for repeat visits.
  * NEVER caches external URLs, ranking submissions, or non-GET requests.
  */
-const CACHE = "oso-tourism-shell-20261117-v6";
+const CACHE = "oso-tourism-shell-20261117-v7";
 const ROOT = new URL("./", self.location.href).pathname;
 const INDEX = new URL("./index.html", self.location.href).href;
 const PRECACHE = [
@@ -35,7 +35,8 @@ self.addEventListener("install", event => {
     await Promise.all(PRECACHE.map(async path => {
       try {
         const request = new Request(new URL(path, self.location.href), { cache: "reload" });
-        const response = await fetch(request);
+        const refresh = navigate || /^oso-.*\.(?:js|css)$/.test(url.pathname.split("/").pop());
+      const response = await fetch(request, refresh ? { cache: "reload" } : undefined);
         if (response.ok) await cache.put(request, response);
       } catch (error) {
         // Never abort installation for a transient failure or an optional module.

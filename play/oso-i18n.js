@@ -7,6 +7,63 @@
   if (window.OSO_I18N) return;
   const KEY = "oso.language.v1";
   const LABELS = Object.freeze({
+    "🐂 오소": "🐂 OSO",
+    "🐱 아요 컬렉션": "🐱 AYO Collection",
+    "🦦 하모 컬렉션": "🦦 HAMO Collection",
+    "🌊 논개 컬렉션": "🌊 Nongae Collection",
+    "중앙시장의 주인공 · 기본~750 코인": "Market mascot · Free–750 coins",
+    "표정과 동작이 다양한 친구 · 1,000~1,900 코인": "An expressive friend · 1,000–1,900 coins",
+    "특별한 친구 · 2,000~2,900 코인": "A special friend · 2,000–2,900 coins",
+    "해금조건 : 오소 환상대모험 이벤트 클리어 · 3,000 코인대": "Clear the OSO Fantasy Adventure event to unlock · 3,000+ coins",
+    "오소": "OSO",
+    "아요": "AYO",
+    "하모": "HAMO",
+    "논개": "Nongae",
+    "호기심 오소": "Curious OSO",
+    "몹시 화난 오소": "Furious OSO",
+    "반가운 오소": "Welcoming OSO",
+    "파티 오소": "Party OSO",
+    "1884 맥주 오소": "1884 Beer OSO",
+    "청과시장 오소": "Produce Market OSO",
+    "수산시장 오소": "Fish Market OSO",
+    "장보기 오소": "Shopping OSO",
+    "기본 캐릭터": "Default character",
+    "공식 응용동작": "Alternate pose",
+    "인사 아요": "Waving AYO",
+    "안경 아요": "Glasses AYO",
+    "신나는 아요": "Dancing AYO",
+    "독서 아요": "Reading AYO",
+    "울보 아요": "Teary AYO",
+    "화난 아요": "Angry AYO",
+    "사랑 아요": "Loving AYO",
+    "손을 흔드는 밝은 아요": "A cheerful wave",
+    "동그란 안경을 쓴 아요": "Wears round glasses",
+    "기분 좋게 뛰노는 아요": "Dances with delight",
+    "책을 읽는 아요": "Enjoys a good book",
+    "눈물이 주르륵 아요": "Tears rolling down",
+    "꼬리가 휙휙 화난 아요": "Tail flicking in anger",
+    "하트 가득 사랑 아요": "Surrounded by hearts",
+    "정면 하모": "Front-view HAMO",
+    "반측면 하모": "Three-quarter HAMO",
+    "옆모습 하모": "Side-view HAMO",
+    "뒷모습 하모": "Back-view HAMO",
+    "응원 하모": "Cheering HAMO",
+    "행진 하모": "Marching HAMO",
+    "진주 목걸이를 한 기본 하모": "Wears a pearl necklace",
+    "살짝 몸을 돌린 하모": "Turns slightly",
+    "얌전히 선 옆모습 하모": "Stands quietly in profile",
+    "꼬리가 보이는 뒷모습 하모": "Shows off a tail",
+    "깃발을 들고 달리는 하모": "Runs with a flag",
+    "깃발을 높이 든 하모": "Raises a flag high",
+    "옥가락지 논개": "Jade Ring Nongae",
+    "결의의 논개": "Resolute Nongae",
+    "사용 중": "Equipped",
+    "사용하기": "Use Character",
+    "코인이 부족하소!": "Not enough coins!",
+    "✨ 아요+하모 특성 · 강한 비단 자동보정 · 상시 4단점프": "✨ AYO + HAMO perks · Strong Silk Stack assist · Always quadruple jump",
+    "⚡ 레이싱 300km/h · 슈팅 이동↑ · 점프↑": "⚡ Racing at 300 km/h · Faster shooter movement · Better jumps",
+    "🎯 수산·싹쓸이·떡떡떡·연타왕 판정↑ · 비단 자동보정": "🎯 Easier hits in Fish Market, Market Slice, Rice Cake & Tap King · Silk Stack assist",
+    "점수·코인 기본 보상": "Base score and coin rewards",
     "🎯 현장 게임 획득 구역 7곳": "🎯 7 Market Game Stops",
     "시장 안에서 GPS로 게임을 모으세요. 실내 GPS가 불안정할 때는 QR 보조 해금을 이용할 수 있습니다.": "Collect games around the market using GPS. If the indoor signal is weak, use an on-site QR code.",
     "진주중앙시장 주차장": "Jinju Central Market Parking Area",
@@ -209,7 +266,7 @@
   const reverse = new Map(Object.entries(LABELS).map(([ko,en]) => [en,ko]));
   const roots = "#boot, #app, #modal, #qrModal, #gameGetOverlay, #directionToast, #rankModal, #manualModal, #initialModal, #gameOverlay > .gameBar";
   const ignored = "script, style, textarea, pre, code, #stage, svg, canvas, [data-oso-no-translate]";
-  const allowed = new Set(["title", "aria-label", "placeholder"]);
+  const allowed = new Set(["title", "aria-label", "placeholder", "alt"]);
   let language = (() => {
     try { const v = localStorage.getItem(KEY); if (v === "ko" || v === "en") return v; } catch (_) {}
     return /^en(?:-|$)/i.test(navigator.language || "") ? "en" : "ko";
@@ -254,10 +311,14 @@
   const formatLabel = (center, locale) => {
     let match;
     if (locale === "en") {
+      if ((match = center.match(/^🪙 ([\d,]+) 구입$/))) return `🪙 Buy for ${match[1]}`;
+      if ((match = center.match(/^⭐ 점수·코인 \+(\d+)%$/))) return `⭐ Score and coins +${match[1]}%`;
       if ((match = center.match(/^🏆 최고 ([\d,]+)$/))) return `🏆 Best ${match[1]}`;
       if ((match = center.match(/^누적점수 ([\d,]+)점$/))) return `Total Score ${match[1]} pts`;
       if ((match = center.match(/^([\d,]+)점$/))) return `${match[1]} pts`;
     } else {
+      if ((match = center.match(/^🪙 Buy for ([\d,]+)$/))) return `🪙 ${match[1]} 구입`;
+      if ((match = center.match(/^⭐ Score and coins \+(\d+)%$/))) return `⭐ 점수·코인 +${match[1]}%`;
       if ((match = center.match(/^🏆 Best ([\d,]+)$/))) return `🏆 최고 ${match[1]}`;
       if ((match = center.match(/^Total Score ([\d,]+) pts$/))) return `누적점수 ${match[1]}점`;
       if ((match = center.match(/^([\d,]+) pts$/))) return `${match[1]}점`;
@@ -362,7 +423,7 @@
     title.appendChild(bar);
   }
   const style = document.createElement("style");
-  style.textContent = '.oso-language-switch{position:absolute;right:6px;top:4px;display:flex;gap:3px;z-index:45;background:#fffbee;border:2px solid #765037;border-radius:99px;padding:3px;box-shadow:0 2px 5px #0002}.oso-language-switch button{border:0;border-radius:99px;min-height:32px;padding:4px 8px;background:transparent;color:#765037;font-size:11px;font-weight:900;line-height:1.1}.oso-language-switch button:focus-visible{outline:2px solid #392216;outline-offset:-2px}.oso-language-switch button.active{background:#ffc928;color:#392216}';
+  style.textContent = '.oso-language-switch{position:absolute;right:6px;top:4px;display:flex;gap:3px;z-index:120;pointer-events:auto;background:#fffbee;border:2px solid #765037;border-radius:99px;padding:3px;box-shadow:0 2px 5px #0002}.oso-language-switch button{border:0;border-radius:99px;min-height:40px;padding:4px 10px;touch-action:manipulation;pointer-events:auto;background:transparent;color:#765037;font-size:11px;font-weight:900;line-height:1.1}.oso-language-switch button:focus-visible{outline:2px solid #392216;outline-offset:-2px}.oso-language-switch button.active{background:#ffc928;color:#392216}';
   document.head.appendChild(style);
   let scheduled = false;
   const changes = new Set();
@@ -383,7 +444,7 @@
   function init() {
     mountSelector();
     repaint();
-    observer.observe(document.body, { subtree: true, childList: true, characterData: true, attributes: true, attributeFilter: ["title", "aria-label", "placeholder"] });
+    observer.observe(document.body, { subtree: true, childList: true, characterData: true, attributes: true, attributeFilter: [...allowed] });
   }
   window.OSO_I18N = Object.freeze({
     t: (key, fallback) => language === "en" ? (LABELS[key] || fallback || key) : key,
