@@ -6,6 +6,12 @@ on:
       - 'android/**'
       - 'play/icons/**'
       - '.github/workflows/oso-android.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'android/**'
+      - 'play/icons/**'
+      - '.github/workflows/oso-android.yml'
   workflow_dispatch:
 
 permissions:

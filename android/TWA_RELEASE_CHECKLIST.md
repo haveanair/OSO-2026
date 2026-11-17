@@ -15,29 +15,22 @@
 5. **GPS 및 카메라 실기기 검증:** 위치 요청, QR 카메라, 권한 거절, 지하·실내 위치 오차, 뒤로 가기, 잠자기/복귀, 온라인/오프라인 안내, 기록 유지 테스트.
 6. **Google Play 제출:** 테스트 트랙, 개인정보처리방침, 데이터 보안, 콘텐츠 등급, 위치정보 고지, 스토어 스크린샷, 게임 설명 준비. 신규 개인 개발자 계정의 비공개 테스트 요건을 확인한다.
 
-## Bubblewrap 패키징 절차
-*반드시 메인 웹버전에 매니페스트가 배포된 다음 실행.* 먼저 `https://haveanair.github.io/OSO-2026/play/manifest.webmanifest`이 200 OK로 열리는지 확인한다.
+## Android 빌드와 설치
+
+GitHub Actions의 **OSO Android build**가 설치용 디버그 APK와 출시 서명 전 AAB를 생성합니다. 로컬 재현에는 JDK 17, Gradle 8.11.1 및 Android SDK 플랫폼 36이 필요합니다.
 
 ```bash
-npm install --global @bubblewrap/cli
-mkdir oso-android
-cd oso-android
-bubblewrap init --manifest=https://haveanair.github.io/OSO-2026/play/manifest.webmanifest
-# 실행 중 패키지 ID와 앱 이름을 확인. 패키지 ID는 정식 등록 후 변경하기 어렵다.
-# Android SDK/JDK 설정, 서명키 생성과 비밀번호 백업을 안전하게 마친다.
-bubblewrap build
-# 기본 결과:
-# app-release-signed.apk    : 직접 실기기 테스트용
-# app-release-bundle.aab    : Google Play 업로드용
+cd android
+gradle :app:assembleDebug :app:bundleRelease
+adb install app/build/outputs/apk/debug/app-debug.apk
 ```
 
-- Bubblewrap 결과물의 `twa-manifest.json`에서 `startUrl`이 `/OSO-2026/play/` 범위인지 확인.
-- 패키지 ID는 **사용자 확정 후** 정한다. 예시 값으로 Play에 등록하지 않는다.
-- Play 앱 서명 인증서의 실제 SHA-256과 최종 패키지 ID로 `android/assetlinks.example.json`을 완성하여 **도메인 루트**에 `assetlinks.json`으로 게시.
-- GitHub Pages/Jekyll이 숨김 폴더를 제외하면 사이트 루트 `_config.yml`에 `include: [.well-known]`을 설정.
-- 전체화면 대신 URL 표시줄이 나타난다면 우선 Digital Asset Links 검증, 앱 서명 SHA, 최종 도메인 일치 여부를 점검.
-- 설치·로그 테스트: `adb install app-release-signed.apk` 후 `adb logcat -v brief | grep -e OriginVerifier -e digital_asset_links`.
-- 업로드 키와 인증서 개인키를 **GitHub 저장소에 절대 커밋하지 않는다.**
+- 기본 시작 주소는 운영 게임 URL입니다. 개발판 웹을 HTTPS로 배포한 경우 `-PosoWebUrl=https://…/play/`로 해당 웹에 연결하는 APK를 빌드할 수 있습니다.
+- 기본 애플리케이션 ID는 `io.github.haveanair.osoarcade`이며 테스트 APK에는 `.debug`가 붙습니다. Play Console 등록 전에 확정하고 필요하면 `-PosoApplicationId=…`로 설정합니다.
+- 출시 AAB는 업로드 키로 서명한 후 Play Console에 제출합니다. 웹 도메인 루트의 Digital Asset Links에는 Play 앱 서명 인증서의 SHA-256과 최종 애플리케이션 ID를 사용합니다. 디버그 APK를 전체 화면으로 시험하려면 테스트용 도메인에 디버그 인증서와 디버그 ID를 등록합니다.
+- GitHub Pages/Jekyll이 숨김 폴더를 제외하면 사이트 루트 `_config.yml`에 `include: [.well-known]`을 설정합니다.
+- URL 표시줄이 보이면 호스트, 패키지 ID, 설치 앱의 인증서와 Digital Asset Links가 일치하는지 확인합니다.
+- 서명 키와 비밀번호는 저장소 외부에서 관리합니다.
 
 ## 품질 점검
 - 정적·번역 테스트: `node tests/oso-unit.mjs`
