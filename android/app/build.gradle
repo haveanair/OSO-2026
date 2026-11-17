@@ -20,7 +20,8 @@ android {
         versionCode 1
         versionName '1.0.0'
         manifestPlaceholders = [gameUrl: webUrl]
-        resValue 'string', 'asset_statements', '[{"relation":["delegate_permission/common.handle_all_urls"],"target":{"namespace":"web","site":"' + uri.scheme + '://' + uri.rawAuthority + '"}}]'
+        def association = '[{"relation":["delegate_permission/common.handle_all_urls"],"target":{"namespace":"web","site":"' + uri.scheme + '://' + uri.rawAuthority + '"}}]'
+        resValue 'string', 'asset_statements', association.replace('"', '\\"')
     }
     buildTypes {
         debug {
