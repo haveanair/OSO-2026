@@ -408,8 +408,8 @@
     window.dispatchEvent(new CustomEvent("oso:languagechange", { detail: { language } }));
   }
   function mountSelector() {
-    const title = document.querySelector(".cleanTitle");
-    if (!title || title.querySelector("#oso-language-switch")) return;
+    const manual = document.querySelector(".cleanTitle #titleManual");
+    if (!manual || document.getElementById("oso-language-switch")) return;
     const bar = document.createElement("div");
     bar.id = "oso-language-switch";
     bar.className = "oso-language-switch";
@@ -420,10 +420,13 @@
       const btn = event.target.closest("button[data-oso-language]");
       if (btn) setLanguage(btn.dataset.osoLanguage);
     });
-    title.appendChild(bar);
+    const actions = document.createElement("div");
+    actions.className = "oso-title-actions";
+    manual.before(actions);
+    actions.append(manual, bar);
   }
   const style = document.createElement("style");
-  style.textContent = '.oso-language-switch{position:absolute;right:6px;top:4px;display:flex;gap:3px;z-index:120;pointer-events:auto;background:#fffbee;border:2px solid #765037;border-radius:99px;padding:3px;box-shadow:0 2px 5px #0002}.oso-language-switch button{border:0;border-radius:99px;min-height:40px;padding:4px 10px;touch-action:manipulation;pointer-events:auto;background:transparent;color:#765037;font-size:11px;font-weight:900;line-height:1.1}.oso-language-switch button:focus-visible{outline:2px solid #392216;outline-offset:-2px}.oso-language-switch button.active{background:#ffc928;color:#392216}';
+  style.textContent = '.oso-title-actions{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:8px;width:min(100%,390px)}.oso-title-actions #titleManual{width:100%;min-width:0;min-height:40px;padding:7px 8px;font-size:clamp(11px,3.4vw,14px);line-height:1.15;overflow-wrap:anywhere}.oso-language-switch{display:flex;gap:3px;pointer-events:auto;background:#fffbee;border:2px solid #765037;border-radius:99px;padding:3px;box-shadow:0 2px 5px #0002}.oso-language-switch button{border:0;border-radius:99px;min-height:40px;padding:4px 8px;touch-action:manipulation;pointer-events:auto;background:transparent;color:#765037;font-size:11px;font-weight:900;line-height:1.1}.oso-language-switch button:focus-visible{outline:2px solid #392216;outline-offset:-2px}.oso-language-switch button.active{background:#ffc928;color:#392216}';
   document.head.appendChild(style);
   let scheduled = false;
   const changes = new Set();
