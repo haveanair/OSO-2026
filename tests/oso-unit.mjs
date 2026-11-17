@@ -111,6 +111,8 @@ const examples = [
   ["포션 2 · 에테르 1 · 성수 0", "Potion 2 · Ether 1 · Holy Water 0"],
   ["LV 9 · 중앙시장 · 누적 12,450점", "LV 9 · Central Market · Total 12,450 pts"],
   ["오소용사, 마왕과 암흑영웅장군을 넘어 대천사 논개의 봉인까지 풀어냈군. 이제야 진주의 하늘과 땅이 함께 평온해졌네.", "Hero OSO, you've defeated the Demon King and Dark Hero General, then broken Archangel Nongae's seal. At last, peace has returned to Jinju."],
+  ["시장 원로: 오소용사, 마왕과 암흑영웅장군을 넘어 대천사 논개의 봉인까지 풀어냈군. 이제야 진주의 하늘과 땅이 함께 평온해졌네.","Market Elder: Hero OSO, you've defeated the Demon King and Dark Hero General, then broken Archangel Nongae's seal. At last, peace has returned to Jinju."],
+  ["시장 원로: 내용 미정","Market Elder: 내용 미정"],
   ["15 연타", "15 taps"],
   ["점프 2/2", "Jumps 2/2"],
   ["초필살기 75%", "SPECIAL 75%"],
