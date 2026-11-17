@@ -1,0 +1,59 @@
+name: OSO bilingual mobile smoke test
+on:
+  push:
+    branches:
+      - feature/oso-bilingual-twa-20261116
+    paths:
+      - play/**
+      - tests/**
+      - .github/workflows/oso-smoke.yml
+  pull_request:
+    branches:
+      - main
+    paths:
+      - play/**
+      - tests/**
+      - .github/workflows/oso-smoke.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  unit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Syntax and offline feature regression checks
+        run: |
+          node --check play/oso-i18n.js
+          node --check play/oso-game-i18n.js
+          node --check play/oso-rpg-strings.js
+          node --check play/oso-rpg-dynamic.js
+          node --check play/sw.js
+          node --check tests/oso-unit.mjs
+          node tests/oso-unit.mjs
+
+  browser-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install Chromium browser test tools
+        run: |
+          npm install --no-save playwright
+          npx playwright install --with-deps chromium
+      - name: Run bilingual game and PWA icon smoke checks
+        run: |
+          python3 -m http.server 8765 > /tmp/oso-http.log 2>&1 &
+          SERVER_PID=$!
+          trap 'kill $SERVER_PID || true' EXIT
+          sleep 3
+          node tests/oso-tourism-smoke.mjs
